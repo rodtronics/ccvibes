@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crime Committer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <header id="game-header">
+            <h1>╔══════════════════╗<br>
+                ║  Crime Committer ║<br>
+                ╚══════════════════╝</h1>
+        </header>
+        <nav id="game-tabs">
+            <div class="tab active" data-tab="crimes">Crimes</div>
+            <div class="tab" data-tab="inventory">Inventory</div>
+            <div class="tab" data-tab="recruitment">Recruitment</div>
+            <div class="tab" data-tab="log">Log</div>
+        </nav>
+        <main id="game-body">
+            <div id="crimes" class="tab-content active">
+                <ul>
+                    <li>Shoplift from a convenience store</li>
+                    <li>Pickpocket a tourist</li>
+                    <li>Break into a car</li>
+                </ul>
+            </div>
+            <div id="inventory" class="tab-content">
+                <p>Your inventory is empty.</p>
+            </div>
+            <div id="recruitment" class="tab-content">
+                <p>No recruits available yet.</p>
+            </div>
+            <div id="log" class="tab-content">
+                <p>Game log will appear here.</p>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
