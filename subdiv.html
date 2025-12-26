@@ -58,18 +58,13 @@
         padding: 2px 6px;
         color: var(--warn);
       }
-      /* Output panel for names + brochure block. */
+      /* Output panel for the brochure block. */
       .panel {
         border: 1px solid var(--border);
         padding: 14px 12px;
         margin-bottom: 14px;
         white-space: pre-wrap;
         line-height: 1.25;
-      }
-      .big {
-        font-size: 22px;
-        color: var(--accent);
-        margin: 0 0 10px 0;
       }
       /* Row wrapper for controls so they wrap cleanly on small screens. */
       .row {
@@ -126,32 +121,22 @@
       </div>
 
       <div class="panel">
-        <!-- Name output -->
-        <div id="devName" class="big"></div>
-        <!-- Optional brochure block (populated in JS) -->
+        <!-- Brochure output -->
         <div id="brochure"></div>
         <div class="footer">
-          tip: press <span class="kbd">space</span> to refresh / <span class="kbd">b</span> toggles brochure / <span class="kbd">m</span> toggles realism
+          tip: press <span class="kbd">space</span> to refresh / <span class="kbd">m</span> toggles realism
         </div>
       </div>
 
       <div class="row">
         <!-- Primary regen control mirrors the spacebar shortcut -->
-        <button id="refreshBtn">[ space ] refresh name</button>
+        <button id="refreshBtn">[ space ] refresh brochure</button>
 
         <div class="toggle">
           <span class="dim">mode:</span>
           <select id="mode">
             <option value="realistic">realistic</option>
             <option value="unhinged">unhinged</option>
-          </select>
-        </div>
-
-        <div class="toggle">
-          <span class="dim">display:</span>
-          <select id="display">
-            <option value="name">name only</option>
-            <option value="brochure">ascii brochure</option>
           </select>
         </div>
       </div>
@@ -195,6 +180,26 @@
         "copper",
         "silver",
         "golden",
+        "creek",
+        "lagoon",
+        "shore",
+        "glade",
+        "orchard",
+        "prairie",
+        "briar",
+        "birch",
+        "spruce",
+        "juniper",
+        "cypress",
+        "magnolia",
+        "sycamore",
+        "aspen",
+        "acacia",
+        "eucalyptus",
+        "granite",
+        "pebble",
+        "evergreen",
+        "fairview",
       ];
 
       // "Unhinged" mode leans into aspirational nonsense.
@@ -230,6 +235,26 @@
         "virgin",
         "whispering",
         "everlasting",
+        "aura",
+        "founder",
+        "visionary",
+        "future",
+        "regal",
+        "kingdom",
+        "monarch",
+        "soaring",
+        "limitless",
+        "infinite",
+        "legendary",
+        "prestige",
+        "dynasty",
+        "empire",
+        "summit",
+        "zenith",
+        "arcane",
+        "radiant",
+        "luminous",
+        "vaulted",
       ];
 
       // Middle words keep names flowing in realistic mode.
@@ -260,6 +285,16 @@
         "quay",
         "walk",
         "square",
+        "vista",
+        "overlook",
+        "cove",
+        "pines",
+        "brook",
+        "glen",
+        "bend",
+        "strand",
+        "outlook",
+        "promenade",
       ];
 
       // Middle words for the chaotic mode.
@@ -284,6 +319,16 @@
         "dream",
         "aspiration",
         "aspire",
+        "ascension",
+        "frequency",
+        "harmony",
+        "intent",
+        "ritual",
+        "orbit",
+        "flux",
+        "momentum",
+        "odyssey",
+        "alchemy",
       ];
 
       // Closing words to ground the development names.
@@ -306,6 +351,13 @@
         "terrace",
         "close",
         "grove",
+        "greenway",
+        "promenade",
+        "plaza",
+        "esplanade",
+        "village",
+        "quarter",
+        "parade",
       ];
 
       // Big, bold, and slightly ridiculous closers.
@@ -320,29 +372,47 @@
         "lifestyle district",
         "the reserve (deluxe)",
         "the sanctuary (premium)",
+        "sovereign square",
+        "founders' row",
+        "prestige terraces",
+        "infinity quarter",
+        "dynasty gardens",
+        "vision courts",
+        "the collective (curated)",
+        "apex avenue",
       ];
 
       // Optional add-ons to sprinkle direction/phase flavor.
-      const addOnsReal = ["", "", "", "north", "south", "heights", "reserve", "phase ii", "stage 3"];
+      const addOnsReal = ["", "", "", "north", "south", "east", "west", "heights", "reserve", "phase ii", "phase iii", "stage 3", "stage 4", "green release"];
       // Extra spice for the unhinged set.
-      const addOnsUnhinged = ["", "by appointment only", "limited release", "from the low $1.4m's", "quiet luxury", "curated living", "no poors (unofficial)"];
+      const addOnsUnhinged = ["", "by appointment only", "limited release", "from the low $1.4m's", "quiet luxury", "curated living", "no poors (unofficial)", "private treaty", "founder priority", "beta phase", "invite only", "influencer approved"];
 
       // Brochure bullets for believable marketing copy.
       const brochureBitsReal = [
-        "* near schools, parks, and something called a 'village hub'",
-        "* easy commute (definition may vary)",
-        "* thoughtfully planned streetscapes (mostly just asphalt)",
-        "* coastal vibes, inland reality",
-        "* a short stroll to future amenities (coming soon)",
+        "near schools, parks, and something called a 'village hub'",
+        "easy commute (definition may vary)",
+        "thoughtfully planned streetscapes (mostly just asphalt)",
+        "coastal vibes, inland reality",
+        "a short stroll to future amenities (coming soon)",
+        "quiet cul-de-sacs and wide verges",
+        "tree-lined streets in the render",
+        "local shops planned on paper",
+        "bike paths that connect eventually",
+        "low-maintenance frontages",
       ];
 
       // Brochure bullets for the absurd sales pitch.
       const brochureBitsUnhinged = [
-        "* master-planned for optimal serotonin yield",
-        "* curated walkability to a concept cafe (the cafe is a pdf)",
-        "* sustainable materials (we will think about it)",
-        "* privacy landscaping (a hedge and a dream)",
-        "* exclusive community (your neighbour will sell crypto)",
+        "master-planned for optimal serotonin yield",
+        "curated walkability to a concept cafe (the cafe is a pdf)",
+        "sustainable materials (we will think about it)",
+        "privacy landscaping (a hedge and a dream)",
+        "exclusive community (your neighbour will sell crypto)",
+        "neighborhood frequency tuned daily",
+        "on-site wellness concierge (app pending)",
+        "vibe-certified sunset corridors",
+        "alignment-focused streetscapes",
+        "futureproofed for the next rebrand",
       ];
 
       // Amenities for down-to-earth developments.
@@ -355,6 +425,11 @@
         "a retail precinct",
         "a community hub",
         "a scenic lookout",
+        "a sports court",
+        "a splash pad",
+        "a nature trail",
+        "a community garden",
+        "a picnic shelter",
       ];
 
       // Amenities that would make a pitch deck blush.
@@ -365,6 +440,122 @@
         "a luxury mailbox experience",
         "a founder's gazebo",
         "a skyline gratitude deck",
+        "a biohacking lounge",
+        "a founders' sauna",
+        "a crypto concierge kiosk",
+        "a stargazer dome",
+        "a wellness labyrinth",
+      ];
+
+      // Extra brochure ingredients for richer listings.
+      const lotSizeReal = [
+        "lot sizes: 320-720 sqm",
+        "lot sizes: 380-820 sqm",
+        "lot sizes: 410-900 sqm",
+        "lot sizes: 260-540 sqm",
+        "lot sizes: 450-980 sqm",
+        "lot sizes: 300-650 sqm",
+      ];
+
+      const lotSizeUnhinged = [
+        "lot sizes: aura-aligned parcels",
+        "lot sizes: bespoke footprints",
+        "lot sizes: consciousness-ready acreage",
+        "lot sizes: premium setbacks",
+        "lot sizes: curated frontage",
+        "lot sizes: founder-scale plots",
+      ];
+
+      const commuteReal = [
+        "commute: 28 min to CBD",
+        "commute: 12 min to beach",
+        "commute: 6 min to town centre",
+        "commute: 4 min to rail",
+        "commute: 18 min to airport",
+        "commute: 9 min to university",
+      ];
+
+      const commuteUnhinged = [
+        "commute: 7 min to wellness district",
+        "commute: 3 min to co-working lagoon",
+        "commute: 15 min to private terminal",
+        "commute: 1 min to abundance hub",
+        "commute: 0 min (work from aura)",
+        "commute: 22 min to the metacampus",
+      ];
+
+      const styleReal = [
+        "coastal contemporary",
+        "modern farmhouse",
+        "federation-inspired",
+        "warm neutral palette",
+        "low-maintenance gardens",
+        "tree-lined streets",
+        "open-plan living",
+        "light-filled interiors",
+      ];
+
+      const styleUnhinged = [
+        "platinum minimalism",
+        "neo-luxe serenity",
+        "chakra-friendly finishes",
+        "hyper-quiet interior tech",
+        "executive nostalgia",
+        "metaverse-ready living",
+        "signature aura lighting",
+        "heirloom-grade everything",
+      ];
+
+      const releaseReal = [
+        "release: stage 2 now selling",
+        "release: final lots this spring",
+        "release: titles expected Q4",
+        "release: house/land packages",
+        "release: builder choice available",
+        "release: early access open",
+      ];
+
+      const releaseUnhinged = [
+        "release: founder tier now open",
+        "release: waitlist required",
+        "release: concierge allocations",
+        "release: soft launch (invite only)",
+        "release: alpha stage unlocked",
+        "release: scarcity calibrated",
+      ];
+
+      const incentiveReal = [
+        "bonus: landscaping package",
+        "bonus: flooring upgrade",
+        "bonus: solar rebate*",
+        "bonus: design consult included",
+        "bonus: fencing allowance",
+        "bonus: stamp duty support*",
+      ];
+
+      const incentiveUnhinged = [
+        "bonus: aura cleanse voucher",
+        "bonus: founder's lounge access",
+        "bonus: concierge moving ritual",
+        "bonus: crypto rebate*",
+        "bonus: executive mindset kit",
+        "bonus: priority waitlist tier",
+      ];
+
+      const finePrintReal = [
+        "conditions apply. imagery indicative only.",
+        "final finishes subject to developer approval.",
+        "pricing correct at time of print. maybe.",
+        "travel times are estimates (optimistic).",
+        "amenities subject to future funding.",
+      ];
+
+      const finePrintUnhinged = [
+        "terms: vibes may vary by lot.",
+        "disclaimer: serenity not guaranteed.",
+        "some amenities exist in spirit only.",
+        "offer subject to lunar alignment.",
+        "membership includes optional upsells.",
       ];
 
       // --- helpers ---
@@ -411,6 +602,12 @@
         // Pick the correct flavor of copy + amenities for the active mode.
         const bits = mode === "realistic" ? brochureBitsReal : brochureBitsUnhinged;
         const amen = mode === "realistic" ? amenityReal : amenityUnhinged;
+        const lot = mode === "realistic" ? lotSizeReal : lotSizeUnhinged;
+        const commute = mode === "realistic" ? commuteReal : commuteUnhinged;
+        const style = mode === "realistic" ? styleReal : styleUnhinged;
+        const release = mode === "realistic" ? releaseReal : releaseUnhinged;
+        const incentive = mode === "realistic" ? incentiveReal : incentiveUnhinged;
+        const finePrint = mode === "realistic" ? finePrintReal : finePrintUnhinged;
 
         // Prices now look like real estate dollars instead of raw numbers.
         const basePrice = mode === "realistic" ? 780000 : 1400000;
@@ -426,6 +623,12 @@
             ? pick(["live where you belong.", "a place to call home.", "space to breathe.", "find your forever."])
             : pick(["unlock your next chapter.", "upgrade your timeline.", "curate your destiny.", "invest in yourself (and also land)."]);
 
+        const lotLine = pick(lot);
+        const commuteLine = pick(commute);
+        const styleLine = pick(style);
+        const releaseLine = pick(release);
+        const incentiveLine = pick(incentive);
+        const finePrintLine = pick(finePrint);
         const stamp = mode === "realistic" ? "council approvals pending in spirit" : "planning consent manifesting soon";
 
         // Build a simple ASCII brochure box (top, rows, bottom).
@@ -440,11 +643,16 @@
         b.push(row(`  ${tagline}`));
         b.push(row());
         b.push(row(`  ${lots} | ${price}`));
-        b.push(row(`  features:`));
+        b.push(row(`  ${lotLine} | ${commuteLine}`));
+        b.push(row(`  ${releaseLine}`));
+        b.push(row(`  style: ${styleLine}`));
+        b.push(row(`  highlights:`));
         b.push(row(`   - ${pick(bits)}`));
         b.push(row(`   - includes ${pick(amen)}`));
         b.push(row(`   - ${pick(bits)}`));
+        b.push(row(`   - ${incentiveLine}`));
         b.push(row());
+        b.push(row(`  ${finePrintLine}`));
         b.push(row(`  ${stamp}`));
         b.push(line);
 
@@ -453,47 +661,29 @@
 
       // --- ui ---
       // Cache DOM nodes once; we rerender on every toggle/refresh.
-      const devNameEl = document.getElementById("devName");
       const brochureEl = document.getElementById("brochure");
       const statusEl = document.getElementById("status");
       const modeEl = document.getElementById("mode");
-      const displayEl = document.getElementById("display");
       const refreshBtn = document.getElementById("refreshBtn");
 
-      // Track the current name so display toggles do not reroll it.
-      let currentName = "";
-
-      // One render pass produces both the name and optional brochure.
+      // One render pass produces the brochure output.
       function render() {
         const mode = modeEl.value;
-        const display = displayEl.value;
-
-        if (!currentName) {
-          currentName = makeName(mode);
-        }
-        devNameEl.textContent = currentName;
-
-        if (display === "brochure") {
-          brochureEl.textContent = makeBrochure(currentName, mode);
-        } else {
-          brochureEl.textContent = "";
-        }
-
-        statusEl.textContent = `${mode} / ${display}`;
+        const name = makeName(mode);
+        brochureEl.textContent = makeBrochure(name, mode);
+        statusEl.textContent = `${mode} / brochure`;
       }
 
       // Thin wrapper to keep the button/keyboard handlers tidy.
       function refresh() {
-        currentName = makeName(modeEl.value);
         render();
       }
 
       // Wire up UI controls.
       refreshBtn.addEventListener("click", refresh);
       modeEl.addEventListener("change", refresh);
-      displayEl.addEventListener("change", render);
 
-      // Keyboard shortcuts: space = refresh, b = toggle brochure, m = toggle mode.
+      // Keyboard shortcuts: space = refresh, m = toggle mode.
       const isTypingTarget = (el) =>
         el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(el.tagName));
 
@@ -504,10 +694,6 @@
         if (e.code === "Space") {
           e.preventDefault();
           refresh();
-        }
-        if (e.key.toLowerCase() === "b") {
-          displayEl.value = displayEl.value === "brochure" ? "name" : "brochure";
-          render();
         }
         if (e.key.toLowerCase() === "m") {
           modeEl.value = modeEl.value === "realistic" ? "unhinged" : "realistic";
