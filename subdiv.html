@@ -460,16 +460,21 @@
       const displayEl = document.getElementById("display");
       const refreshBtn = document.getElementById("refreshBtn");
 
+      // Track the current name so display toggles do not reroll it.
+      let currentName = "";
+
       // One render pass produces both the name and optional brochure.
       function render() {
         const mode = modeEl.value;
         const display = displayEl.value;
 
-        const name = makeName(mode);
-        devNameEl.textContent = name;
+        if (!currentName) {
+          currentName = makeName(mode);
+        }
+        devNameEl.textContent = currentName;
 
         if (display === "brochure") {
-          brochureEl.textContent = makeBrochure(name, mode);
+          brochureEl.textContent = makeBrochure(currentName, mode);
         } else {
           brochureEl.textContent = "";
         }
@@ -479,25 +484,32 @@
 
       // Thin wrapper to keep the button/keyboard handlers tidy.
       function refresh() {
+        currentName = makeName(modeEl.value);
         render();
       }
 
       // Wire up UI controls.
       refreshBtn.addEventListener("click", refresh);
       modeEl.addEventListener("change", refresh);
-      displayEl.addEventListener("change", refresh);
+      displayEl.addEventListener("change", render);
 
       // Keyboard shortcuts: space = refresh, b = toggle brochure, m = toggle mode.
+      const isTypingTarget = (el) =>
+        el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(el.tagName));
+
       document.addEventListener("keydown", (e) => {
+        if (e.altKey || e.ctrlKey || e.metaKey || isTypingTarget(e.target)) {
+          return;
+        }
         if (e.code === "Space") {
           e.preventDefault();
           refresh();
         }
-        if (e.key === "b") {
+        if (e.key.toLowerCase() === "b") {
           displayEl.value = displayEl.value === "brochure" ? "name" : "brochure";
-          refresh();
+          render();
         }
-        if (e.key === "m") {
+        if (e.key.toLowerCase() === "m") {
           modeEl.value = modeEl.value === "realistic" ? "unhinged" : "realistic";
           refresh();
         }
