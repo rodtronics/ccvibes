@@ -1,0 +1,14 @@
+It’s an incremental management game, but it ditches the boring linear list for a huge, hidden Tech Web. You don't just click 'Buy Mine'; you have to set up actual logistics chains. You hire specific crew members (like Chemists or Wheelmen) to scavenge raw materials, process them into illegal goods, and then distribute them. It’s got a 'Walter White' resource economy where you have to manage inputs and outputs, plus a cool mechanic where you can set 'Long Form' crimes to run overnight."
+its made in pure javascript and css and html.
+
+it is going to use a modern terminal like interface, made entirely of characters
+data structure / state evolution
+
+i’m making an idle game called crime committer. crimes tie up henchmen for real-time durations and pay out when their finishTime (timestamp) is reached.
+extend the state to support:
+– multiple henchmen with different names and maybe simple traits (e.g. speedMultiplier)
+– more crime config fields (e.g. risk, heat, different reward types)
+– update startCrime and completeCrime to handle these extra fields, but keep it data-driven, not hardcoded per crime.
+in crime committer, crimes are stored with a finishTime timestamp and I call checkCrimes() periodically. i want this loop to be robust for:
+– long durations (up to 24+ hours)
+– the player closing the browser and coming back days later

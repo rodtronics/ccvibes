@@ -9,9 +9,7 @@
 <body>
     <div id="game-container">
         <header id="game-header">
-            <h1>╔══════════════════╗<br>
-                ║  Crime Committer ║<br>
-                ╚══════════════════╝</h1>
+            <h1>Crime Committer</h1>
         </header>
         <nav id="game-tabs">
             <div class="tab active" data-tab="crimes">Crimes</div>
@@ -21,20 +19,42 @@
         </nav>
         <main id="game-body">
             <div id="crimes" class="tab-content active">
-                <ul>
-                    <li>Shoplift from a convenience store</li>
-                    <li>Pickpocket a tourist</li>
-                    <li>Break into a car</li>
-                </ul>
+                <div id="stats-bar">
+                    <span>Cash: $<span id="stat-cash">0</span></span>
+                    <span>Heat: <span id="stat-heat">0</span></span>
+                </div>
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2>Henchmen</h2>
+                        <span class="panel-subtitle">Assign them to crimes to speed up runs</span>
+                    </div>
+                    <div id="henchmen-list" class="list"></div>
+                </section>
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2>Available Crimes</h2>
+                        <span class="panel-subtitle">Long form crimes keep running while you're away</span>
+                    </div>
+                    <div id="crime-list" class="list"></div>
+                </section>
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2>Active Crimes</h2>
+                        <span class="panel-subtitle">Finishes even if you close the tab</span>
+                    </div>
+                    <div id="active-crime-list" class="list"></div>
+                </section>
             </div>
             <div id="inventory" class="tab-content">
-                <p>Your inventory is empty.</p>
+                <p>Track contraband, favors, and other take here. (stub)</p>
+                <div id="inventory-list" class="list"></div>
             </div>
             <div id="recruitment" class="tab-content">
-                <p>No recruits available yet.</p>
+                <p>Bring on specialists when you unlock tech. (stub)</p>
+                <div id="recruitment-list" class="list"></div>
             </div>
             <div id="log" class="tab-content">
-                <p>Game log will appear here.</p>
+                <div id="log-entries" class="list"></div>
             </div>
         </main>
     </div>
