@@ -1088,3 +1088,112 @@ function renderLog() {
         });
     });
 }
+
+function showLoadError() {
+    const containers = document.querySelectorAll('[data-list]');
+    containers.forEach(container => {
+        container.textContent = 'Failed to load game data.';
+    });
+}
+
+function formatDuration(ms) {
+    const totalSeconds = Math.max(0, Math.round(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+        return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+    }
+
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function formatClock(date) {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+}
+
+function formatNumber(value) {
+    return Number(value || 0).toLocaleString('en-US');
+}
+
+function buildBar(progress, length) {
+    const clamped = Math.max(0, Math.min(1, progress));
+    const filled = Math.round(clamped * length);
+    const empty = Math.max(0, length - filled);
+    return `[${'='.repeat(filled)}${'-'.repeat(empty)}]`;
+}
+
+function hasAvailableWorker(requiredRole) {
+    return Boolean(findAvailableWorker(requiredRole));
+}
+
+function getCrimeUnlockLabel(crime) {
+    const unlockers = game.index.crimeUnlockers[crime.id] || [];
+    if (unlockers.length === 0) {
+        return 'unknown';
+    }
+
+    return unlockers.map(id => getNodeName(id)).join(', ');
+}
+
+function getNodeName(nodeId) {
+    const node = game.index.nodesById[nodeId];
+    return node ? node.name : nodeId;
+}
+
+function formatUnlocks(unlocks) {
+    if (!unlocks) {
+        return 'none';
+    }
+
+    const parts = [];
+    if (Array.isArray(unlocks.crimes) && unlocks.crimes.length) {
+        const crimeNames = unlocks.crimes.map(id => getCrimeName(id));
+        parts.push(`crimes: ${crimeNames.join(', ')}`);
+    }
+    if (Array.isArray(unlocks.roles) && unlocks.roles.length) {
+        const roleNames = unlocks.roles.map(id => getRoleName(id));
+        parts.push(`roles: ${roleNames.join(', ')}`);
+    }
+
+    return parts.length ? parts.join(' | ') : 'none';
+}
+
+function getCrimeName(crimeId) {
+    const crime = game.data.crimes.find(entry => entry.id === crimeId);
+    return crime ? crime.name : crimeId;
+}
+
+function getRoleName(roleId) {
+    const role = getRoleById(roleId, game.data.crew.roles);
+    return role ? role.name : roleId;
+}
+
+function formatCosts(costs) {
+    if (!costs) {
+        return 'free';
+    }
+
+    const parts = [];
+    Object.entries(costs).forEach(([key, value]) => {
+        if (!Number.isFinite(value)) {
+            return;
+        }
+        if (key === 'cash') {
+            parts.push(`$${formatNumber(value)}`);
+            return;
+        }
+        parts.push(`${formatNumber(value)} ${key}`);
+    });
+
+    return parts.length ? parts.join(', ') : 'free';
+}
+
+function createId(prefix) {
+    const random = Math.random().toString(36).slice(2, 8);
+    return `${prefix || 'id'}_${Date.now()}_${random}`;
+}
