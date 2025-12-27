@@ -341,6 +341,12 @@ function startCrime(crimeId) {
         return;
     }
 
+    if (!canAfford(crime.costs)) {
+        addLog(`Not enough resources for ${crime.name}`, 'warn');
+        renderLog();
+        return;
+    }
+
     const worker = findAvailableWorker(crime.requiresRole);
     if (!worker) {
         addLog(`No available crew for ${crime.name}`, 'warn');
@@ -348,6 +354,7 @@ function startCrime(crimeId) {
         return;
     }
 
+    applyCosts(crime.costs);
     const durationMs = computeDurationMs(crime.durationMinutes, worker.speedMultiplier);
     const op = createOperation('crime', crime, worker, durationMs);
 
@@ -723,6 +730,10 @@ function renderCrimes() {
                 parts.push('ONE-OFF');
             }
 
+            if (crime.costs && Object.keys(crime.costs).length > 0) {
+                parts.push(`Cost ${formatCosts(crime.costs)}`);
+            }
+
             const unlocked = isCrimeUnlocked(crime);
             if (!unlocked) {
                 const reason = getCrimeUnlockLabel(crime);
@@ -733,6 +744,13 @@ function renderCrimes() {
 
             main.appendChild(title);
             main.appendChild(meta);
+
+            if (crime.story) {
+                const story = document.createElement('div');
+                story.className = 'row-story';
+                story.textContent = crime.story;
+                main.appendChild(story);
+            }
 
             const actions = document.createElement('div');
             const button = document.createElement('button');

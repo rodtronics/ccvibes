@@ -198,6 +198,48 @@
       "rewards": { "cash": 400 },
       "requiresRole": "tech",
       "tags": ["tech", "mid"]
+    },
+    {
+      "id": "candy_shop_backroom",
+      "name": "Candy Shop Backroom Swipe",
+      "tier": "one-off",
+      "durationMinutes": 12,
+      "risk": 2,
+      "heat": 2,
+      "costs": { "cash": 15 },
+      "rewards": { "cash": 120, "items": { "lockpick_kit": 1 } },
+      "requiresRole": null,
+      "repeatable": false,
+      "story": "A quick grab for novelty kits and loose cash.",
+      "tags": ["one-off", "story"]
+    },
+    {
+      "id": "community_center_locker",
+      "name": "Community Center Locker",
+      "tier": "one-off",
+      "durationMinutes": 20,
+      "risk": 2,
+      "heat": 2,
+      "costs": { "cash": 20 },
+      "rewards": { "cash": 160, "items": { "lab_notebook": 1 } },
+      "requiresRole": null,
+      "repeatable": false,
+      "story": "Borrow the chem club's notebook during open hours.",
+      "tags": ["one-off", "story"]
+    },
+    {
+      "id": "rideshare_lot_race",
+      "name": "Rideshare Lot Race",
+      "tier": "one-off",
+      "durationMinutes": 18,
+      "risk": 3,
+      "heat": 2,
+      "costs": { "cash": 10 },
+      "rewards": { "cash": 140, "items": { "driver_pass": 1 } },
+      "requiresRole": null,
+      "repeatable": false,
+      "story": "Win a parking-lot dash to earn a driver pass.",
+      "tags": ["one-off", "story"]
     }
   ]
 }
