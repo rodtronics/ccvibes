@@ -12,3 +12,55 @@ extend the state to support:
 in crime committer, crimes are stored with a finishTime timestamp and I call checkCrimes() periodically. i want this loop to be robust for:
 – long durations (up to 24+ hours)
 – the player closing the browser and coming back days later
+
+UI (modern TUI, characters only)
+- look: black field + crisp monospace, thin rules, segmented color bars
+- layout: top status rail, left crew list, center ops queue, right economy, bottom log
+- interaction: key-driven focus; tab switches panels; arrows select; enter opens detail
+- focus: invert row + ">" caret; alerts use small colored markers
+- motion: subtle bar tickers + scanline sweep; no CRT bloom
+
+tone
+- light-hearted crime sim (GTA-ish)
+- no sex crimes or relatable violence; assassination maybe later
+
+offline / time
+- crimes store finishTime; on load, check if finished and grant payout
+- no offline progression beyond finishTime checks
+- extended crime variants: ~10x duration for ~10x (or slightly more) resources
+
+first 5 minutes
+- start with micro-crimes done by player only (no goons yet)
+- initial bottleneck: player does all crimes until first hire
+- unlock first goon to delegate basic jobs
+
+crime catalog (light-hearted, non-violent)
+starter micro-crimes (player-only, low heat)
+- jaywalking fines hustle
+- parking meter flip
+- flyer scam (fake event tips)
+- queue cutting (sell fast pass spots)
+- sidewalk chalk ads (small biz promos)
+- bottle deposit sweep
+
+early goon-enabled (low complexity)
+- package reroute (misdeliveries before return)
+- scrap run (copper/parts)
+- night market vending (knockoff merch)
+- storage unit peek (auction preview hustle)
+- sign spinner swap (ad fraud)
+
+specialization-gated
+- chemist: cleaner concentrate -> bottles
+- chemist: solvent wash -> high-grade product
+- wheelman: timed courier runs (risk scales with speed)
+- wheelman: long-haul drop (requires vehicle)
+- tech: coupon glitcher (promo code abuse)
+- tech: loyalty points laundering (points -> goods)
+- tech: ticket bot run (scalping)
+
+extended variants (10x duration, 10x+ payout)
+- long-haul courier contract (overnight)
+- multi-day market stall (requires steady supply)
+- storage unit flip (lock-in time, payout on completion)
+- slow drip tip jar (low heat, steady)
