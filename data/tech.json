@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "nodes": [
+    {
+      "id": "lockpick_set",
+      "name": "Lockpick Set",
+      "kind": "tool",
+      "story": "Novelty locksmith kits stashed behind the candy shop counter.",
+      "requires": [],
+      "unlocks": { "crimes": ["storage_unit_peek"] }
+    },
+    {
+      "id": "bolt_cutters",
+      "name": "Bolt Cutters",
+      "kind": "tool",
+      "story": "Borrowed from the high school maintenance shed.",
+      "requires": [],
+      "unlocks": { "crimes": ["scrap_run"] }
+    },
+    {
+      "id": "street_marketing",
+      "name": "Street Marketing",
+      "kind": "network",
+      "story": "You figure out where foot traffic actually pays.",
+      "requires": [],
+      "unlocks": { "crimes": ["flyer_scam"] }
+    },
+    {
+      "id": "wheelman_gig",
+      "name": "Wheelman Gig",
+      "kind": "crew",
+      "story": "A rideshare crew wants someone who can drive hot.",
+      "requires": ["lockpick_set"],
+      "unlocks": { "roles": ["wheelman"], "crimes": ["wheelman_timed_courier"] }
+    },
+    {
+      "id": "lab_notes",
+      "name": "Lab Notes",
+      "kind": "crew",
+      "story": "A hobby chem club stores notes in a rusty locker.",
+      "requires": ["bolt_cutters", "lockpick_set"],
+      "unlocks": { "roles": ["chemist"], "crimes": ["chemist_cleaner_concentrate"] }
+    },
+    {
+      "id": "promo_exploit",
+      "name": "Promo Exploit",
+      "kind": "crew",
+      "story": "A points glitch spreads through a coupon forum.",
+      "requires": ["street_marketing"],
+      "unlocks": { "roles": ["tech"], "crimes": ["tech_coupon_glitcher"] }
+    }
+  ],
+  "researchOps": [
+    {
+      "id": "recon_candy_shop",
+      "name": "Candy Shop Recon",
+      "durationMinutes": 20,
+      "costs": { "cash": 25 },
+      "rewards": { "unlockNodes": ["lockpick_set"] },
+      "repeatable": false,
+      "story": "Scope the back room and swipe the novelty kits."
+    },
+    {
+      "id": "maintenance_shed_borrow",
+      "name": "Maintenance Shed Borrow",
+      "durationMinutes": 25,
+      "costs": { "cash": 30 },
+      "rewards": { "unlockNodes": ["bolt_cutters"] },
+      "repeatable": false,
+      "story": "Grab cutters during the after-school rush."
+    },
+    {
+      "id": "poster_ring",
+      "name": "Poster Ring",
+      "durationMinutes": 15,
+      "costs": { "cash": 10 },
+      "rewards": { "unlockNodes": ["street_marketing"] },
+      "repeatable": false,
+      "story": "Learn which corners actually convert."
+    },
+    {
+      "id": "rideshare_lot_talk",
+      "name": "Rideshare Lot Talk",
+      "durationMinutes": 25,
+      "costs": { "cash": 20 },
+      "rewards": { "unlockNodes": ["wheelman_gig"] },
+      "repeatable": false,
+      "story": "Win a parking-lot race and earn a referral."
+    },
+    {
+      "id": "community_center_break",
+      "name": "Community Center Break",
+      "durationMinutes": 30,
+      "costs": { "cash": 40, "heat": 1 },
+      "rewards": { "unlockNodes": ["lab_notes"] },
+      "repeatable": false,
+      "story": "The chem club keeps a locker in the basement."
+    },
+    {
+      "id": "coupon_forum_dive",
+      "name": "Coupon Forum Dive",
+      "durationMinutes": 15,
+      "costs": { "cash": 10 },
+      "rewards": { "unlockNodes": ["promo_exploit"] },
+      "repeatable": false,
+      "story": "Follow breadcrumb links to a promo exploit thread."
+    }
+  ]
+}
