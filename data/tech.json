@@ -50,7 +50,7 @@
       "unlocks": { "roles": ["tech"], "crimes": ["tech_coupon_glitcher"] }
     }
   ],
-  "researchOps": [
+  "researchActivities": [
     {
       "id": "recon_candy_shop",
       "name": "Candy Shop Recon",

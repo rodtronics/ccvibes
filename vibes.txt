@@ -1,66 +1,31 @@
-It’s an incremental management game, but it ditches the boring linear list for a huge, hidden Tech Web. You don't just click 'Buy Mine'; you have to set up actual logistics chains. You hire specific crew members (like Chemists or Wheelmen) to scavenge raw materials, process them into illegal goods, and then distribute them. It’s got a 'Walter White' resource economy where you have to manage inputs and outputs, plus a cool mechanic where you can set 'Long Form' crimes to run overnight."
-its made in pure javascript and css and html.
+Crime Committer ~vibes~ is a lighthearted, GTA-ish incremental management game that blends idle timers with a data-driven, terminal-style UI. The loop is about assigning a limited crew to time-based crimes and research runs, earning cash, heat, and items while unlocking a web of tech nodes. Current build: v6.
 
-it is going to use a modern terminal like interface, made entirely of characters
-data structure / state evolution
+Core loop
+- Pick an activity (crime, research, or build), assign an available worker, and wait out the timer.
+- Rewards can be cash, heat, inventory items, or unlocks.
+- One-off activities are tracked; repeatables stay on rotation.
+- Active activities continue offline and complete on return.
+- Clicking a crime opens its detail view, where each worker starts a separate concurrent run.
+- Multiple workers do not speed up a single run; they create parallel jobs.
 
-i’m making an idle game called crime committer. crimes tie up henchmen for real-time durations and pay out when their finishTime (timestamp) is reached.
-extend the state to support:
-– multiple henchmen with different names and maybe simple traits (e.g. speedMultiplier)
-– more crime config fields (e.g. risk, heat, different reward types)
-– update startCrime and completeCrime to handle these extra fields, but keep it data-driven, not hardcoded per crime.
-in crime committer, crimes are stored with a finishTime timestamp and I call checkCrimes() periodically. i want this loop to be robust for:
-– long durations (up to 24+ hours)
-– the player closing the browser and coming back days later
+UI direction (modern TUI, characters-only feel)
+- Black field, crisp monospace, thin rules, segmented bars.
+- Status rail shows cash, heat, active ops, and live clock.
+- Tabs: Activities, Tech Web, Crew, Inventory, Log.
+- Panels show crew, available crimes, economy stats, active ops, and event log.
+- Rows carry short meta lines and ASCII progress bars.
 
-UI (modern TUI, characters only)
-- look: black field + crisp monospace, thin rules, segmented color bars
-- layout: top status rail, left crew list, center ops queue, right economy, bottom log
-- interaction: key-driven focus; tab switches panels; arrows select; enter opens detail
-- focus: invert row + ">" caret; alerts use small colored markers
-- motion: subtle bar tickers + scanline sweep; no CRT bloom
+Systems in the prototype
+- Data-driven content from JSON (crimes, crew roles, tech nodes, research activities).
+- Crew roster with roles, speed multipliers, and risk tolerance.
+- Hiring pipeline with role unlock requirements and cash costs.
+- Tech Web nodes unlock new crimes and roles.
+- Inventory resources live alongside cash and heat.
+- Event log with timestamped entries.
+- Five crime branches (Drugs, Tech, Smuggling/Logistics, Fraud/Grift, Corruption/Influence).
+- Each branch targets ~20 crimes plus 3-4 buildings/upgrades and has a distinct UI color.
+- Some entries are not crimes (research/buildings) and run as their own one-off or repeatable ops.
 
-tone
-- light-hearted crime sim (GTA-ish)
-- no sex crimes or relatable violence; assassination maybe later
-
-offline / time
-- crimes store finishTime; on load, check if finished and grant payout
-- no offline progression beyond finishTime checks
-- extended crime variants: ~10x duration for ~10x (or slightly more) resources
-
-first 5 minutes
-- start with micro-crimes done by player only (no goons yet)
-- initial bottleneck: player does all crimes until first hire
-- unlock first goon to delegate basic jobs
-
-crime catalog (light-hearted, non-violent)
-starter micro-crimes (player-only, low heat)
-- jaywalking fines hustle
-- parking meter flip
-- flyer scam (fake event tips)
-- queue cutting (sell fast pass spots)
-- sidewalk chalk ads (small biz promos)
-- bottle deposit sweep
-
-early goon-enabled (low complexity)
-- package reroute (misdeliveries before return)
-- scrap run (copper/parts)
-- night market vending (knockoff merch)
-- storage unit peek (auction preview hustle)
-- sign spinner swap (ad fraud)
-
-specialization-gated
-- chemist: cleaner concentrate -> bottles
-- chemist: solvent wash -> high-grade product
-- wheelman: timed courier runs (risk scales with speed)
-- wheelman: long-haul drop (requires vehicle)
-- tech: coupon glitcher (promo code abuse)
-- tech: loyalty points laundering (points -> goods)
-- tech: ticket bot run (scalping)
-
-extended variants (10x duration, 10x+ payout)
-- long-haul courier contract (overnight)
-- multi-day market stall (requires steady supply)
-- storage unit flip (lock-in time, payout on completion)
-- slow drip tip jar (low heat, steady)
+Tone
+- Lighthearted crime sim; avoid real-world violence.
+- Focus on logistics, timing, and managing limited crew.

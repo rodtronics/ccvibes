@@ -1,5 +1,6 @@
-const STORAGE_KEY = 'crimeCommitterState_v1';
-const STATE_VERSION = 1;
+const STORAGE_KEY = 'crimeCommitterState_v0.2';
+const GAME_VERSION = '6';
+const GAME_NAME = 'Crime Committer ~vibes~';
 const TICK_MS = 1000;
 
 const game = {
@@ -71,7 +72,7 @@ async function initGame() {
         game.data = await loadData();
         game.index = buildIndex(game.data.tech);
         game.state = loadState(game.data);
-        resolveOfflineOps();
+        resolveOfflineActivities();
         renderAll();
         startTicker();
     } catch (error) {
@@ -90,7 +91,7 @@ async function loadData() {
     return {
         crimes: Array.isArray(crimesData.crimes) ? crimesData.crimes : [],
         crew: crewData || { roles: [], roster: [] },
-        tech: techData || { nodes: [], researchOps: [] }
+        tech: techData || { nodes: [], researchActivities: [] }
     };
 }
 
@@ -130,10 +131,10 @@ function buildIndex(techData) {
         }
     });
 
-    const researchOps = Array.isArray(techData.researchOps) ? techData.researchOps : [];
-    researchOps.forEach(op => {
-        if (op && op.id) {
-            researchById[op.id] = op;
+    const researchActivities = Array.isArray(techData.researchActivities) ? techData.researchActivities : [];
+    researchActivities.forEach(activity => {
+        if (activity && activity.id) {
+            researchById[activity.id] = activity;
         }
     });
 
@@ -152,7 +153,7 @@ function loadState(data) {
         }
     }
 
-    if (!state || state.version !== STATE_VERSION) {
+    if (!state) {
         state = createDefaultState(data);
     }
 
@@ -168,30 +169,35 @@ function createDefaultState(data) {
     });
 
     return {
-        version: STATE_VERSION,
         resources: {
             cash: 0,
             heat: 0
         },
         inventory: {},
         roster,
-        activeOps: [],
+        activeActivities: [],
         unlockedNodes: [],
-        completedOps: [],
-        log: []
+        completedActivities: [],
+        log: [
+            {
+                id: createId('log'),
+                time: Date.now(),
+                text: `${GAME_NAME} v${GAME_VERSION} started.`,
+                kind: 'info'
+            }
+        ]
     };
 }
 
 function normalizeState(state, data) {
-    state.version = STATE_VERSION;
     state.resources = state.resources || { cash: 0, heat: 0 };
     state.resources.cash = Number(state.resources.cash) || 0;
     state.resources.heat = Number(state.resources.heat) || 0;
     state.inventory = state.inventory || {};
     state.roster = Array.isArray(state.roster) ? state.roster : [];
-    state.activeOps = Array.isArray(state.activeOps) ? state.activeOps : [];
+    state.activeActivities = Array.isArray(state.activeActivities) ? state.activeActivities : [];
     state.unlockedNodes = Array.isArray(state.unlockedNodes) ? state.unlockedNodes : [];
-    state.completedOps = Array.isArray(state.completedOps) ? state.completedOps : [];
+    state.completedActivities = Array.isArray(state.completedActivities) ? state.completedActivities : [];
     state.log = Array.isArray(state.log) ? state.log : [];
 
     if (!state.roster.find(member => member.id === 'player')) {
@@ -252,11 +258,11 @@ function refreshCrewStatus() {
         }
     });
 
-    game.state.activeOps.forEach(op => {
-        const member = game.state.roster.find(entry => entry.id === op.assignedTo);
+    game.state.activeActivities.forEach(activity => {
+        const member = game.state.roster.find(entry => entry.id === activity.assignedTo);
         if (member) {
             member.status = 'busy';
-            member.activeOpId = op.id;
+            member.activeActivityId = activity.id;
         }
     });
 }
@@ -265,13 +271,13 @@ function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(game.state));
 }
 
-function resolveOfflineOps() {
+function resolveOfflineActivities() {
     const now = Date.now();
     const completed = [];
 
-    game.state.activeOps.forEach(op => {
-        if (op.finishTime <= now) {
-            completed.push(op);
+    game.state.activeActivities.forEach(activity => {
+        if (activity.finishTime <= now) {
+            completed.push(activity);
         }
     });
 
@@ -279,8 +285,8 @@ function resolveOfflineOps() {
         return;
     }
 
-    completed.forEach(op => completeOperation(op));
-    game.state.activeOps = game.state.activeOps.filter(op => !completed.find(done => done.id === op.id));
+    completed.forEach(activity => completeOperation(activity));
+    game.state.activeActivities = game.state.activeActivities.filter(activity => !completed.find(done => done.id === activity.id));
     refreshCrewStatus();
     saveState();
 }
@@ -291,31 +297,31 @@ function startTicker() {
     }
 
     game.tickHandle = setInterval(() => {
-        const didComplete = processCompletedOps();
+        const didComplete = processCompletedActivities();
         renderStats();
-        renderActiveOps();
+        renderActiveActivities();
         if (didComplete) {
             renderAll();
         }
     }, TICK_MS);
 }
 
-function processCompletedOps() {
+function processCompletedActivities() {
     const now = Date.now();
     const remaining = [];
     let didComplete = false;
 
-    game.state.activeOps.forEach(op => {
-        if (op.finishTime <= now) {
-            completeOperation(op);
+    game.state.activeActivities.forEach(activity => {
+        if (activity.finishTime <= now) {
+            completeOperation(activity);
             didComplete = true;
         } else {
-            remaining.push(op);
+            remaining.push(activity);
         }
     });
 
     if (didComplete) {
-        game.state.activeOps = remaining;
+        game.state.activeActivities = remaining;
         refreshCrewStatus();
         saveState();
     }
@@ -356,11 +362,11 @@ function startCrime(crimeId) {
 
     applyCosts(crime.costs);
     const durationMs = computeDurationMs(crime.durationMinutes, worker.speedMultiplier);
-    const op = createOperation('crime', crime, worker, durationMs);
+    const activity = createActivity('crime', crime, worker, durationMs);
 
-    game.state.activeOps.push(op);
+    game.state.activeActivities.push(activity);
     worker.status = 'busy';
-    worker.activeOpId = op.id;
+    worker.activeActivityId = activity.id;
 
     addLog(`Started: ${crime.name}`, 'info');
     saveState();
@@ -368,39 +374,39 @@ function startCrime(crimeId) {
 }
 
 function startResearch(opId) {
-    const op = game.index.researchById[opId];
-    if (!op) {
+    const activity = game.index.researchById[opId];
+    if (!activity) {
         return;
     }
 
-    if (!canRepeat('research', op)) {
-        addLog(`Research already completed: ${op.name}`, 'warn');
+    if (!canRepeat('research', activity)) {
+        addLog(`Research already completed: ${activity.name}`, 'warn');
         renderLog();
         return;
     }
 
-    if (!canAfford(op.costs)) {
-        addLog(`Not enough resources for ${op.name}`, 'warn');
+    if (!canAfford(activity.costs)) {
+        addLog(`Not enough resources for ${activity.name}`, 'warn');
         renderLog();
         return;
     }
 
     const worker = findAvailableWorker(null);
     if (!worker) {
-        addLog(`No available crew for ${op.name}`, 'warn');
+        addLog(`No available crew for ${activity.name}`, 'warn');
         renderLog();
         return;
     }
 
-    applyCosts(op.costs);
-    const durationMs = computeDurationMs(op.durationMinutes, worker.speedMultiplier);
-    const operation = createOperation('research', op, worker, durationMs);
+    applyCosts(activity.costs);
+    const durationMs = computeDurationMs(activity.durationMinutes, worker.speedMultiplier);
+    const operation = createActivity('research', activity, worker, durationMs);
 
-    game.state.activeOps.push(operation);
+    game.state.activeActivities.push(operation);
     worker.status = 'busy';
-    worker.activeOpId = operation.id;
+    worker.activeActivityId = operation.id;
 
-    addLog(`Research started: ${op.name}`, 'info');
+    addLog(`Research started: ${activity.name}`, 'info');
     saveState();
     renderAll();
 }
@@ -447,7 +453,7 @@ function completeOperation(op) {
     const worker = game.state.roster.find(member => member.id === op.assignedTo);
     if (worker) {
         worker.status = 'idle';
-        worker.activeOpId = null;
+        worker.activeActivityId = null;
     }
 
     if (op.kind === 'crime') {
@@ -484,7 +490,7 @@ function completeOperation(op) {
     }
 }
 
-function createOperation(kind, source, worker, durationMs) {
+function createActivity(kind, source, worker, durationMs) {
     const now = Date.now();
     return {
         id: createId(kind),
@@ -606,15 +612,15 @@ function unlockNodes(nodeIds) {
 
 function markCompleted(kind, id) {
     const key = `${kind}:${id}`;
-    if (!game.state.completedOps.includes(key)) {
-        game.state.completedOps.push(key);
+    if (!game.state.completedActivities.includes(key)) {
+        game.state.completedActivities.push(key);
     }
 }
 
 function canRepeat(kind, op) {
     if (op.repeatable === false) {
         const key = `${kind}:${op.id}`;
-        return !game.state.completedOps.includes(key);
+        return !game.state.completedActivities.includes(key);
     }
 
     return true;
@@ -662,10 +668,10 @@ function addLog(text, kind) {
 function renderAll() {
     renderStats();
     renderCrimes();
-    renderActiveOps();
+    renderActiveActivities();
     renderRoster();
     renderRoles();
-    renderResearchOps();
+    renderResearchActivities();
     renderTechNodes();
     renderEconomy();
     renderInventory();
@@ -685,7 +691,7 @@ function renderStats() {
         heat.textContent = formatNumber(game.state.resources.heat);
     }
     if (active) {
-        active.textContent = String(game.state.activeOps.length);
+        active.textContent = String(game.state.activeActivities.length);
     }
     if (time) {
         time.textContent = formatClock(new Date());
@@ -771,18 +777,18 @@ function renderCrimes() {
     });
 }
 
-function renderActiveOps() {
-    const containers = document.querySelectorAll('[data-list="active-ops"]');
+function renderActiveActivities() {
+    const containers = document.querySelectorAll('[data-list="active-activities"]');
     containers.forEach(container => {
         container.innerHTML = '';
 
-        if (game.state.activeOps.length === 0) {
-            container.textContent = 'No active operations.';
+        if (game.state.activeActivities.length === 0) {
+            container.textContent = 'No active activities.';
             return;
         }
 
         const now = Date.now();
-        game.state.activeOps.forEach(op => {
+        game.state.activeActivities.forEach(op => {
             const row = document.createElement('div');
             row.className = 'list-row';
 
@@ -902,18 +908,18 @@ function renderRoles() {
     });
 }
 
-function renderResearchOps() {
-    const containers = document.querySelectorAll('[data-list="research-ops"]');
+function renderResearchActivities() {
+    const containers = document.querySelectorAll('[data-list="research-activities"]');
     containers.forEach(container => {
         container.innerHTML = '';
 
-        const ops = Array.isArray(game.data.tech.researchOps) ? game.data.tech.researchOps : [];
-        if (ops.length === 0) {
+        const activities = Array.isArray(game.data.tech.researchActivities) ? game.data.tech.researchActivities : [];
+        if (activities.length === 0) {
             container.textContent = 'No research available.';
             return;
         }
 
-        ops.forEach(op => {
+        activities.forEach(activity => {
             const row = document.createElement('div');
             row.className = 'list-row';
 
@@ -922,20 +928,20 @@ function renderResearchOps() {
 
             const title = document.createElement('div');
             title.className = 'row-title';
-            title.textContent = op.name;
+            title.textContent = activity.name;
 
             const meta = document.createElement('div');
             meta.className = 'row-meta';
-            const costLabel = formatCosts(op.costs);
-            meta.textContent = `${formatNumber(op.durationMinutes)}m | Cost ${costLabel}`;
+            const costLabel = formatCosts(activity.costs);
+            meta.textContent = `${formatNumber(activity.durationMinutes)}m | Cost ${costLabel}`;
 
             const story = document.createElement('div');
             story.className = 'row-story';
-            story.textContent = op.story || '';
+            story.textContent = activity.story || '';
 
             main.appendChild(title);
             main.appendChild(meta);
-            if (op.story) {
+            if (activity.story) {
                 main.appendChild(story);
             }
 
@@ -943,10 +949,10 @@ function renderResearchOps() {
             const button = document.createElement('button');
             button.className = 'action';
             button.dataset.action = 'start-research';
-            button.dataset.id = op.id;
+            button.dataset.id = activity.id;
             button.textContent = 'Run';
 
-            const canStart = canRepeat('research', op) && canAfford(op.costs) && hasAvailableWorker(null);
+            const canStart = canRepeat('research', activity) && canAfford(activity.costs) && hasAvailableWorker(null);
             button.disabled = !canStart;
 
             actions.appendChild(button);
@@ -1016,7 +1022,7 @@ function renderEconomy() {
         const crewCount = game.state.roster.filter(member => member.id !== 'player').length;
         const idleCount = game.state.roster.filter(member => member.status !== 'busy').length;
         entries.push({ label: 'Crew', value: `${crewCount} (${idleCount} idle)` });
-        entries.push({ label: 'Active Ops', value: String(game.state.activeOps.length) });
+        entries.push({ label: 'Active Activities', value: String(game.state.activeActivities.length) });
         entries.push({ label: 'Unlocked Nodes', value: String(game.state.unlockedNodes.length) });
 
         entries.forEach(entry => {

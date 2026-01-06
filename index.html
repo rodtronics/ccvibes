@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crime Committer</title>
+    <title>Crime Committer ~vibes~</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="game">
         <header class="status-rail">
-            <div class="title">CRIME COMMITTER</div>
+            <div class="title">CRIME COMMITTER ~VIBES~</div>
             <div class="stats">
                 <span>Cash $<span id="stat-cash">0</span></span>
                 <span>Heat <span id="stat-heat">0</span></span>
-                <span>Ops <span id="stat-active">0</span></span>
+                <span>Active <span id="stat-active">0</span></span>
                 <span>Time <span id="stat-time">00:00:00</span></span>
             </div>
         </header>
@@ -21,7 +21,7 @@
         <div class="rule" aria-hidden="true">+----------------------------------------------------------------------------------+</div>
 
         <nav id="game-tabs" class="tabs">
-            <button class="tab active" data-tab="operations" type="button">Operations</button>
+            <button class="tab active" data-tab="activities" type="button">Activities</button>
             <button class="tab" data-tab="tech" type="button">Tech Web</button>
             <button class="tab" data-tab="crew" type="button">Crew</button>
             <button class="tab" data-tab="inventory" type="button">Inventory</button>
@@ -29,7 +29,7 @@
         </nav>
 
         <main class="screen">
-            <section id="operations" class="tab-content active">
+            <section id="activities" class="tab-content active">
                 <div class="ops-grid">
                     <section class="panel">
                         <div class="panel-title">CREW</div>
@@ -50,10 +50,10 @@
                         <div class="panel-body" data-list="economy"></div>
                     </section>
                     <section class="panel panel-wide">
-                        <div class="panel-title">ACTIVE OPS</div>
+                        <div class="panel-title">ACTIVE ACTIVITIES</div>
                         <div class="panel-subtitle">Finishes even if you close the tab</div>
                         <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="active-ops"></div>
+                        <div class="panel-body" data-list="active-activities"></div>
                     </section>
                     <section class="panel panel-wide">
                         <div class="panel-title">EVENT LOG</div>
@@ -67,10 +67,10 @@
             <section id="tech" class="tab-content">
                 <div class="tech-grid">
                     <section class="panel">
-                        <div class="panel-title">RESEARCH OPS</div>
+                        <div class="panel-title">RESEARCH ACTIVITIES</div>
                         <div class="panel-subtitle">Time based unlocks</div>
                         <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="research-ops"></div>
+                        <div class="panel-body" data-list="research-activities"></div>
                     </section>
                     <section class="panel">
                         <div class="panel-title">TECH WEB</div>
