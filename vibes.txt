@@ -10,10 +10,27 @@ Core loop
 
 UI direction (modern TUI, characters-only feel)
 - Black field, crisp monospace, thin rules, segmented bars.
-- Status rail shows cash, heat, active ops, and live clock.
+- Fixed viewport: no page scroll; individual panels scroll internally.
+- Status rail shows cash, heat, active activities, and live clock.
 - Tabs: Activities, Tech Web, Crew, Inventory, Log.
-- Panels show crew, available crimes, economy stats, active ops, and event log.
+- Panels show crew, available crimes, economy stats, active activities, and event log.
 - Rows carry short meta lines and ASCII progress bars.
+- Layout: three-column grid (Crew | Activities | Economy) with shared heights; wide rows for Active and Log; tabs keep to one screen without overflow.
+- Layout sketch (Activities tab, all visible without page scroll; only panel bodies scroll):
+  ```
+  +------------------------------------------------------------+
+  | STATUS RAIL: title + cash | heat | active | time           |
+  +------------------------------------------------------------+
+  | [Activities] [Tech Web] [Crew] [Inventory] [Log]           |
+  +------------------------------------------------------------+
+  | CREW panel        | AVAILABLE ACTIVITIES list | ECONOMY    |
+  | (scrolls inside)  | (scrolls inside)           | (scrolls) |
+  +------------------------------------------------------------+
+  | ACTIVE ACTIVITIES (wide; scrolls inside)                  |
+  +------------------------------------------------------------+
+  | EVENT LOG (wide; scrolls inside)                          |
+  +------------------------------------------------------------+
+  ```
 
 Systems in the prototype
 - Data-driven content from JSON (crimes, crew roles, tech nodes, research activities).
