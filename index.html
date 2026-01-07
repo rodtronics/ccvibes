@@ -1,127 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crime Committer ~vibes~</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>𝖈𝖈 𝖛𝖎</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
     <div id="game">
-        <header class="status-rail">
-            <div class="title">CRIME COMMITTER ~VIBES~</div>
-            <div class="stats">
-                <span>Cash $<span id="stat-cash">0</span></span>
-                <span>Heat <span id="stat-heat">0</span></span>
-                <span>Active <span id="stat-active">0</span></span>
-                <span>Time <span id="stat-time">00:00:00</span></span>
-            </div>
-        </header>
+      <header class="status-rail">
+        <div class="title">CRIME COMMITTER VI</div>
+        <div class="stats">
+          <span>Cash $<span id="stat-cash">0</span></span>
+          <span>Heat <span id="stat-heat">0</span></span>
+          <span>Active <span id="stat-active">0</span></span>
+          <span>Time <span id="stat-time">00:00:00</span></span>
+        </div>
+      </header>
 
-        <div class="rule" aria-hidden="true">+----------------------------------------------------------------------------------+</div>
+      <div class="rule" aria-hidden="true">+----------------------------------------------------------------------------------+</div>
 
-        <nav id="game-tabs" class="tabs">
-            <button class="tab active" data-tab="activities" type="button">Activities</button>
-            <button class="tab" data-tab="tech" type="button">Tech Web</button>
-            <button class="tab" data-tab="crew" type="button">Crew</button>
-            <button class="tab" data-tab="inventory" type="button">Inventory</button>
-            <button class="tab" data-tab="log" type="button">Log</button>
-        </nav>
+      <nav id="game-tabs" class="tabs">
+        <button class="tab active" data-tab="activities" type="button">Activities</button>
+        <button class="tab" data-tab="tech" type="button">Tech Web</button>
+        <button class="tab" data-tab="crew" type="button">Crew</button>
+        <button class="tab" data-tab="inventory" type="button">Inventory</button>
+        <button class="tab" data-tab="active" type="button">Active</button>
+        <button class="tab" data-tab="log" type="button">Log</button>
+      </nav>
 
-        <main class="screen">
-            <section id="activities" class="tab-content active">
-                <div class="ops-grid">
-                    <section class="panel">
-                        <div class="panel-title">CREW</div>
-                        <div class="panel-subtitle">Assign workers to run jobs</div>
-                        <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="henchmen"></div>
-                    </section>
-                    <section class="panel">
-                        <div class="panel-title">AVAILABLE CRIMES</div>
-                        <div class="panel-subtitle">Long runs keep paying while you are away</div>
-                        <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="crimes"></div>
-                    </section>
-                    <section class="panel">
-                        <div class="panel-title">ECONOMY</div>
-                        <div class="panel-subtitle">Resources and limits</div>
-                        <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="economy"></div>
-                    </section>
-                    <section class="panel panel-wide">
-                        <div class="panel-title">ACTIVE ACTIVITIES</div>
-                        <div class="panel-subtitle">Finishes even if you close the tab</div>
-                        <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="active-activities"></div>
-                    </section>
-                    <section class="panel panel-wide">
-                        <div class="panel-title">EVENT LOG</div>
-                        <div class="panel-subtitle">Latest activity</div>
-                        <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="log-entries" data-limit="6"></div>
-                    </section>
-                </div>
+      <main class="screen">
+        <section id="activities" class="tab-content active">
+          <div class="ops-grid">
+            <section class="panel">
+              <div class="panel-title">CREW</div>
+              <div class="panel-subtitle">Assign workers to run jobs</div>
+              <div class="panel-rule">----------------------------------------------------------------------------------</div>
+              <div class="panel-body" data-list="henchmen"></div>
             </section>
-
-            <section id="tech" class="tab-content">
-                <div class="tech-grid">
-                    <section class="panel">
-                        <div class="panel-title">RESEARCH ACTIVITIES</div>
-                        <div class="panel-subtitle">Time based unlocks</div>
-                        <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="research-activities"></div>
-                    </section>
-                    <section class="panel">
-                        <div class="panel-title">TECH WEB</div>
-                        <div class="panel-subtitle">Unlocks create new routes</div>
-                        <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="tech-nodes"></div>
-                    </section>
-                </div>
+            <section class="panel">
+              <div class="panel-title">AVAILABLE CRIMES</div>
+              <div class="panel-subtitle">Long runs keep paying while you are away</div>
+              <div class="panel-rule">----------------------------------------------------------------------------------</div>
+              <div class="panel-body" data-list="crimes"></div>
             </section>
-
-            <section id="crew" class="tab-content">
-                <div class="crew-grid">
-                    <section class="panel">
-                        <div class="panel-title">ROSTER</div>
-                        <div class="panel-subtitle">People on the books</div>
-                        <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="henchmen"></div>
-                    </section>
-                    <section class="panel">
-                        <div class="panel-title">RECRUITMENT</div>
-                        <div class="panel-subtitle">Hire new specialists</div>
-                        <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                        <div class="panel-body" data-list="recruitment"></div>
-                    </section>
-                </div>
+            <section class="panel">
+              <div class="panel-title">ECONOMY</div>
+              <div class="panel-subtitle">Resources and limits</div>
+              <div class="panel-rule">----------------------------------------------------------------------------------</div>
+              <div class="panel-body" data-list="economy"></div>
             </section>
-
-            <section id="inventory" class="tab-content">
-                <section class="panel">
-                    <div class="panel-title">INVENTORY</div>
-                    <div class="panel-subtitle">Items and materials</div>
-                    <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                    <div class="panel-body" data-list="inventory"></div>
-                </section>
+            <section class="panel panel-wide">
+              <div class="panel-title">EVENT LOG</div>
+              <div class="panel-subtitle">Latest activity</div>
+              <div class="panel-rule">----------------------------------------------------------------------------------</div>
+              <div class="panel-body" data-list="log-entries" data-limit="6"></div>
             </section>
+          </div>
+        </section>
 
-            <section id="log" class="tab-content">
-                <section class="panel">
-                    <div class="panel-title">EVENT LOG</div>
-                    <div class="panel-subtitle">Full record</div>
-                    <div class="panel-rule">----------------------------------------------------------------------------------</div>
-                    <div class="panel-body" data-list="log-entries"></div>
-                </section>
+        <section id="tech" class="tab-content">
+          <div class="tech-grid">
+            <section class="panel">
+              <div class="panel-title">RESEARCH ACTIVITIES</div>
+              <div class="panel-subtitle">Time based unlocks</div>
+              <div class="panel-rule">----------------------------------------------------------------------------------</div>
+              <div class="panel-body" data-list="research-activities"></div>
             </section>
-        </main>
+            <section class="panel">
+              <div class="panel-title">TECH WEB</div>
+              <div class="panel-subtitle">Unlocks create new routes</div>
+              <div class="panel-rule">----------------------------------------------------------------------------------</div>
+              <div class="panel-body" data-list="tech-nodes"></div>
+            </section>
+          </div>
+        </section>
 
-        <footer class="status-footer">
-            <div class="hint">Keys: Tab, arrows, Enter (future). For now, click to operate.</div>
-        </footer>
+        <section id="crew" class="tab-content">
+          <div class="crew-grid">
+            <section class="panel">
+              <div class="panel-title">ROSTER</div>
+              <div class="panel-subtitle">People on the books</div>
+              <div class="panel-rule">----------------------------------------------------------------------------------</div>
+              <div class="panel-body" data-list="henchmen"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-title">RECRUITMENT</div>
+              <div class="panel-subtitle">Hire new specialists</div>
+              <div class="panel-rule">----------------------------------------------------------------------------------</div>
+              <div class="panel-body" data-list="recruitment"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="inventory" class="tab-content">
+          <section class="panel">
+            <div class="panel-title">INVENTORY</div>
+            <div class="panel-subtitle">Items and materials</div>
+            <div class="panel-rule">----------------------------------------------------------------------------------</div>
+            <div class="panel-body" data-list="inventory"></div>
+          </section>
+        </section>
+
+        <section id="active" class="tab-content">
+          <section class="panel">
+            <div class="panel-title">ACTIVE ACTIVITIES</div>
+            <div class="panel-subtitle">Abandoning forfeits rewards; long jobs can run for days</div>
+            <div class="panel-rule">----------------------------------------------------------------------------------</div>
+            <div class="panel-body" data-list="active-activities"></div>
+          </section>
+        </section>
+
+        <section id="log" class="tab-content">
+          <section class="panel">
+            <div class="panel-title">EVENT LOG</div>
+            <div class="panel-subtitle">Full record</div>
+            <div class="panel-rule">----------------------------------------------------------------------------------</div>
+            <div class="panel-body" data-list="log-entries"></div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="status-footer">
+        <div class="hint">Keys: Tab, arrows, Enter (future). For now, click to operate.</div>
+      </footer>
     </div>
 
     <script src="mainGame.js"></script>
-</body>
+  </body>
 </html>

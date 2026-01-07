@@ -1,4 +1,4 @@
-Crime Committer ~vibes~ is a lighthearted, GTA-ish incremental management game that blends idle timers with a data-driven, terminal-style UI. The loop is about assigning a limited crew to time-based crimes and research runs, earning cash, heat, and items while unlocking a web of tech nodes. Current build: v6.
+Crime Committer VI is a lighthearted, GTA-ish incremental management game that blends idle timers with a data-driven, terminal-style UI. The loop is about assigning a limited crew to time-based crimes and research runs, earning cash, heat, and items while unlocking a web of tech nodes. Current build: v6.
 
 Core loop
 - Pick an activity (crime, research, or build), assign an available worker, and wait out the timer.
@@ -7,26 +7,27 @@ Core loop
 - Active activities continue offline and complete on return.
 - Clicking a crime opens its detail view, where each worker starts a separate concurrent run.
 - Multiple workers do not speed up a single run; they create parallel jobs.
+- Abandoning an in-progress activity forfeits its rewards; long timers (days) are allowed to encourage come-back play.
 
 UI direction (modern TUI, characters-only feel)
 - Black field, crisp monospace, thin rules, segmented bars.
 - Fixed viewport: no page scroll; individual panels scroll internally.
 - Status rail shows cash, heat, active activities, and live clock.
-- Tabs: Activities, Tech Web, Crew, Inventory, Log.
-- Panels show crew, available crimes, economy stats, active activities, and event log.
+- Tabs: Activities, Tech Web, Crew, Inventory, Active, Log.
+- Panels show crew, available crimes, economy stats, and event log (Active lives on its own tab).
 - Rows carry short meta lines and ASCII progress bars.
-- Layout: three-column grid (Crew | Activities | Economy) with shared heights; wide rows for Active and Log; tabs keep to one screen without overflow.
+- Layout: three-column grid (Crew | Activities | Economy) with shared heights; wide rows for Log; tabs keep to one screen without overflow.
+- Available Crimes panel has branch subtabs (Primordial, Drugs, Tech, Smuggling, Fraud/Grift, Corruption, All).
+- Active Activities lives on its own tab (secondary management view; primary control is through branch detail views).
 - Layout sketch (Activities tab, all visible without page scroll; only panel bodies scroll):
   ```
   +------------------------------------------------------------+
   | STATUS RAIL: title + cash | heat | active | time           |
   +------------------------------------------------------------+
-  | [Activities] [Tech Web] [Crew] [Inventory] [Log]           |
+  | [Activities] [Tech Web] [Crew] [Inventory] [Active] [Log]  |
   +------------------------------------------------------------+
   | CREW panel        | AVAILABLE ACTIVITIES list | ECONOMY    |
-  | (scrolls inside)  | (scrolls inside)           | (scrolls) |
-  +------------------------------------------------------------+
-  | ACTIVE ACTIVITIES (wide; scrolls inside)                  |
+  | (scrolls inside)  | (branch subtabs + scroll) | (scrolls)  |
   +------------------------------------------------------------+
   | EVENT LOG (wide; scrolls inside)                          |
   +------------------------------------------------------------+

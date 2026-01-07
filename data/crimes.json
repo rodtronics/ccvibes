@@ -4,6 +4,7 @@
     {
       "id": "jaywalking_fines",
       "name": "Jaywalking Fines Hustle",
+      "branch": "primordial",
       "tier": "starter",
       "durationMinutes": 2,
       "risk": 1,
@@ -15,6 +16,7 @@
     {
       "id": "parking_meter_flip",
       "name": "Parking Meter Flip",
+      "branch": "primordial",
       "tier": "starter",
       "durationMinutes": 3,
       "risk": 1,
@@ -26,6 +28,7 @@
     {
       "id": "flyer_scam",
       "name": "Flyer Scam",
+      "branch": "primordial",
       "tier": "starter",
       "durationMinutes": 4,
       "risk": 1,
@@ -37,6 +40,7 @@
     {
       "id": "queue_cutting",
       "name": "Queue Cutting",
+      "branch": "primordial",
       "tier": "starter",
       "durationMinutes": 4,
       "risk": 1,
@@ -48,6 +52,7 @@
     {
       "id": "sidewalk_chalk_ads",
       "name": "Sidewalk Chalk Ads",
+      "branch": "primordial",
       "tier": "starter",
       "durationMinutes": 5,
       "risk": 1,
@@ -59,6 +64,7 @@
     {
       "id": "bottle_deposit_sweep",
       "name": "Bottle Deposit Sweep",
+      "branch": "primordial",
       "tier": "starter",
       "durationMinutes": 6,
       "risk": 1,
@@ -70,6 +76,7 @@
     {
       "id": "package_reroute",
       "name": "Package Reroute",
+      "branch": "smuggling",
       "tier": "crew",
       "durationMinutes": 12,
       "risk": 2,
@@ -81,6 +88,7 @@
     {
       "id": "scrap_run",
       "name": "Scrap Run",
+      "branch": "smuggling",
       "tier": "crew",
       "durationMinutes": 15,
       "risk": 2,
@@ -92,6 +100,7 @@
     {
       "id": "night_market_vending",
       "name": "Night Market Vending",
+      "branch": "smuggling",
       "tier": "crew",
       "durationMinutes": 20,
       "risk": 2,
@@ -103,6 +112,7 @@
     {
       "id": "storage_unit_peek",
       "name": "Storage Unit Peek",
+      "branch": "smuggling",
       "tier": "crew",
       "durationMinutes": 25,
       "risk": 2,
@@ -114,6 +124,7 @@
     {
       "id": "sign_spinner_swap",
       "name": "Sign Spinner Swap",
+      "branch": "smuggling",
       "tier": "crew",
       "durationMinutes": 18,
       "risk": 2,
@@ -125,6 +136,7 @@
     {
       "id": "chemist_cleaner_concentrate",
       "name": "Cleaner Concentrate",
+      "branch": "drugs",
       "tier": "specialist",
       "durationMinutes": 30,
       "risk": 3,
@@ -136,6 +148,7 @@
     {
       "id": "chemist_solvent_wash",
       "name": "Solvent Wash",
+      "branch": "drugs",
       "tier": "specialist",
       "durationMinutes": 45,
       "risk": 3,
@@ -147,6 +160,7 @@
     {
       "id": "wheelman_timed_courier",
       "name": "Timed Courier Run",
+      "branch": "smuggling",
       "tier": "specialist",
       "durationMinutes": 30,
       "risk": 3,
@@ -158,6 +172,7 @@
     {
       "id": "wheelman_long_haul",
       "name": "Long Haul Drop",
+      "branch": "smuggling",
       "tier": "extended",
       "durationMinutes": 240,
       "risk": 2,
@@ -169,6 +184,7 @@
     {
       "id": "tech_coupon_glitcher",
       "name": "Coupon Glitcher",
+      "branch": "tech",
       "tier": "specialist",
       "durationMinutes": 35,
       "risk": 3,
@@ -180,6 +196,7 @@
     {
       "id": "tech_loyalty_launder",
       "name": "Loyalty Points Launder",
+      "branch": "tech",
       "tier": "specialist",
       "durationMinutes": 60,
       "risk": 3,
@@ -191,6 +208,7 @@
     {
       "id": "tech_ticket_bot",
       "name": "Ticket Bot Run",
+      "branch": "tech",
       "tier": "specialist",
       "durationMinutes": 90,
       "risk": 4,
@@ -202,6 +220,7 @@
     {
       "id": "candy_shop_backroom",
       "name": "Candy Shop Backroom Swipe",
+      "branch": "primordial",
       "tier": "one-off",
       "durationMinutes": 12,
       "risk": 2,
@@ -216,6 +235,7 @@
     {
       "id": "community_center_locker",
       "name": "Community Center Locker",
+      "branch": "primordial",
       "tier": "one-off",
       "durationMinutes": 20,
       "risk": 2,
@@ -230,6 +250,7 @@
     {
       "id": "rideshare_lot_race",
       "name": "Rideshare Lot Race",
+      "branch": "primordial",
       "tier": "one-off",
       "durationMinutes": 18,
       "risk": 3,
