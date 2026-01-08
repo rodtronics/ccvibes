@@ -25,6 +25,7 @@
         <button class="tab" data-tab="tech" type="button">Tech Web</button>
         <button class="tab" data-tab="crew" type="button">Crew</button>
         <button class="tab" data-tab="inventory" type="button">Inventory</button>
+        <button class="tab" data-tab="economy" type="button">Economy</button>
         <button class="tab" data-tab="active" type="button">Active</button>
         <button class="tab" data-tab="log" type="button">Log</button>
       </nav>
@@ -33,28 +34,16 @@
         <section id="activities" class="tab-content active">
           <div class="ops-grid">
             <section class="panel">
-              <div class="panel-title">CREW</div>
-              <div class="panel-subtitle">Assign workers to run jobs</div>
-              <div class="panel-rule">----------------------------------------------------------------------------------</div>
-              <div class="panel-body" data-list="henchmen"></div>
-            </section>
-            <section class="panel">
-              <div class="panel-title">AVAILABLE CRIMES</div>
-              <div class="panel-subtitle">Long runs keep paying while you are away</div>
+              <div class="panel-title">AVAILABLE ACTIVITIES</div>
+              <div class="panel-subtitle">Choose a branch, then pick an activity to view</div>
               <div class="panel-rule">----------------------------------------------------------------------------------</div>
               <div class="panel-body" data-list="crimes"></div>
             </section>
             <section class="panel">
-              <div class="panel-title">ECONOMY</div>
-              <div class="panel-subtitle">Resources and limits</div>
+              <div class="panel-title">ACTIVITY DETAIL</div>
+              <div class="panel-subtitle">Actions and upgrades for the selected activity</div>
               <div class="panel-rule">----------------------------------------------------------------------------------</div>
-              <div class="panel-body" data-list="economy"></div>
-            </section>
-            <section class="panel panel-wide">
-              <div class="panel-title">EVENT LOG</div>
-              <div class="panel-subtitle">Latest activity</div>
-              <div class="panel-rule">----------------------------------------------------------------------------------</div>
-              <div class="panel-body" data-list="log-entries" data-limit="6"></div>
+              <div class="panel-body" data-list="activity-detail"></div>
             </section>
           </div>
         </section>
@@ -99,6 +88,15 @@
             <div class="panel-subtitle">Items and materials</div>
             <div class="panel-rule">----------------------------------------------------------------------------------</div>
             <div class="panel-body" data-list="inventory"></div>
+          </section>
+        </section>
+
+        <section id="economy" class="tab-content">
+          <section class="panel">
+            <div class="panel-title">ECONOMY</div>
+            <div class="panel-subtitle">Resources and limits</div>
+            <div class="panel-rule">----------------------------------------------------------------------------------</div>
+            <div class="panel-body" data-list="economy"></div>
           </section>
         </section>
 

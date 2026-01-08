@@ -9,12 +9,12 @@ Core loop
 - Multiple workers do not speed up a single run; they create parallel jobs.
 - Abandoning an in-progress activity forfeits its rewards; long timers (days) are allowed to encourage come-back play.
 
-UI direction (modern TUI, characters-only feel)
+ UI direction (modern TUI, characters-only feel)
 - Black field, crisp monospace, thin rules, segmented bars.
 - Fixed viewport: no page scroll; individual panels scroll internally.
 - Status rail shows cash, heat, active activities, and live clock.
-- Tabs: Activities, Tech Web, Crew, Inventory, Active, Log.
-- Panels show crew, available crimes, economy stats, and event log (Active lives on its own tab).
+- Tabs: Activities, Tech Web, Crew, Inventory, Economy, Active, Log.
+- Activities tab shows only branch selection and available activities; selecting an activity opens its detail pane with actions. Crew, economy, log live on their own tabs.
 - Rows carry short meta lines and ASCII progress bars.
 - Layout: three-column grid (Crew | Activities | Economy) with shared heights; wide rows for Log; tabs keep to one screen without overflow.
 - Available Crimes panel has branch subtabs (Primordial, Drugs, Tech, Smuggling, Fraud/Grift, Corruption, All).
@@ -24,10 +24,9 @@ UI direction (modern TUI, characters-only feel)
   +------------------------------------------------------------+
   | STATUS RAIL: title + cash | heat | active | time           |
   +------------------------------------------------------------+
-  | [Activities] [Tech Web] [Crew] [Inventory] [Active] [Log]  |
+  | [Activities] [Tech Web] [Crew] [Inventory] [Economy] [Active] [Log]  |
   +------------------------------------------------------------+
-  | CREW panel        | AVAILABLE ACTIVITIES list | ECONOMY    |
-  | (scrolls inside)  | (branch subtabs + scroll) | (scrolls)  |
+  | AVAILABLE ACTIVITIES list (branch subtabs + scroll)        |
   +------------------------------------------------------------+
   | EVENT LOG (wide; scrolls inside)                          |
   +------------------------------------------------------------+
