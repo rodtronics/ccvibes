@@ -28,6 +28,7 @@ const game = {
   ui: {
     crimeBranch: "primordial",
     selectedActivityId: null,
+    activityView: "list", // list | detail
   },
   tickHandle: null,
 };
@@ -74,6 +75,10 @@ function setupActionHandlers() {
       selectActivity(id);
     }
 
+    if (action === "back-activities") {
+      backToActivityList();
+    }
+
     if (action === "start-research") {
       startResearch(id);
     }
@@ -91,10 +96,10 @@ function setupActionHandlers() {
 function setCrimeBranch(branchId) {
   const exists = CRIME_BRANCHES.some((branch) => branch.id === branchId);
   game.ui.crimeBranch = exists ? branchId : "all";
-  const branchCrimes = getCrimesForBranch(game.ui.crimeBranch);
-  game.ui.selectedActivityId = branchCrimes.length ? branchCrimes[0].id : null;
+  game.ui.activityView = "list";
+  game.ui.selectedActivityId = null;
+  applyBranchTheme(game.ui.crimeBranch);
   renderCrimes();
-  renderActivityDetail();
 }
 
 async function initGame() {
@@ -102,6 +107,7 @@ async function initGame() {
     game.data = await loadData();
     game.index = buildIndex(game.data.tech);
     game.state = loadState(game.data);
+    applyBranchTheme(game.ui.crimeBranch);
     resolveOfflineActivities();
     renderAll();
     startTicker();
@@ -694,7 +700,6 @@ function addLog(text, kind) {
 function renderAll() {
   renderStats();
   renderCrimes();
-  renderActivityDetail();
   renderActiveActivities();
   renderRoster();
   renderRoles();
@@ -740,13 +745,18 @@ function renderCrimes() {
     const branch = game.ui.crimeBranch || "primordial";
     const crimes = getCrimesForBranch(branch);
 
+    if (game.ui.activityView === "detail" && game.ui.selectedActivityId) {
+      renderActivityDetail(container, crimes);
+      return;
+    }
+
     if (game.data.crimes.length === 0) {
-      listHost.textContent = "No crimes available.";
+      listHost.textContent = "No activities available.";
       return;
     }
 
     if (crimes.length === 0) {
-      listHost.textContent = "No crimes in this branch yet.";
+      listHost.textContent = "No activities in this branch yet.";
       return;
     }
 
@@ -805,7 +815,7 @@ function renderCrimes() {
       button.className = "action";
       button.dataset.action = "view-activity";
       button.dataset.id = crime.id;
-      button.textContent = "View";
+      button.textContent = "Enter";
       button.disabled = false;
 
       actions.appendChild(button);
@@ -821,125 +831,133 @@ function renderCrimes() {
   });
 }
 
-function renderActivityDetail() {
-  const containers = document.querySelectorAll('[data-list="activity-detail"]');
-  containers.forEach((container) => {
-    container.innerHTML = "";
+function renderActivityDetail(container, crimes) {
+  const host = container.querySelector(".list-stack");
+  if (host) {
+    host.remove();
+  }
+  container.innerHTML = "";
 
-    const branch = game.ui.crimeBranch || "primordial";
-    const crimes = getCrimesForBranch(branch);
-    if (!game.ui.selectedActivityId && crimes.length) {
-      game.ui.selectedActivityId = crimes[0].id;
+  if (!game.ui.selectedActivityId && crimes.length) {
+    game.ui.selectedActivityId = crimes[0].id;
+  }
+
+  if (!game.ui.selectedActivityId) {
+    container.textContent = "Select an activity to view actions.";
+    return;
+  }
+
+  const crime = game.data.crimes.find((c) => c.id === game.ui.selectedActivityId);
+  if (!crime) {
+    container.textContent = "Activity not found.";
+    return;
+  }
+
+  const backRow = document.createElement("div");
+  backRow.className = "list-row";
+  const backButton = document.createElement("button");
+  backButton.className = "action";
+  backButton.dataset.action = "back-activities";
+  backButton.textContent = "Back";
+  backRow.appendChild(backButton);
+  container.appendChild(backRow);
+
+  const title = document.createElement("div");
+  title.className = "row-title";
+  title.textContent = crime.name;
+
+  const meta = document.createElement("div");
+  meta.className = "row-meta";
+  const parts = [];
+  parts.push(crime.tier ? crime.tier.toUpperCase() : "MISC");
+  parts.push(`${formatNumber(crime.durationMinutes)}m`);
+  parts.push(`$${formatNumber(crime.rewards && crime.rewards.cash ? crime.rewards.cash : 0)}`);
+  parts.push(`Heat ${formatNumber(crime.heat || 0)}`);
+  if (crime.requiresRole) {
+    parts.push(`Role ${crime.requiresRole}`);
+  } else {
+    parts.push("Solo or crew");
+  }
+  if (crime.repeatable === false) {
+    parts.push("ONE-OFF");
+  }
+  if (crime.costs && Object.keys(crime.costs).length > 0) {
+    parts.push(`Cost ${formatCosts(crime.costs)}`);
+  }
+  meta.textContent = parts.join(" | ");
+
+  container.appendChild(title);
+  container.appendChild(meta);
+
+  if (crime.story) {
+    const story = document.createElement("div");
+    story.className = "row-story";
+    story.textContent = crime.story;
+    container.appendChild(story);
+  }
+
+  const actionsLabel = document.createElement("div");
+  actionsLabel.className = "row-meta";
+  actionsLabel.textContent = "Actions";
+  container.appendChild(actionsLabel);
+
+  const actionsList = document.createElement("div");
+  actionsList.className = "list-stack";
+
+  const actions = getCrimeActions(crime);
+  actions.forEach((action) => {
+    const row = document.createElement("div");
+    row.className = "list-row";
+
+    const main = document.createElement("div");
+    main.className = "row-main";
+
+    const atitle = document.createElement("div");
+    atitle.className = "row-title";
+    atitle.textContent = action.name;
+
+    const ameta = document.createElement("div");
+    ameta.className = "row-meta";
+    const aParts = [];
+    aParts.push(`${formatNumber(action.durationMinutes)}m`);
+    if (action.rewards && Number.isFinite(action.rewards.cash)) {
+      aParts.push(`$${formatNumber(action.rewards.cash)}`);
     }
-
-    if (!game.ui.selectedActivityId) {
-      container.textContent = "Select an activity to view actions.";
-      return;
+    if (Number.isFinite(action.heat)) {
+      aParts.push(`Heat ${formatNumber(action.heat)}`);
     }
-
-    const crime = game.data.crimes.find((c) => c.id === game.ui.selectedActivityId);
-    if (!crime) {
-      container.textContent = "Activity not found.";
-      return;
+    if (action.costs) {
+      aParts.push(`Cost ${formatCosts(action.costs)}`);
     }
-
-    const title = document.createElement("div");
-    title.className = "row-title";
-    title.textContent = crime.name;
-
-    const meta = document.createElement("div");
-    meta.className = "row-meta";
-    const parts = [];
-    parts.push(crime.tier ? crime.tier.toUpperCase() : "MISC");
-    parts.push(`${formatNumber(crime.durationMinutes)}m`);
-    parts.push(`$${formatNumber(crime.rewards && crime.rewards.cash ? crime.rewards.cash : 0)}`);
-    parts.push(`Heat ${formatNumber(crime.heat || 0)}`);
     if (crime.requiresRole) {
-      parts.push(`Role ${crime.requiresRole}`);
-    } else {
-      parts.push("Solo or crew");
+      aParts.push(`Role ${crime.requiresRole}`);
     }
     if (crime.repeatable === false) {
-      parts.push("ONE-OFF");
+      aParts.push("ONE-OFF");
     }
-    if (crime.costs && Object.keys(crime.costs).length > 0) {
-      parts.push(`Cost ${formatCosts(crime.costs)}`);
-    }
-    meta.textContent = parts.join(" | ");
+    ameta.textContent = aParts.join(" | ");
 
-    container.appendChild(title);
-    container.appendChild(meta);
+    main.appendChild(atitle);
+    main.appendChild(ameta);
 
-    if (crime.story) {
-      const story = document.createElement("div");
-      story.className = "row-story";
-      story.textContent = crime.story;
-      container.appendChild(story);
-    }
+    const controls = document.createElement("div");
+    const startBtn = document.createElement("button");
+    startBtn.className = "action";
+    startBtn.dataset.action = "start-crime";
+    startBtn.dataset.id = crime.id;
+    startBtn.textContent = "Start";
 
-    const actionsLabel = document.createElement("div");
-    actionsLabel.className = "row-meta";
-    actionsLabel.textContent = "Actions";
-    container.appendChild(actionsLabel);
+    const canStart = isCrimeUnlocked(crime) && canRepeat("crime", crime) && hasAvailableWorker(crime.requiresRole) && canAfford(crime.costs);
+    startBtn.disabled = !canStart;
 
-    const actionsList = document.createElement("div");
-    actionsList.className = "list-stack";
+    controls.appendChild(startBtn);
 
-    const actions = getCrimeActions(crime);
-    actions.forEach((action) => {
-      const row = document.createElement("div");
-      row.className = "list-row";
-
-      const main = document.createElement("div");
-      main.className = "row-main";
-
-      const atitle = document.createElement("div");
-      atitle.className = "row-title";
-      atitle.textContent = action.name;
-
-      const ameta = document.createElement("div");
-      ameta.className = "row-meta";
-      const aParts = [];
-      aParts.push(`${formatNumber(action.durationMinutes)}m`);
-      if (action.rewards && Number.isFinite(action.rewards.cash)) {
-        aParts.push(`$${formatNumber(action.rewards.cash)}`);
-      }
-      if (Number.isFinite(action.heat)) {
-        aParts.push(`Heat ${formatNumber(action.heat)}`);
-      }
-      if (action.costs) {
-        aParts.push(`Cost ${formatCosts(action.costs)}`);
-      }
-      if (crime.requiresRole) {
-        aParts.push(`Role ${crime.requiresRole}`);
-      }
-      if (crime.repeatable === false) {
-        aParts.push("ONE-OFF");
-      }
-      ameta.textContent = aParts.join(" | ");
-
-      main.appendChild(atitle);
-      main.appendChild(ameta);
-
-      const controls = document.createElement("div");
-      const startBtn = document.createElement("button");
-      startBtn.className = "action";
-      startBtn.dataset.action = "start-crime";
-      startBtn.dataset.id = crime.id;
-      startBtn.textContent = "Start";
-
-      const canStart = isCrimeUnlocked(crime) && canRepeat("crime", crime) && hasAvailableWorker(crime.requiresRole) && canAfford(crime.costs);
-      startBtn.disabled = !canStart;
-
-      controls.appendChild(startBtn);
-
-      row.appendChild(main);
-      row.appendChild(controls);
-      actionsList.appendChild(row);
-    });
-
-    container.appendChild(actionsList);
+    row.appendChild(main);
+    row.appendChild(controls);
+    actionsList.appendChild(row);
   });
+
+  container.appendChild(actionsList);
 }
 
 function getCrimesForBranch(branch) {
@@ -967,6 +985,27 @@ function getCrimeActions(crime) {
       repeatable: crime.repeatable !== false,
     },
   ];
+}
+
+function selectActivity(id) {
+  game.ui.selectedActivityId = id;
+  game.ui.activityView = "detail";
+  renderCrimes();
+}
+
+function backToActivityList() {
+  game.ui.activityView = "list";
+  renderCrimes();
+}
+
+function applyBranchTheme(branchId) {
+  const body = document.body;
+  body.classList.forEach((cls) => {
+    if (cls.startsWith("theme-")) {
+      body.classList.remove(cls);
+    }
+  });
+  body.classList.add(`theme-${branchId}`);
 }
 
 function buildBranchTabs() {

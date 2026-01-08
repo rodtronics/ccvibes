@@ -155,7 +155,7 @@ main.screen {
 }
 
 .ops-grid {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    grid-template-columns: 1fr;
     grid-auto-rows: minmax(0, 1fr);
     flex: 1;
 }
@@ -234,6 +234,14 @@ main.screen {
     border-color: var(--acc-aqua);
     background: rgba(52, 182, 200, 0.06);
 }
+
+/* Branch themes override accent */
+.theme-primordial { --acc-aqua: #34b6c8; }
+.theme-drugs { --acc-aqua: #7dd56f; }
+.theme-tech { --acc-aqua: #5cb3ff; }
+.theme-smuggling { --acc-aqua: #f28b3c; }
+.theme-fraud { --acc-aqua: #c678ff; }
+.theme-corruption { --acc-aqua: #e6c98a; }
 
 .row-main {
     flex: 1;
