@@ -10,6 +10,39 @@ const CRIME_BRANCHES = [
   { id: "corruption", label: "Corruption" },
   { id: "all", label: "All" },
 ];
+const FONT_STORAGE_KEY = 'crimeCommitterFont';
+const FONT_OPTIONS = [
+  {
+    id: 'default',
+    label: 'Default Mono',
+    fontFamily: '"IBM Plex Mono", "JetBrains Mono", "Cascadia Mono", "Consolas", monospace'
+  },
+  {
+    id: 'vga_8x14',
+    label: 'IBM VGA 8x14',
+    fontFamily: '"AcPlus_IBM_VGA_8x14", "IBM Plex Mono", "JetBrains Mono", monospace'
+  },
+  {
+    id: 'vga_8x16',
+    label: 'IBM VGA 8x16',
+    fontFamily: '"AcPlus_IBM_VGA_8x16", "IBM Plex Mono", "JetBrains Mono", monospace'
+  },
+  {
+    id: 'vga_9x14',
+    label: 'IBM VGA 9x14',
+    fontFamily: '"AcPlus_IBM_VGA_9x14", "IBM Plex Mono", "JetBrains Mono", monospace'
+  },
+  {
+    id: 'vga_9x16',
+    label: 'IBM VGA 9x16',
+    fontFamily: '"AcPlus_IBM_VGA_9x16", "IBM Plex Mono", "JetBrains Mono", monospace'
+  },
+  {
+    id: 'vga_9x8',
+    label: 'IBM VGA 9x8',
+    fontFamily: '"AcPlus_IBM_VGA_9x8", "IBM Plex Mono", "JetBrains Mono", monospace'
+  }
+];
 const TICK_MS = 1000;
 
 const game = {
@@ -29,6 +62,7 @@ const game = {
     crimeBranch: "primordial",
     selectedActivityId: null,
     activityView: "list", // list | detail
+    fontId: 'default',
   },
   tickHandle: null,
 };
@@ -90,6 +124,10 @@ function setupActionHandlers() {
     if (action === "set-branch") {
       setCrimeBranch(id);
     }
+
+    if (action === "set-font") {
+      applyFontOption(id);
+    }
   });
 }
 
@@ -107,6 +145,7 @@ async function initGame() {
     game.data = await loadData();
     game.index = buildIndex(game.data.tech);
     game.state = loadState(game.data);
+    applyFontOption(loadFontPreference(), false);
     applyBranchTheme(game.ui.crimeBranch);
     resolveOfflineActivities();
     renderAll();
@@ -708,6 +747,7 @@ function renderAll() {
   renderEconomy();
   renderInventory();
   renderLog();
+  renderSettingsFonts();
 }
 
 function renderStats() {
@@ -999,6 +1039,21 @@ function applyBranchTheme(branchId) {
   body.classList.add(`theme-${branchId}`);
 }
 
+function loadFontPreference() {
+  const saved = localStorage.getItem(FONT_STORAGE_KEY);
+  return saved || 'default';
+}
+
+function applyFontOption(fontId, shouldRender = true) {
+  const option = FONT_OPTIONS.find((entry) => entry.id === fontId) || FONT_OPTIONS[0];
+  game.ui.fontId = option.id;
+  document.documentElement.style.setProperty("--font-family-mono", option.fontFamily);
+  localStorage.setItem(FONT_STORAGE_KEY, option.id);
+  if (shouldRender) {
+    renderSettingsFonts();
+  }
+}
+
 function buildBranchTabs() {
   const bar = document.createElement("div");
   bar.className = "subtabs";
@@ -1285,6 +1340,42 @@ function renderEconomy() {
       row.appendChild(main);
       container.appendChild(row);
     });
+  });
+}
+
+function renderSettingsFonts() {
+  const containers = document.querySelectorAll('[data-list="settings-fonts"]');
+  containers.forEach((container) => {
+    container.innerHTML = "";
+
+    const list = document.createElement("div");
+    list.className = "list-stack";
+
+    FONT_OPTIONS.forEach((option) => {
+      const row = document.createElement("div");
+      row.className = "list-row clickable";
+      row.dataset.action = "set-font";
+      row.dataset.id = option.id;
+
+      const main = document.createElement("div");
+      main.className = "row-main";
+
+      const title = document.createElement("div");
+      title.className = "row-title";
+      title.textContent = option.label;
+
+      const meta = document.createElement("div");
+      meta.className = "row-meta";
+      meta.textContent = option.id === game.ui.fontId ? "Selected" : "Click to apply";
+
+      main.appendChild(title);
+      main.appendChild(meta);
+
+      row.appendChild(main);
+      list.appendChild(row);
+    });
+
+    container.appendChild(list);
   });
 }
 

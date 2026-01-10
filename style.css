@@ -10,6 +10,47 @@
     --acc-orange: #f28b3c;
     --acc-red: #e6453a;
     --line: #24303b;
+    --font-family-mono: "IBM Plex Mono", "JetBrains Mono", "Cascadia Mono", "Consolas", monospace;
+}
+
+@font-face {
+    font-family: "AcPlus_IBM_VGA_8x14";
+    src: url("fonts/AcPlus_IBM_VGA_8x14.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "AcPlus_IBM_VGA_8x16";
+    src: url("fonts/AcPlus_IBM_VGA_8x16.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "AcPlus_IBM_VGA_9x14";
+    src: url("fonts/AcPlus_IBM_VGA_9x14.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "AcPlus_IBM_VGA_9x16";
+    src: url("fonts/AcPlus_IBM_VGA_9x16.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "AcPlus_IBM_VGA_9x8";
+    src: url("fonts/AcPlus_IBM_VGA_9x8.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
 }
 
 html, body {
@@ -24,7 +65,7 @@ body {
     margin: 0;
     padding: 1rem;
     color: var(--fg-main);
-    font-family: "IBM Plex Mono", "JetBrains Mono", "Cascadia Mono", "Consolas", monospace;
+    font-family: var(--font-family-mono);
     background-color: var(--bg-ink);
     background-image:
         radial-gradient(circle at 12% 18%, rgba(27, 123, 138, 0.18), transparent 52%),

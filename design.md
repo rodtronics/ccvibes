@@ -13,7 +13,7 @@ UI direction (modern TUI, characters-only feel)
 - Black field, crisp monospace, thin rules, segmented bars.
 - Fixed viewport: no page scroll; individual panels scroll internally.
 - Status rail shows cash, heat, active activities, and live clock.
-- Tabs: Activities, Tech Web, Crew, Inventory, Economy, Active, Log.
+- Tabs: Activities, Tech Web, Crew, Inventory, Economy, Active, Settings, Log.
 - Activities tab shows only branch selection and available activities; the list rows are clickable (no separate Enter button). Selecting an activity opens its detail view with actions; Back returns to the list. Crew, economy, log live on their own tabs.
 - Rows carry short meta lines and ASCII progress bars.
 - Layout: single-column Activities list on its tab; other tabs are single-panel screens to stay mobile-friendly.
@@ -24,11 +24,14 @@ UI direction (modern TUI, characters-only feel)
   +------------------------------------------------------------+
   | STATUS RAIL: title + cash | heat | active | time           |
   +------------------------------------------------------------+
-  | [Activities] [Tech Web] [Crew] [Inventory] [Economy] [Active] [Log]  |
+  | [Activities] [Tech Web] [Crew] [Inventory] [Economy] [Active] [Settings] [Log]  |
   +------------------------------------------------------------+
   | AVAILABLE ACTIVITIES list (branch subtabs + scroll, rows clickable) |
   +------------------------------------------------------------+
   ```
+
+Settings
+- Settings tab hosts client-side preferences. First control: font selector with options (Default Mono + VGA variants).
 
 Systems in the prototype
 - Data-driven content from JSON (crimes, crew roles, tech nodes, research activities).
