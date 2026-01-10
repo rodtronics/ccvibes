@@ -59,13 +59,13 @@ function setupTabs() {
 
 function setupActionHandlers() {
   document.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-action]");
-    if (!button) {
+    const target = event.target.closest("[data-action]");
+    if (!target) {
       return;
     }
 
-    const action = button.dataset.action;
-    const id = button.dataset.id;
+    const action = target.dataset.action;
+    const id = target.dataset.id;
 
     if (action === "start-crime") {
       startCrime(id);
@@ -762,7 +762,9 @@ function renderCrimes() {
 
     crimes.forEach((crime) => {
       const row = document.createElement("div");
-      row.className = "list-row";
+      row.className = "list-row clickable";
+      row.dataset.action = "view-activity";
+      row.dataset.id = crime.id;
 
       const main = document.createElement("div");
       main.className = "row-main";
@@ -810,22 +812,11 @@ function renderCrimes() {
         main.appendChild(story);
       }
 
-      const actions = document.createElement("div");
-      const button = document.createElement("button");
-      button.className = "action";
-      button.dataset.action = "view-activity";
-      button.dataset.id = crime.id;
-      button.textContent = "Enter";
-      button.disabled = false;
-
-      actions.appendChild(button);
-
       if (crime.id === game.ui.selectedActivityId) {
         row.classList.add("active-row");
       }
 
       row.appendChild(main);
-      row.appendChild(actions);
       listHost.appendChild(row);
     });
   });

@@ -9,15 +9,15 @@ Core loop
 - Multiple workers do not speed up a single run; they create parallel jobs.
 - Abandoning an in-progress activity forfeits its rewards; long timers (days) are allowed to encourage come-back play.
 
- UI direction (modern TUI, characters-only feel)
+UI direction (modern TUI, characters-only feel)
 - Black field, crisp monospace, thin rules, segmented bars.
 - Fixed viewport: no page scroll; individual panels scroll internally.
 - Status rail shows cash, heat, active activities, and live clock.
 - Tabs: Activities, Tech Web, Crew, Inventory, Economy, Active, Log.
-- Activities tab shows only branch selection and available activities; selecting an activity opens its detail pane with actions. Crew, economy, log live on their own tabs.
+- Activities tab shows only branch selection and available activities; the list rows are clickable (no separate Enter button). Selecting an activity opens its detail view with actions; Back returns to the list. Crew, economy, log live on their own tabs.
 - Rows carry short meta lines and ASCII progress bars.
-- Layout: three-column grid (Crew | Activities | Economy) with shared heights; wide rows for Log; tabs keep to one screen without overflow.
-- Available Crimes panel has branch subtabs (Primordial, Drugs, Tech, Smuggling, Fraud/Grift, Corruption, All).
+- Layout: single-column Activities list on its tab; other tabs are single-panel screens to stay mobile-friendly.
+- Available Activities panel has branch subtabs (Primordial, Drugs, Tech, Smuggling, Fraud/Grift, Corruption, All).
 - Active Activities lives on its own tab (secondary management view; primary control is through branch detail views).
 - Layout sketch (Activities tab, all visible without page scroll; only panel bodies scroll):
   ```
@@ -26,9 +26,7 @@ Core loop
   +------------------------------------------------------------+
   | [Activities] [Tech Web] [Crew] [Inventory] [Economy] [Active] [Log]  |
   +------------------------------------------------------------+
-  | AVAILABLE ACTIVITIES list (branch subtabs + scroll)        |
-  +------------------------------------------------------------+
-  | EVENT LOG (wide; scrolls inside)                          |
+  | AVAILABLE ACTIVITIES list (branch subtabs + scroll, rows clickable) |
   +------------------------------------------------------------+
   ```
 
