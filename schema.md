@@ -87,6 +87,8 @@ Canonical minimal runtime state shape.
 
   "runs": [],
 
+  "repeatQueues": {},
+
   "completions": {
     "activity": {},
     "option": {}
@@ -102,6 +104,41 @@ available
 unavailable (e.g. jail)
 
 Unavailability is always time-based.
+
+### Repeat Queues
+
+Repeat queues allow options to automatically restart after completion.
+
+```json
+"repeatQueues": {
+  "activityId:optionId": {
+    "remaining": 5,
+    "total": 10
+  },
+  "another_activity:another_option": {
+    "remaining": "infinite",
+    "total": "infinite"
+  }
+}
+```
+
+**Key**: String in format `"activityId:optionId"`
+
+**Fields**:
+- `remaining`: Number of repeats left, or `"infinite"`
+- `total`: Total repeats requested (for UI display), or `"infinite"`
+
+**Behavior**:
+- When a run completes, engine checks if a repeat queue exists for that activity:option
+- If queue exists and `remaining > 0` (or `"infinite"`), automatically call `startRun()` with same parameters
+- Decrement `remaining` if not infinite
+- Remove queue when `remaining` reaches 0
+- Stop queue if auto-restart fails (insufficient resources, no crew, etc.)
+
+**UI Patterns**:
+- User can set repeat count (1-999) or infinite (∞)
+- Two-stage stop button prevents accidental cancellation
+- Shows progress: "REPEATING 3/10" or "∞ REPEATING"
 
 2. BRANCH
 
@@ -452,4 +489,48 @@ Consequences are time-based, not permanent.
 Unlocking grants capability; revealing grants knowledge.
 
 The system must tolerate content being incomplete or hidden.
+
+15. UI DISPLAY RULES
+
+## Resolution Display
+
+When displaying options to the player, show expected rewards based on resolution type:
+
+**Deterministic:**
+Show exact value: `$100`
+
+**Ranged Outputs:**
+Show range: `$20-60`
+
+**Weighted Outcomes:**
+Show range across all outcomes: `$0-120` (min of all outcomes to max)
+
+## Active Run Display
+
+When viewing an activity's detail page, display:
+
+- All currently running instances of that activity's options
+- Progress bar showing elapsed/remaining time
+- Assigned staff members
+- Option name being executed
+
+This provides immediate feedback that operations are in progress without requiring navigation to a separate runs panel.
+
+## Resource Display Format
+
+Resources should display:
+- Name (formatted from camelCase to Title Case)
+- Current amount (formatted with locale separators)
+- Only show resources that are revealed via `reveals.resources`
+
+## Staff Display Format
+
+Staff should display:
+- Name
+- Role
+- XP value
+- Stars (derived from XP, displayed as ★ symbols)
+- Status: `[AVAILABLE]` `[BUSY]` `[UNAVAILABLE]`
+
+Stars are never stored, always computed from XP thresholds at display time.
 ```

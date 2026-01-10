@@ -86,6 +86,9 @@ function setupTabs() {
       const target = document.getElementById(tab.dataset.tab);
       if (target) {
         target.classList.add("active");
+        if (tab.dataset.tab === "settings") {
+          renderSettingsFonts();
+        }
       }
     });
   });
@@ -1348,6 +1351,16 @@ function renderSettingsFonts() {
   containers.forEach((container) => {
     container.innerHTML = "";
 
+    const heading = document.createElement("div");
+    heading.className = "row-title";
+    heading.textContent = "Fonts";
+    container.appendChild(heading);
+
+    const note = document.createElement("div");
+    note.className = "row-meta";
+    note.textContent = "Select a font; applies instantly (client-side only).";
+    container.appendChild(note);
+
     const list = document.createElement("div");
     list.className = "list-stack";
 
@@ -1368,8 +1381,14 @@ function renderSettingsFonts() {
       meta.className = "row-meta";
       meta.textContent = option.id === game.ui.fontId ? "Selected" : "Click to apply";
 
+      const sample = document.createElement("div");
+      sample.className = "font-preview";
+      sample.style.fontFamily = option.fontFamily;
+      sample.textContent = "Crime Committer VI — 0123456789";
+
       main.appendChild(title);
       main.appendChild(meta);
+      main.appendChild(sample);
 
       row.appendChild(main);
       list.appendChild(row);

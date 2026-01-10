@@ -1,49 +1,355 @@
-Crime Committer VI is a lighthearted, GTA-ish incremental management game that blends idle timers with a data-driven, terminal-style UI. The loop is about assigning a limited crew to time-based crimes and research runs, earning cash, heat, and items while unlocking a web of tech nodes. Current build: v6.
+# Crime Committer VI — Design Reference
 
-Core loop
-- Pick an activity (crime, research, or build), assign an available worker, and wait out the timer.
-- Rewards can be cash, heat, inventory items, or unlocks.
-- One-off activities are tracked; repeatables stay on rotation.
-- Active activities continue offline and complete on return.
-- Clicking a crime opens its detail view, where each worker starts a separate concurrent run.
-- Multiple workers do not speed up a single run; they create parallel jobs.
-- Abandoning an in-progress activity forfeits its rewards; long timers (days) are allowed to encourage come-back play.
+Crime Committer VI is a lighthearted, GTA-ish incremental management game with a modern terminal-style UI.
+It blends idle timers, data-driven systems, and discovery-based progression.
 
-UI direction (modern TUI, characters-only feel)
-- Black field, crisp monospace, thin rules, segmented bars.
-- Fixed viewport: no page scroll; individual panels scroll internally.
-- Status rail shows cash, heat, active activities, and live clock.
-- Tabs: Activities, Tech Web, Crew, Inventory, Economy, Active, Settings, Log.
-- Activities tab shows only branch selection and available activities; the list rows are clickable (no separate Enter button). Selecting an activity opens its detail view with actions; Back returns to the list. Crew, economy, log live on their own tabs.
-- Rows carry short meta lines and ASCII progress bars.
-- Layout: single-column Activities list on its tab; other tabs are single-panel screens to stay mobile-friendly.
-- Available Activities panel has branch subtabs (Primordial, Drugs, Tech, Smuggling, Fraud/Grift, Corruption, All).
-- Active Activities lives on its own tab (secondary management view; primary control is through branch detail views).
-- Layout sketch (Activities tab, all visible without page scroll; only panel bodies scroll):
-  ```
-  +------------------------------------------------------------+
-  | STATUS RAIL: title + cash | heat | active | time           |
-  +------------------------------------------------------------+
-  | [Activities] [Tech Web] [Crew] [Inventory] [Economy] [Active] [Settings] [Log]  |
-  +------------------------------------------------------------+
-  | AVAILABLE ACTIVITIES list (branch subtabs + scroll, rows clickable) |
-  +------------------------------------------------------------+
-  ```
+The game is about **assigning a limited crew to time-based activities**, managing risk and heat,
+and gradually uncovering a messy, interconnected web of systems.
 
-Settings
-- Settings tab hosts client-side preferences. First control: font selector with options (Default Mono + VGA variants).
+Current design target: v6+
 
-Systems in the prototype
-- Data-driven content from JSON (crimes, crew roles, tech nodes, research activities).
-- Crew roster with roles, speed multipliers, and risk tolerance.
-- Hiring pipeline with role unlock requirements and cash costs.
-- Tech Web nodes unlock new crimes and roles.
-- Inventory resources live alongside cash and heat.
-- Event log with timestamped entries.
-- Five crime branches (Drugs, Tech, Smuggling/Logistics, Fraud/Grift, Corruption/Influence).
-- Each branch targets ~20 crimes plus 3-4 buildings/upgrades and has a distinct UI color.
-- Some entries are not crimes (research/buildings) and run as their own one-off or repeatable ops.
+---
 
-Tone
-- Lighthearted crime sim; avoid real-world violence.
-- Focus on logistics, timing, and managing limited crew.
+## 1. CORE PHILOSOPHY
+
+- Progress is discovered, not explained.
+- Systems exist before the player understands them.
+- Risk is optional but tempting.
+- Punishment is time loss, not progress deletion.
+- The player is never hard-blocked from acting.
+- Information is revealed gradually and often incompletely.
+
+The game should feel **alive, slightly opaque, and interconnected**, not linear or tutorialised.
+
+---
+
+## 2. CORE LOOP
+
+- Pick an activity (crime, research, build, or other operation).
+- Choose a specific execution option and assign an available worker.
+- Each assignment creates an independent, time-based run.
+- Runs continue offline and complete on return.
+- Rewards may include cash, heat, items, flags, or revelations.
+- Abandoning an in-progress run forfeits its rewards.
+- Long timers (hours to days) are allowed to encourage return play.
+
+Multiple workers do **not** speed up a single run.
+Each worker creates a **parallel run with its own outcome and risk**.
+
+---
+
+## 3. FUNDAMENTAL UNITS
+
+### Activity
+
+An **Activity** is a UI container and conceptual grouping.
+
+An Activity:
+
+- has a name and description
+- belongs to a single browsing branch (for UI only)
+- may be hidden, vaguely known, or fully understood
+- contains one or more execution Options
+
+An Activity never:
+
+- directly consumes resources
+- directly assigns staff
+- directly resolves outcomes
+
+---
+
+### Option
+
+An **Option** is a specific way of performing an Activity.
+
+Options define:
+
+- requirements (staff role, star level, items, buildings)
+- inputs (resources or items consumed)
+- duration
+- XP rewards
+- outcome resolution (deterministic or probabilistic)
+- side effects (heat, jail, flags, reveals)
+
+Multiple Options may produce the **same end result** with different:
+
+- efficiency
+- risk
+- speed
+- reliability
+
+---
+
+## 4. STAFF, XP, AND STARS
+
+- Staff are assigned to Options, not Activities.
+- Staff gain XP from time spent or completed runs.
+- Star level is derived from XP thresholds.
+- Stars do **not** directly unlock content.
+- Stars improve:
+  - reliability
+  - efficiency
+  - access to safer or faster Options
+
+Skill bends probability; it does not guarantee success.
+
+---
+
+## 5. OUTCOMES & RANDOMNESS
+
+- Options may resolve via weighted outcome tables.
+- Binary success/failure should be avoided where possible.
+- Partial success, bad trades, lucky outcomes, and consequences are preferred.
+- Randomness must be learnable and influenceable.
+
+Outcome chances may be modified by:
+
+- staff star level
+- tools and preparation
+- current heat
+
+Risk should always be **telegraphed**, even if imprecisely.
+
+---
+
+## 6. HEAT SYSTEM
+
+Heat represents background pressure, not a hard limit.
+
+Rules:
+
+- Heat rises through risky or noisy actions.
+- Heat decays naturally over time.
+- Heat never blocks an action outright.
+- Higher heat increases the chance and severity of negative outcomes.
+
+Low heat enables safer, cleaner execution.
+High heat creates tension and volatility.
+
+---
+
+## 7. JAIL & CONSEQUENCES
+
+- Staff may be temporarily unavailable due to consequences (e.g. jail).
+- Jail is a **time cost**, not a permanent loss.
+- Duration scales with heat and severity.
+- Progress continues while staff are unavailable.
+
+Later systems may mitigate consequences (bail, corruption, upgrades).
+
+---
+
+## 8. RESOURCES & TRANSFORMATIONS
+
+Resources exist to enable **recipes**, not hoarding.
+
+Types include:
+
+- currencies (cash, heat, notoriety, cred)
+- consumables (tools, supplies)
+- loot (raw goods)
+- processed goods
+- abstract/meta resources (intel, contacts, flags)
+
+Many Activities are **resource transformations**.
+The same output may be obtainable through multiple recipes.
+
+---
+
+## 9. DISCOVERY & PROGRESSION
+
+- Not all branches or systems are visible at game start.
+- Activities, resources, and mechanics may be revealed before they are usable.
+- Revelation is distinct from unlocking capability.
+
+Progression relies on:
+
+- flags (knowledge, events, contacts)
+- reveals (branches, activities, resources)
+- cross-branch effects
+
+Explicit dependency chains should be avoided in favour of discovery.
+
+---
+
+## 10. TECH WEB & RESEARCH
+
+Research and tech nodes:
+
+- reveal capabilities, methods, or opportunities
+- may expose new activities, options, roles, or resources
+- should not function as a transparent linear tech tree
+
+The Tech Web supports discovery, not full explanation.
+
+---
+
+## 11. DESIGN CONSTRAINTS (DO NOT BREAK)
+
+- No irreversible punishment
+- No permanent dead ends
+- No mandatory waiting without player choice
+- No single linear progression path
+- No full system map or completion percentage
+
+When in doubt, preserve curiosity over clarity.
+
+---
+
+## 12. AUTHORING GUIDELINES
+
+When generating content:
+
+- respect the Activity → Option → Run structure
+- use conditions and effects, not custom logic
+- prefer adding Options over adding new Activities
+- prefer flags and reveals over explicit unlocks
+
+Tone:
+
+- dry
+- understated
+- cynical
+- never congratulatory
+
+---
+
+## 13. VISUAL & UI DESIGN
+
+The UI should feel like a **retrofuturistic control terminal** — part 1980s computer interface, part music production equipment, part cyberpunk data readout.
+
+### Color Palette
+
+Use dark backgrounds with high-contrast neon accents:
+
+- **Background**: Deep blacks (#000000) and dark blues (#0a1628, #1a2332)
+- **Primary UI elements**: Terminal green (#00ff00, #33ff33), neon cyan/teal (#00ffff, #40e0d0)
+- **Accents & highlights**: Hot pink/magenta (#ff00ff, #ff1493), electric orange (#ff6600, #ff8c00), bright yellow (#ffff00)
+- **Warnings & heat**: Orange-red gradients (#ff4500 → #ff0000)
+- **Success & completion**: Bright lime green (#00ff00)
+- **Data & neutral text**: White (#ffffff), light gray (#cccccc), mid gray (#888888)
+
+### Layout Principles
+
+- **Modular panel design**: Think mixing board, synthesizer interface, or control console
+- **Box-drawing characters**: Heavy use of borders (─│┌┐└┘├┤┬┴┼), frames, separators
+- **Data-dense but organized**: Information should feel technical but remain parseable
+- **Parallel operation visibility**: Show multiple simultaneous runs/workers clearly
+- **Hierarchical nesting**: Panels within panels, clear visual grouping
+- **Grid-based alignment**: Everything snaps to character grid
+
+### Visual Language
+
+- **Progress indicators**: Block characters (█▓▒░), percentage readouts, time remaining
+- **Meters & gauges**: Horizontal bars for heat, risk, completion states
+- **Technical readouts**: Coordinates, timestamps, run IDs, status codes
+- **Waveforms & graphs**: ASCII-based data visualization where appropriate
+- **Status markers**: Colored dots (●), brackets, chevrons (›‹), arrows (→←↑↓)
+- **Typography**: Monospace/bitmap fonts exclusively (VGA, terminal fonts)
+- **Minimal decoration**: ASCII art sparingly, only when it adds functional clarity
+- **Geometric patterns**: Dithering, checker patterns, grid overlays for visual texture
+
+### UI Feedback & State
+
+Visual feedback should be immediate and unambiguous:
+
+- **Idle state**: Muted colors, subtle borders
+- **Active/running**: Bright accent colors, animated progress indicators
+- **Warning state**: Orange/yellow highlights, increased visual weight
+- **Error/blocked**: Red accents, clear visual distinction
+- **Completed**: Brief green flash/highlight before settling to neutral
+- **Selected/focused**: Brighter borders, inverted colors, or distinct highlight color
+
+### Animation Philosophy
+
+- **Minimal but purposeful**: Avoid gratuitous effects
+- **Functional animations only**: Progress bars filling, timers counting, status transitions
+- **Instant state changes**: No slow fades or lengthy transitions
+- **Typing/reveal effects**: Acceptable for initial text display or discoveries
+- **Pulse/blink**: Use sparingly for critical alerts only
+
+### Information Hierarchy
+
+Visual weight should guide player attention:
+
+1. **Critical actions/warnings**: Brightest colors, bold borders, prominent position
+2. **Active operations**: Medium brightness, clear progress indicators
+3. **Available options**: Standard contrast, clickable/selectable appearance
+4. **Contextual data**: Lower contrast, supporting information
+5. **Background/inactive**: Dimmest, clearly de-emphasized
+
+### Interface Components
+
+Standard component design patterns:
+
+- **Buttons/selections**: `[ OPTION ]` or `[ > SELECTED ]`
+- **Progress bars**: `[████████░░░░░░░░] 45%`
+- **Meters**: `HEAT [▓▓▓▓▓▓▓▓░░░░░░░░░░] 40%`
+- **Timers**: `⏱ 2:34:15 remaining`
+- **Status badges**: `[ACTIVE]` `[LOCKED]` `[COMPLETE]`
+- **Data labels**: `CREW: 3/5` `CASH: $12,450`
+- **Dividers**: Horizontal rules using `═` or `─`, section breaks
+
+### Accessibility Considerations
+
+- Maintain minimum contrast ratios for readability
+- Don't rely on color alone to convey critical information
+- Provide text labels alongside symbols
+- Support standard terminal color schemes for compatibility
+- Allow font size adjustment where technically possible
+
+### Repeat Queue UI Pattern
+
+The repeat queue system allows activities to automatically restart upon completion. The UI provides three modes with clear visual feedback:
+
+**Control States:**
+
+1. **Idle (No Active Run)**: Shows full repeat controls
+   - Number input field (1-999) with +/- increment buttons
+   - "REPEAT X" button to start finite repeat queue
+   - "∞ REPEAT" button to start infinite repeat queue
+   - Input has no arrow spinners (clean terminal aesthetic)
+
+2. **Active Repeat**: Shows status and control
+   - Status text: "REPEATING 3/10" (finite) or "∞ REPEATING" (infinite)
+   - Green accent background indicates active automation
+   - STOP button in warning orange color
+
+3. **Stop Confirmation**: Two-stage safety mechanism
+   - First click changes STOP to "CONFIRM STOP?"
+   - Button becomes red with pulsing animation
+   - Click anywhere else or second click confirms
+
+**Visual Hierarchy:**
+- Active repeat status uses bright green to indicate successful automation
+- Stop button uses warning orange (not critical red) until confirmation
+- Confirmation state uses danger red with pulse animation
+- Number controls use dim styling to appear secondary to main action button
+
+**Interaction Pattern:**
+- Increment buttons use inline handlers for immediate response
+- Number input validates min (1) and max (999) constraints
+- Repeat queue persists across page refreshes
+- Auto-restart happens after completion, not during run
+- If auto-restart fails (no resources, crew busy), queue stops with warning
+
+**Color Coding:**
+- `rgba(0, 255, 0, 0.1)` background for active repeat status
+- `var(--secondary)` (green) for status text
+- `var(--warning)` (orange) for initial STOP button
+- `var(--danger)` (red) for CONFIRM state
+
+---
+
+## 14. AESTHETIC INSPIRATIONS
+
+Visual references include:
+
+- 1980s computer terminals and command-line interfaces
+- Music production equipment: synthesizers, mixing boards, drum machines
+- Cyberpunk UI: wireframe graphics, data streams, technical readouts
+- Retro video game aesthetics: arcade cabinets, early computer games
+- Technical diagrams: oscilloscopes, radar displays, control panels
+
+The overall feel should be **technical, slightly mysterious, and visually striking** without sacrificing clarity or usability.

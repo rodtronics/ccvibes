@@ -286,6 +286,12 @@ main.screen {
     background: rgba(52, 182, 200, 0.08);
 }
 
+.font-preview {
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--fg-main);
+}
+
 /* Branch themes override accent */
 .theme-primordial { --acc-aqua: #34b6c8; }
 .theme-drugs { --acc-aqua: #7dd56f; }

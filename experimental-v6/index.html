@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>║ CRIME COMMITTER VI ║</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="terminal">
+    <!-- Status Header -->
+    <header class="status-header">
+      <div class="system-title">
+        <span class="glyph">●</span> CRIME COMMITTER VI <span class="tag">[EXPERIMENTAL]</span>
+      </div>
+      <div class="status-readouts">
+        <span class="readout">CASH <span class="value" id="stat-cash">$0</span></span>
+        <span class="readout">HEAT <span class="value heat-meter" id="stat-heat">0</span></span>
+        <span class="readout">CREW <span class="value" id="stat-crew">0</span></span>
+        <span class="readout">RUNS <span class="value" id="stat-runs">0</span></span>
+      </div>
+    </header>
+
+    <div class="divider">═══════════════════════════════════════════════════════════════════════════════════</div>
+
+    <!-- Navigation -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="activities">[ ACTIVITIES ]</button>
+      <button class="nav-tab" data-tab="crew">[ CREW ]</button>
+      <button class="nav-tab" data-tab="resources">[ RESOURCES ]</button>
+      <button class="nav-tab" data-tab="settings">[ SETTINGS ]</button>
+      <button class="nav-tab" data-tab="log">[ LOG ]</button>
+    </nav>
+
+    <!-- Main Screen -->
+    <main class="screen">
+
+      <!-- ACTIVITIES TAB -->
+      <section id="tab-activities" class="tab-panel active">
+        <div class="panel-container">
+          <div class="panel panel-main">
+            <div class="panel-header">
+              <span class="panel-title">┌─ OPERATIONS ─────────────────────────────────────────────────┐</span>
+            </div>
+            <div class="panel-body">
+              <div id="branch-selector" class="branch-tabs"></div>
+              <div id="view-container">
+                <div id="activity-list" class="activity-list"></div>
+                <div id="activity-detail" class="activity-detail" style="display: none;"></div>
+              </div>
+            </div>
+            <div class="panel-footer">
+              <span class="panel-title">└───────────────────────────────────────────────────────────────┘</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CREW TAB -->
+      <section id="tab-crew" class="tab-panel">
+        <div class="panel-grid">
+          <div class="panel panel-half">
+            <div class="panel-header">
+              <span class="panel-title">┌─ STAFF ROSTER ───────────────────┐</span>
+            </div>
+            <div class="panel-body" id="staff-list"></div>
+            <div class="panel-footer">
+              <span class="panel-title">└───────────────────────────────────┘</span>
+            </div>
+          </div>
+
+          <div class="panel panel-half">
+            <div class="panel-header">
+              <span class="panel-title">┌─ ACTIVE RUNS ────────────────────┐</span>
+            </div>
+            <div class="panel-body" id="runs-list"></div>
+            <div class="panel-footer">
+              <span class="panel-title">└───────────────────────────────────┘</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RESOURCES TAB -->
+      <section id="tab-resources" class="tab-panel">
+        <div class="panel-container">
+          <div class="panel panel-main">
+            <div class="panel-header">
+              <span class="panel-title">┌─ RESOURCES & INVENTORY ──────────────────────────────────────┐</span>
+            </div>
+            <div class="panel-body" id="resources-list"></div>
+            <div class="panel-footer">
+              <span class="panel-title">└───────────────────────────────────────────────────────────────┘</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS TAB -->
+      <section id="tab-settings" class="tab-panel">
+        <div class="panel-container">
+          <div class="panel panel-main">
+            <div class="panel-header">
+              <span class="panel-title">┌─ SYSTEM SETTINGS ─────────────────────────────────────────────┐</span>
+            </div>
+            <div class="panel-body" id="settings-content"></div>
+            <div class="panel-footer">
+              <span class="panel-title">└───────────────────────────────────────────────────────────────┘</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LOG TAB -->
+      <section id="tab-log" class="tab-panel">
+        <div class="panel-container">
+          <div class="panel panel-main">
+            <div class="panel-header">
+              <span class="panel-title">┌─ EVENT LOG ───────────────────────────────────────────────────┐</span>
+            </div>
+            <div class="panel-body" id="log-list"></div>
+            <div class="panel-footer">
+              <span class="panel-title">└───────────────────────────────────────────────────────────────┘</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- System Footer -->
+    <footer class="system-footer">
+      <span class="footer-text">SYS.STATUS: <span class="status-ok">OPERATIONAL</span></span>
+      <span class="footer-text">UPTIME: <span id="uptime">00:00:00</span></span>
+    </footer>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="ui.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
