@@ -114,6 +114,7 @@ const SAMPLE_CONTENT = {
         {
           id: "shoplifting_grab_and_go",
           name: "grab and go",
+          repeatable: true,
           description: "confidence is the disguise.",
           visibleIf: [],
           unlockIf: [],
@@ -657,7 +658,46 @@ const SAMPLE_CONTENT = {
 };
 
 // Main initialization
+// Global Lexicon object
+const Lexicon = {
+  data: null,
+
+  async load() {
+    try {
+      const response = await fetch('data/lexicon.json');
+      this.data = await response.json();
+      console.log("Lexicon loaded");
+    } catch (err) {
+      console.error("Failed to load lexicon:", err);
+      // Fallback to empty object if load fails
+      this.data = { actions: {}, status: {}, labels: {}, tabs: {}, panels: {}, log_templates: {}, errors: {}, tooltips: {} };
+    }
+  },
+
+  get(path) {
+    if (!this.data) return path;
+    const parts = path.split('.');
+    let value = this.data;
+    for (const part of parts) {
+      value = value?.[part];
+      if (value === undefined) return path;
+    }
+    return value;
+  },
+
+  template(path, vars = {}) {
+    let text = this.get(path);
+    for (const [key, val] of Object.entries(vars)) {
+      text = text.replace(`{${key}}`, val);
+    }
+    return text;
+  }
+};
+
 document.addEventListener("DOMContentLoaded", async () => {
+  // Load lexicon first
+  await Lexicon.load();
+
   // Load saved state
   let savedState = null;
   try {
@@ -740,6 +780,7 @@ function updateUptime() {
 // Expose for debugging
 window.Engine = Engine;
 window.UI = UI;
+window.Lexicon = Lexicon;
 window.saveGame = saveGame;
 
 // Add reset command

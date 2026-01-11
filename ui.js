@@ -553,95 +553,98 @@ const UI = {
       const queue = Engine.state.repeatQueues[queueKey];
       const hasActiveRun = Engine.state.runs.some(r => r.activityId === activity.id && r.optionId === option.id);
 
-      if (queue && hasActiveRun) {
-        // Show repeat status and stop button
-        const repeatStatus = document.createElement("div");
-        repeatStatus.className = "repeat-status";
+      // Only show repeat controls if option allows it
+      if (option.repeatable) {
+        if (queue && hasActiveRun) {
+          // Show repeat status and stop button
+          const repeatStatus = document.createElement("div");
+          repeatStatus.className = "repeat-status";
 
-        const statusText = document.createElement("div");
-        statusText.className = "repeat-status-text";
-        if (queue.remaining === "infinite") {
-          statusText.textContent = "∞ REPEATING";
-        } else {
-          statusText.textContent = `REPEATING ${queue.remaining}/${queue.total}`;
-        }
-
-        const stopBtn = document.createElement("button");
-        stopBtn.className = "btn-stop";
-        stopBtn.textContent = "STOP";
-        stopBtn.dataset.action = "stop-repeat-request";
-        stopBtn.dataset.activityId = activity.id;
-        stopBtn.dataset.optionId = option.id;
-
-        repeatStatus.appendChild(statusText);
-        repeatStatus.appendChild(stopBtn);
-        buttonContainer.appendChild(repeatStatus);
-      } else if (!hasActiveRun) {
-        // Show repeat controls (not running)
-        const repeatControls = document.createElement("div");
-        repeatControls.className = "repeat-controls";
-
-        // Repeat count input
-        const repeatInput = document.createElement("input");
-        repeatInput.type = "number";
-        repeatInput.className = "repeat-input";
-        repeatInput.value = "1";
-        repeatInput.min = "1";
-        repeatInput.max = "999";
-        repeatInput.id = `repeat-input-${option.id}`;
-
-        // +/- buttons
-        const decrementBtn = document.createElement("button");
-        decrementBtn.className = "btn-increment";
-        decrementBtn.textContent = "-";
-        decrementBtn.onclick = (e) => {
-          e.stopPropagation();
-          const input = document.getElementById(`repeat-input-${option.id}`);
-          if (input && input.value > 1) input.value = parseInt(input.value) - 1;
-        };
-
-        const incrementBtn = document.createElement("button");
-        incrementBtn.className = "btn-increment";
-        incrementBtn.textContent = "+";
-        incrementBtn.onclick = (e) => {
-          e.stopPropagation();
-          const input = document.getElementById(`repeat-input-${option.id}`);
-          if (input && input.value < 999) input.value = parseInt(input.value) + 1;
-        };
-
-        // Repeat X times button
-        const repeatXBtn = document.createElement("button");
-        repeatXBtn.className = "btn btn-secondary";
-        repeatXBtn.textContent = "REPEAT X";
-        repeatXBtn.dataset.action = "repeat-run";
-        repeatXBtn.dataset.activityId = activity.id;
-        repeatXBtn.dataset.optionId = option.id;
-        repeatXBtn.disabled = !canStart;
-        if (!canStart) repeatXBtn.classList.add("btn-disabled");
-        repeatXBtn.onclick = (e) => {
-          const input = document.getElementById(`repeat-input-${option.id}`);
-          if (input) {
-            e.target.dataset.count = input.value;
+          const statusText = document.createElement("div");
+          statusText.className = "repeat-status-text";
+          if (queue.remaining === "infinite") {
+            statusText.textContent = "∞ REPEATING";
+          } else {
+            statusText.textContent = `REPEATING ${queue.remaining}/${queue.total}`;
           }
-        };
 
-        // Infinite repeat button
-        const repeatInfBtn = document.createElement("button");
-        repeatInfBtn.className = "btn btn-secondary";
-        repeatInfBtn.textContent = "∞ REPEAT";
-        repeatInfBtn.dataset.action = "repeat-infinite";
-        repeatInfBtn.dataset.activityId = activity.id;
-        repeatInfBtn.dataset.optionId = option.id;
-        repeatInfBtn.disabled = !canStart;
-        if (!canStart) repeatInfBtn.classList.add("btn-disabled");
+          const stopBtn = document.createElement("button");
+          stopBtn.className = "btn-stop";
+          stopBtn.textContent = "STOP";
+          stopBtn.dataset.action = "stop-repeat-request";
+          stopBtn.dataset.activityId = activity.id;
+          stopBtn.dataset.optionId = option.id;
 
-        repeatControls.appendChild(decrementBtn);
-        repeatControls.appendChild(repeatInput);
-        repeatControls.appendChild(incrementBtn);
-        repeatControls.appendChild(repeatXBtn);
-        repeatControls.appendChild(repeatInfBtn);
+          repeatStatus.appendChild(statusText);
+          repeatStatus.appendChild(stopBtn);
+          buttonContainer.appendChild(repeatStatus);
+        } else if (!hasActiveRun) {
+          // Show repeat controls (not running)
+          const repeatControls = document.createElement("div");
+          repeatControls.className = "repeat-controls";
 
-        buttonContainer.appendChild(repeatControls);
+          // Repeat count input
+          const repeatInput = document.createElement("input");
+          repeatInput.type = "number";
+          repeatInput.className = "repeat-input";
+          repeatInput.value = "1";
+          repeatInput.min = "1";
+          repeatInput.max = "999";
+          repeatInput.id = `repeat-input-${option.id}`;
+
+          // +/- buttons
+          const decrementBtn = document.createElement("button");
+          decrementBtn.className = "btn-increment";
+          decrementBtn.textContent = "-";
+          decrementBtn.onclick = (e) => {
+            e.stopPropagation();
+            const input = document.getElementById(`repeat-input-${option.id}`);
+            if (input && input.value > 1) input.value = parseInt(input.value) - 1;
+          };
+
+          const incrementBtn = document.createElement("button");
+          incrementBtn.className = "btn-increment";
+          incrementBtn.textContent = "+";
+          incrementBtn.onclick = (e) => {
+            e.stopPropagation();
+            const input = document.getElementById(`repeat-input-${option.id}`);
+            if (input && input.value < 999) input.value = parseInt(input.value) + 1;
+          };
+
+          // Repeat X times button
+          const repeatXBtn = document.createElement("button");
+          repeatXBtn.className = "btn btn-secondary";
+          repeatXBtn.textContent = "REPEAT X";
+          repeatXBtn.dataset.action = "repeat-run";
+          repeatXBtn.dataset.activityId = activity.id;
+          repeatXBtn.dataset.optionId = option.id;
+          repeatXBtn.disabled = !canStart;
+          if (!canStart) repeatXBtn.classList.add("btn-disabled");
+          repeatXBtn.onclick = (e) => {
+            const input = document.getElementById(`repeat-input-${option.id}`);
+            if (input) {
+              e.target.dataset.count = input.value;
+            }
+          };
+
+          // Infinite repeat button
+          const repeatInfBtn = document.createElement("button");
+          repeatInfBtn.className = "btn btn-secondary";
+          repeatInfBtn.textContent = "∞ REPEAT";
+          repeatInfBtn.dataset.action = "repeat-infinite";
+          repeatInfBtn.dataset.activityId = activity.id;
+          repeatInfBtn.dataset.optionId = option.id;
+          repeatInfBtn.disabled = !canStart;
+          if (!canStart) repeatInfBtn.classList.add("btn-disabled");
+
+          repeatControls.appendChild(decrementBtn);
+          repeatControls.appendChild(repeatInput);
+          repeatControls.appendChild(incrementBtn);
+          repeatControls.appendChild(repeatXBtn);
+          repeatControls.appendChild(repeatInfBtn);
+
+          buttonContainer.appendChild(repeatControls);
+        }
       }
 
       footer.appendChild(buttonContainer);
@@ -680,34 +683,31 @@ const UI = {
         const progress = Math.min(100, Math.max(0, (elapsed / total) * 100));
         const remaining = Math.max(0, run.endsAt - now);
 
-        // Top row: Assigned crew and time remaining
-        const topRow = document.createElement("div");
-        topRow.className = "run-top-row";
-        topRow.textContent = `Assigned: ${assignedNames} │ Time remaining: ${this.formatDuration(remaining)}`;
-
-        // Progress bar with ASCII style
-        const progressBarContainer = document.createElement("div");
-        progressBarContainer.className = "run-progress-row";
-
-        const progressBar = document.createElement("div");
-        progressBar.className = "progress-bar-ascii";
-
         const filled = Math.floor((progress / 100) * 10);
         const empty = 10 - filled;
-        progressBar.textContent = `[${('='.repeat(filled) + '-'.repeat(empty))}]`;
+        const barText = `[${'='.repeat(filled)}${'-'.repeat(empty)}]`;
+
+        // Single line format
+        const line = document.createElement("div");
+        line.style.display = "flex";
+        line.style.justifyContent = "space-between";
+        line.style.alignItems = "center";
+        
+        const info = document.createElement("div");
+        info.textContent = `Assigned: ${assignedNames} | Time: ${this.formatDuration(remaining)} ${barText}`;
+        info.className = "run-top-row"; // Reuse style
 
         // Cancel button
         const cancelBtn = document.createElement("button");
         cancelBtn.className = "btn-cancel";
-        cancelBtn.textContent = "CANCEL";
+        cancelBtn.textContent = "STOP";
         cancelBtn.dataset.action = "cancel-run";
         cancelBtn.dataset.runId = run.runId;
 
-        progressBarContainer.appendChild(progressBar);
-        progressBarContainer.appendChild(cancelBtn);
+        line.appendChild(info);
+        line.appendChild(cancelBtn);
 
-        runItem.appendChild(topRow);
-        runItem.appendChild(progressBarContainer);
+        runItem.appendChild(line);
         runsSection.appendChild(runItem);
       });
 
@@ -792,34 +792,38 @@ const UI = {
 
       const meta = document.createElement("div");
       meta.className = "run-meta";
+      meta.style.display = "flex";
+      meta.style.justifyContent = "space-between";
+      meta.style.alignItems = "center";
+      
       const assignedNames = run.assignedStaffIds.map(id => {
         const s = Engine.state.crew.staff.find(staff => staff.id === id);
         return s ? s.name : "Unknown";
       }).join(", ");
-      meta.textContent = `CREW: ${assignedNames}`;
 
       const elapsed = now - run.startedAt;
       const total = run.endsAt - run.startedAt;
       const progress = Math.min(100, Math.max(0, (elapsed / total) * 100));
       const remaining = Math.max(0, run.endsAt - now);
 
-      const progressBar = document.createElement("div");
-      progressBar.className = "progress-bar";
+      const filled = Math.floor((progress / 100) * 10);
+      const emptyChars = 10 - filled;
+      const barText = `[${'='.repeat(filled)}${'-'.repeat(emptyChars)}]`;
+      
+      const infoText = document.createElement("span");
+      infoText.textContent = `Assigned: ${assignedNames} | Time: ${this.formatDuration(remaining)} ${barText}`;
 
-      const progressFill = document.createElement("div");
-      progressFill.className = "progress-fill";
-      progressFill.style.width = `${progress}%`;
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "btn-cancel";
+      cancelBtn.textContent = "STOP";
+      cancelBtn.dataset.action = "cancel-run";
+      cancelBtn.dataset.runId = run.runId;
 
-      const progressText = document.createElement("div");
-      progressText.className = "progress-text";
-      progressText.textContent = `${Math.floor(progress)}% │ ${this.formatDuration(remaining)} remaining`;
-
-      progressBar.appendChild(progressFill);
-      progressBar.appendChild(progressText);
+      meta.appendChild(infoText);
+      meta.appendChild(cancelBtn);
 
       item.appendChild(name);
       item.appendChild(meta);
-      item.appendChild(progressBar);
       container.appendChild(item);
     });
   },

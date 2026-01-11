@@ -203,7 +203,11 @@ const Engine = {
     }
 
     this.state.runs.push(run);
-    this.addLog(`Started: ${activity.name} → ${option.name}`, "info");
+    const message = window.Lexicon?.template('log_templates.run_started', {
+      activityName: activity.name,
+      optionName: option.name
+    }) || `Started: ${activity.name} → ${option.name}`;
+    this.addLog(message, "info");
 
     return { ok: true, run };
   },
@@ -227,7 +231,9 @@ const Engine = {
 
     const activityName = activity?.name || "Unknown";
     const optionName = option?.name || "Unknown";
-    this.addLog(`Cancelled: ${activityName} → ${optionName}`, "warn");
+    const message = window.Lexicon?.template('log_templates.run_dropped', { activityName, optionName })
+      || `Dropped: ${activityName} → ${optionName}`;
+    this.addLog(message, "warn");
 
     return { ok: true };
   },
@@ -273,7 +279,11 @@ const Engine = {
     this.state.completions.option[run.optionId] = (this.state.completions.option[run.optionId] || 0) + 1;
     this.state.completions.activity[run.activityId] = (this.state.completions.activity[run.activityId] || 0) + 1;
 
-    this.addLog(`Completed: ${activity.name} → ${option.name}`, "success");
+    const message = window.Lexicon?.template('log_templates.run_completed', {
+      activityName: activity.name,
+      optionName: option.name
+    }) || `Completed: ${activity.name} → ${option.name}`;
+    this.addLog(message, "success");
   },
 
   checkRepeatQueue(run) {
@@ -297,7 +307,9 @@ const Engine = {
       } else {
         // Can't restart, stop queue
         delete this.state.repeatQueues[queueKey];
-        this.addLog(`Repeat stopped: ${result.reason}`, "warn");
+        const message = window.Lexicon?.template('log_templates.repeat_stopped', { reason: result.reason })
+          || `Repeat stopped: ${result.reason}`;
+        this.addLog(message, "warn");
       }
     }
   },

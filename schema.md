@@ -137,8 +137,15 @@ Repeat queues allow options to automatically restart after completion.
 
 **UI Patterns**:
 - User can set repeat count (1-999) or infinite (∞)
-- Two-stage stop button prevents accidental cancellation
+- Two-stage stop button prevents accidental dropping (forfeits progress)
 - Shows progress: "REPEATING 3/10" or "∞ REPEATING"
+- Only shown for activities/options where `meta.repeatable === true`
+
+**Unlocking Repeat Functionality**:
+- Not all activities support repeat queues
+- Activity schema includes `meta.repeatable` boolean field
+- Can be initially `false` and unlocked via flags/progression
+- Provides gameplay progression and early-game pacing
 
 2. BRANCH
 
@@ -210,7 +217,8 @@ They never execute directly.
 
   "meta": {
     "tags": ["crime", "starter"],
-    "icon": "👜"
+    "icon": "👜",
+    "repeatable": true
   },
 
   "visibleIf": [],
@@ -223,6 +231,12 @@ They never execute directly.
 
   "options": []
 }
+
+**Repeatable Field:**
+- `repeatable`: Boolean (optional, defaults to `false`)
+- When `true`, shows repeat queue UI controls for all options in this activity
+- When `false` or undefined, repeat controls are hidden
+- Repeatable status can be unlocked via progression (e.g., flag conditions)
 
 7. OPTION
 
