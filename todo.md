@@ -11,3 +11,33 @@ need a way to buy crew .
 the font in the main tab menu ("activities","crew","resources" etc) doesn't use the same font as the game.
 
 font selection, can the font selection be a sub menu?
+
+settings should come after log.. in fact can settings be right aligned?
+
+## Passive Crimes / Persistent Operations System
+
+Implement passive income mechanics like "Install Skimmer" - crimes that generate ongoing effects over time rather than single completion rewards.
+
+**Skimmer Example:**
+- Activity: "Install Card Skimmer" (one-time installation crime)
+- Once installed, creates a persistent "active skimmer" state
+- Generates passive events with three possible outcomes:
+  1. **Success**: Random cash reward generated at intervals
+  2. **Removed**: Skimmer discovered and removed (ends passive income)
+  3. **Compromised**: Removed + heat increase
+
+**Design Considerations:**
+- How to represent "active installations" in state (separate from runs)
+- Tick-based or time-based passive reward checks
+- Risk factors: heat level affects discovery chance
+- Maintenance/monitoring options to extend lifespan
+- Visual indication of active passive operations
+- Limit on number of concurrent passive operations
+- Different passive operation types (skimmers, drops, lookouts, etc.)
+
+**Schema Requirements:**
+- New state object for active persistent operations
+- Option flag for "creates persistent operation" vs "one-time completion"
+- Passive outcome tables (similar to weighted outcomes but time-triggered)
+- Duration/lifespan mechanics
+- Discovery/removal probability modifiers

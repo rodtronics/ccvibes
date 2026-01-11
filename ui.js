@@ -548,121 +548,188 @@ const UI = {
         footer.appendChild(reasonText);
       }
 
-      // Button container for START
+      // Button container
       const buttonContainer = document.createElement("div");
       buttonContainer.className = "option-buttons";
-      buttonContainer.appendChild(startBtn);
 
       // Repeat controls
       const queueKey = `${activity.id}:${option.id}`;
       const queue = Engine.state.repeatQueues[queueKey];
       const hasActiveRun = Engine.state.runs.some(r => r.activityId === activity.id && r.optionId === option.id);
 
-      // Only show repeat controls if option allows it
-      if (option.repeatable) {
-        if (queue && hasActiveRun) {
-          // Show repeat status and stop button
-          const repeatStatus = document.createElement("div");
-          repeatStatus.className = "repeat-status";
+      // Check repeatable on option first, then activity meta, default to true
+      const isRepeatable = option.repeatable !== false && activity.meta?.repeatable !== false;
 
-          const statusText = document.createElement("div");
-          statusText.className = "repeat-status-text";
-          if (queue.remaining === "infinite") {
-            statusText.textContent = "∞ REPEATING";
-          } else {
-            // Calculate estimated time remaining
-            const activeRun = Engine.state.runs.find(r => r.activityId === activity.id && r.optionId === option.id);
-            let timeEstimate = "";
-            if (activeRun && option.durationMs) {
-              const totalTimeMs = queue.remaining * option.durationMs;
-              const hours = Math.floor(totalTimeMs / 3600000);
-              const minutes = Math.floor((totalTimeMs % 3600000) / 60000);
-              if (hours > 0) {
-                timeEstimate = ` (~${hours}h ${minutes}m)`;
-              } else if (minutes > 0) {
-                timeEstimate = ` (~${minutes}m)`;
-              }
+      if (queue && hasActiveRun) {
+        // Show repeat status and stop button
+        const repeatStatus = document.createElement("div");
+        repeatStatus.className = "repeat-status";
+
+        const statusText = document.createElement("div");
+        statusText.className = "repeat-status-text";
+        if (queue.remaining === "infinite") {
+          statusText.textContent = "∞ REPEATING";
+        } else {
+          // Calculate estimated time remaining
+          const activeRun = Engine.state.runs.find(r => r.activityId === activity.id && r.optionId === option.id);
+          let timeEstimate = "";
+          if (activeRun && option.durationMs) {
+            const totalTimeMs = queue.remaining * option.durationMs;
+            const hours = Math.floor(totalTimeMs / 3600000);
+            const minutes = Math.floor((totalTimeMs % 3600000) / 60000);
+            if (hours > 0) {
+              timeEstimate = ` (~${hours}h ${minutes}m)`;
+            } else if (minutes > 0) {
+              timeEstimate = ` (~${minutes}m)`;
             }
-            statusText.textContent = `${queue.remaining} runs left${timeEstimate}`;
           }
-
-          const stopBtn = document.createElement("button");
-          stopBtn.className = "btn-stop";
-          stopBtn.textContent = "STOP";
-          stopBtn.dataset.action = "stop-repeat-request";
-          stopBtn.dataset.activityId = activity.id;
-          stopBtn.dataset.optionId = option.id;
-
-          repeatStatus.appendChild(statusText);
-          repeatStatus.appendChild(stopBtn);
-          buttonContainer.appendChild(repeatStatus);
-        } else if (!hasActiveRun) {
-          // Show repeat controls (not running)
-          const repeatControls = document.createElement("div");
-          repeatControls.className = "repeat-controls";
-
-          // Repeat count input
-          const repeatInput = document.createElement("input");
-          repeatInput.type = "number";
-          repeatInput.className = "repeat-input";
-          repeatInput.value = "1";
-          repeatInput.min = "1";
-          repeatInput.max = "999";
-          repeatInput.id = `repeat-input-${option.id}`;
-
-          // +/- buttons
-          const decrementBtn = document.createElement("button");
-          decrementBtn.className = "btn-increment";
-          decrementBtn.textContent = "-";
-          decrementBtn.onclick = (e) => {
-            e.stopPropagation();
-            const input = document.getElementById(`repeat-input-${option.id}`);
-            if (input && input.value > 1) input.value = parseInt(input.value) - 1;
-          };
-
-          const incrementBtn = document.createElement("button");
-          incrementBtn.className = "btn-increment";
-          incrementBtn.textContent = "+";
-          incrementBtn.onclick = (e) => {
-            e.stopPropagation();
-            const input = document.getElementById(`repeat-input-${option.id}`);
-            if (input && input.value < 999) input.value = parseInt(input.value) + 1;
-          };
-
-          // Repeat X times button
-          const repeatXBtn = document.createElement("button");
-          repeatXBtn.className = "btn btn-secondary";
-          repeatXBtn.textContent = "REPEAT X";
-          repeatXBtn.dataset.action = "repeat-run";
-          repeatXBtn.dataset.activityId = activity.id;
-          repeatXBtn.dataset.optionId = option.id;
-          repeatXBtn.disabled = !canStart;
-          if (!canStart) repeatXBtn.classList.add("btn-disabled");
-          repeatXBtn.onclick = (e) => {
-            const input = document.getElementById(`repeat-input-${option.id}`);
-            if (input) {
-              e.target.dataset.count = input.value;
-            }
-          };
-
-          // Infinite repeat button
-          const repeatInfBtn = document.createElement("button");
-          repeatInfBtn.className = "btn btn-secondary";
-          repeatInfBtn.textContent = "∞ REPEAT";
-          repeatInfBtn.dataset.action = "repeat-infinite";
-          repeatInfBtn.dataset.activityId = activity.id;
-          repeatInfBtn.dataset.optionId = option.id;
-          repeatInfBtn.disabled = !canStart;
-          if (!canStart) repeatInfBtn.classList.add("btn-disabled");
-
-          repeatControls.appendChild(decrementBtn);
-          repeatControls.appendChild(repeatInput);
-          repeatControls.appendChild(incrementBtn);
-          repeatControls.appendChild(repeatXBtn);
-          repeatControls.appendChild(repeatInfBtn);
-
-          buttonContainer.appendChild(repeatControls);
+          statusText.textContent = `${queue.remaining} runs left${timeEstimate}`;
         }
+
+        const stopBtn = document.createElement("button");
+        stopBtn.className = "btn-stop";
+        stopBtn.textContent = "STOP";
+        stopBtn.dataset.action = "stop-repeat-request";
+        stopBtn.dataset.activityId = activity.id;
+        stopBtn.dataset.optionId = option.id;
+
+        repeatStatus.appendChild(statusText);
+        repeatStatus.appendChild(stopBtn);
+        buttonContainer.appendChild(repeatStatus);
+      } else if (!hasActiveRun) {
+        // Mode selector + single COMMIT button
+        const modeSelector = document.createElement("div");
+        modeSelector.className = "repeat-mode-selector";
+
+        // Radio option: Once
+        const onceOption = document.createElement("label");
+        onceOption.className = "repeat-mode-option";
+        const onceRadio = document.createElement("input");
+        onceRadio.type = "radio";
+        onceRadio.name = `repeat-mode-${option.id}`;
+        onceRadio.value = "once";
+        onceRadio.checked = true;
+        onceRadio.className = "repeat-mode-radio";
+        const onceLabel = document.createElement("span");
+        onceLabel.textContent = "Once";
+        onceOption.appendChild(onceRadio);
+        onceOption.appendChild(onceLabel);
+
+        // Radio option: X times (with number input)
+        const repeatOption = document.createElement("label");
+        repeatOption.className = "repeat-mode-option";
+        const repeatRadio = document.createElement("input");
+        repeatRadio.type = "radio";
+        repeatRadio.name = `repeat-mode-${option.id}`;
+        repeatRadio.value = "repeat";
+        repeatRadio.className = "repeat-mode-radio";
+
+        const repeatLabel = document.createElement("span");
+        repeatLabel.textContent = "Repeat ";
+
+        const repeatInput = document.createElement("input");
+        repeatInput.type = "number";
+        repeatInput.className = "repeat-input-inline";
+        repeatInput.value = "5";
+        repeatInput.min = "1";
+        repeatInput.max = "999";
+        repeatInput.id = `repeat-input-${option.id}`;
+        repeatInput.onclick = (e) => {
+          e.stopPropagation();
+          repeatRadio.checked = true;
+        };
+
+        const decrementBtn = document.createElement("button");
+        decrementBtn.className = "btn-increment-inline";
+        decrementBtn.textContent = "-";
+        decrementBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          repeatRadio.checked = true;
+          const input = document.getElementById(`repeat-input-${option.id}`);
+          if (input && input.value > 1) input.value = parseInt(input.value) - 1;
+        };
+
+        const incrementBtn = document.createElement("button");
+        incrementBtn.className = "btn-increment-inline";
+        incrementBtn.textContent = "+";
+        incrementBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          repeatRadio.checked = true;
+          const input = document.getElementById(`repeat-input-${option.id}`);
+          if (input && input.value < 999) input.value = parseInt(input.value) + 1;
+        };
+
+        const timesText = document.createElement("span");
+        timesText.textContent = " times";
+
+        repeatOption.appendChild(repeatRadio);
+        repeatOption.appendChild(repeatLabel);
+        repeatOption.appendChild(decrementBtn);
+        repeatOption.appendChild(repeatInput);
+        repeatOption.appendChild(incrementBtn);
+        repeatOption.appendChild(timesText);
+
+        // Radio option: Forever
+        const foreverOption = document.createElement("label");
+        foreverOption.className = "repeat-mode-option";
+        const foreverRadio = document.createElement("input");
+        foreverRadio.type = "radio";
+        foreverRadio.name = `repeat-mode-${option.id}`;
+        foreverRadio.value = "forever";
+        foreverRadio.className = "repeat-mode-radio";
+        const foreverLabel = document.createElement("span");
+        foreverLabel.textContent = "Repeat Forever";
+        foreverOption.appendChild(foreverRadio);
+        foreverOption.appendChild(foreverLabel);
+
+        if (isRepeatable) {
+          modeSelector.appendChild(onceOption);
+          modeSelector.appendChild(repeatOption);
+          modeSelector.appendChild(foreverOption);
+        }
+
+        // Single COMMIT button
+        const commitBtn = document.createElement("button");
+        commitBtn.className = "btn";
+        commitBtn.textContent = "COMMIT";
+        commitBtn.disabled = !canStart;
+        if (!canStart) commitBtn.classList.add("btn-disabled");
+
+        commitBtn.onclick = (e) => {
+          e.preventDefault();
+          const selectedMode = document.querySelector(`input[name="repeat-mode-${option.id}"]:checked`);
+
+          if (!selectedMode || selectedMode.value === "once") {
+            // Single run
+            const result = Engine.startRun(activity.id, option.id);
+            if (result.ok) {
+              this.renderAll();
+            }
+          } else if (selectedMode.value === "repeat") {
+            // Repeat X times
+            const input = document.getElementById(`repeat-input-${option.id}`);
+            const count = input ? parseInt(input.value) : 1;
+            const result = Engine.startRun(activity.id, option.id);
+            if (result.ok) {
+              Engine.setRepeatQueue(activity.id, option.id, count);
+              this.renderAll();
+            }
+          } else if (selectedMode.value === "forever") {
+            // Repeat forever
+            const result = Engine.startRun(activity.id, option.id);
+            if (result.ok) {
+              Engine.setRepeatQueue(activity.id, option.id, "infinite");
+              this.renderAll();
+            }
+          }
+        };
+
+        if (isRepeatable) {
+          buttonContainer.appendChild(modeSelector);
+        }
+        buttonContainer.appendChild(commitBtn);
       }
 
       footer.appendChild(buttonContainer);

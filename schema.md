@@ -89,6 +89,8 @@ Canonical minimal runtime state shape.
 
   "repeatQueues": {},
 
+  "persistentOperations": [],
+
   "completions": {
     "activity": {},
     "option": {}
@@ -146,6 +148,75 @@ Repeat queues allow options to automatically restart after completion.
 - Activity schema includes `meta.repeatable` boolean field
 - Can be initially `false` and unlocked via flags/progression
 - Provides gameplay progression and early-game pacing
+
+### Persistent Operations
+
+Persistent operations are ongoing activities that generate passive events over time, distinct from one-time runs.
+
+**Example: Card Skimmer**
+- Player completes "Install Card Skimmer" activity
+- Creates a persistent operation entry in `persistentOperations` array
+- Each tick/interval, engine checks for passive events
+- May yield rewards, be discovered and removed, or increase heat
+
+```json
+"persistentOperations": [
+  {
+    "id": "po_001",
+    "type": "skimmer",
+    "installedAt": 1700000000000,
+    "lastCheckAt": 1700000060000,
+    "locationId": "campus_atm_3",
+    "discoveryChance": 0.02,
+    "yieldChance": 0.30,
+    "checkIntervalMs": 60000
+  }
+]
+```
+
+**Fields**:
+- `id`: Unique persistent operation ID
+- `type`: Operation type (skimmer, drop, lookout, etc.)
+- `installedAt`: Timestamp when operation began
+- `lastCheckAt`: Last time operation was checked/processed
+- `locationId`: Optional location/context identifier
+- `discoveryChance`: Base probability per check of being discovered/removed
+- `yieldChance`: Probability per check of generating reward
+- `checkIntervalMs`: How often to process this operation
+
+**Behavior**:
+- Engine processes persistent operations on each tick
+- When `now - lastCheckAt >= checkIntervalMs`, roll for events:
+  1. **Yield**: Generate rewards (cash, items) based on `yieldChance`
+  2. **Discovery**: Remove operation and optionally increase heat based on `discoveryChance`
+  3. **Nothing**: Operation continues silently
+- Modifiers affect chances (heat level increases discovery, upgrades reduce it)
+- Operations removed when discovered or when player manually removes them
+
+**Option Schema Extension**:
+```json
+{
+  "id": "install_skimmer_campus",
+  "name": "install skimmer at campus ATM",
+  "createsPersistentOperation": {
+    "type": "skimmer",
+    "baseDiscoveryChance": 0.02,
+    "baseYieldChance": 0.30,
+    "checkIntervalMs": 60000,
+    "yieldOutputs": {
+      "resources": { "cash": { "min": 20, "max": 80 } }
+    }
+  }
+}
+```
+
+**Design Notes**:
+- Distinct from runs (no crew assignment after installation)
+- Passive income mechanic for mid-to-late game
+- Risk/reward balance via discovery chance
+- Limited slots prevent infinite passive scaling
+- Upgrades can improve yield/reduce discovery
+- Different operation types for variety
 
 2. BRANCH
 
