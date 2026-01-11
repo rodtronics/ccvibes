@@ -340,6 +340,171 @@ The repeat queue system allows activities to automatically restart upon completi
 - `var(--warning)` (orange) for initial STOP button
 - `var(--danger)` (red) for CONFIRM state
 
+### Crew Selection Modal Pattern
+
+The crew selection modal enables RPG-style crew composition before committing to operations. It separates "what to do" from "who does it," providing strategic depth without cluttering the main UI.
+
+**Trigger:**
+- User clicks "COMMIT" button on any option card
+- Modal overlays current screen
+- Dims background to focus attention on modal
+
+**Modal Layout:**
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ JEWELRY HEIST: SMASH AND GRAB                            │
+│ fast, loud, effective. pick two.                         │
+├──────────────────────────────────────────────────────────┤
+│                                                           │
+│ REQUIRED ROLES                                            │
+│ ┌────────────────────────────────────────────────────┐  │
+│ │ THIEF (2★ minimum)              [SELECT ▼]  ⚠️    │  │
+│ │ None Selected                                      │  │
+│ └────────────────────────────────────────────────────┘  │
+│ ┌────────────────────────────────────────────────────┐  │
+│ │ DRIVER (1★ minimum)             [SELECT ▼]  ⚠️    │  │
+│ │ None Selected                                      │  │
+│ └────────────────────────────────────────────────────┘  │
+│                                                           │
+│ OPTIONAL SPECIALISTS                                      │
+│ ┌────────────────────────────────────────────────────┐  │
+│ │ FIXER (any)                     [SELECT ▼]        │  │
+│ │ Bonus: +5 cred, improved success rate             │  │
+│ │ Currently: None                                    │  │
+│ └────────────────────────────────────────────────────┘  │
+│ ┌────────────────────────────────────────────────────┐  │
+│ │ CLEANER (any)                   [SELECT ▼]        │  │
+│ │ Bonus: -40% heat generation                       │  │
+│ │ Currently: None                                    │  │
+│ └────────────────────────────────────────────────────┘  │
+│                                                           │
+│ EXPECTED OUTCOME (with current crew)                     │
+│ ┌────────────────────────────────────────────────────┐  │
+│ │ Probability: 30% caught, 70% success               │  │
+│ │ CRED: -20 to +8  │  HEAT: +3 to +15               │  │
+│ │ CASH: $0 to $350                                   │  │
+│ └────────────────────────────────────────────────────┘  │
+│                                                           │
+│ [CANCEL]                      [CONFIRM] (disabled)       │
+└──────────────────────────────────────────────────────────┘
+```
+
+**When [SELECT ▼] is clicked:**
+
+Dropdown appears showing filtered crew:
+
+```
+┌──────────────────────────────────────┐
+│ Available THIEVES:                   │
+├──────────────────────────────────────┤
+│ ○ Vincent (★★★) - AVAILABLE         │
+│ ○ Marcus (★★) - AVAILABLE           │
+│ ○ Jesse (★) - BUSY (returns 2m)     │ (grayed)
+│ ○ Alex (★★) - JAIL (4h remaining)   │ (grayed)
+└──────────────────────────────────────┘
+```
+
+**After selecting crew:**
+
+```
+┌────────────────────────────────────────────────────┐
+│ THIEF (2★ minimum)              [Vincent ✓]  ✓   │
+│ Vincent (★★★) - AVAILABLE                        │
+└────────────────────────────────────────────────────┘
+```
+
+**Expected Outcome updates dynamically:**
+
+```
+EXPECTED OUTCOME (with Vincent ★★★ + Marcus ★★)
+┌────────────────────────────────────────────────────┐
+│ Probability: 15% caught, 85% success               │
+│ CRED: -20 to +13  │  HEAT: +3 to +12              │
+│ CASH: $0 to $350                                   │
+└────────────────────────────────────────────────────┘
+
+[CANCEL]                      [CONFIRM] ✓
+```
+
+**Visual Hierarchy:**
+
+**Required Role Slot (unfilled):**
+- Border: Red/warning color (`var(--danger)`)
+- Background: Dark with subtle red tint
+- Warning icon (⚠️) visible
+- "None Selected" text in dim color
+
+**Required Role Slot (filled):**
+- Border: Green/success color (`var(--success-green)`)
+- Background: Dark with subtle green tint
+- Checkmark (✓) visible
+- Shows crew name and stars
+
+**Optional Role Slot (empty):**
+- Border: Dim gray (`var(--text-dim)`)
+- Background: Darker than required
+- No warning icon
+- "Currently: None" text in secondary color
+- Bonus description prominent
+
+**Optional Role Slot (filled):**
+- Border: Cyan (`var(--primary)`)
+- Background: Dark with subtle cyan tint
+- Shows crew name and stars
+- Bonus description remains visible
+
+**Dropdown Items:**
+- Available: Full brightness, selectable
+- Busy: 50% opacity, shows return time, not selectable
+- Unavailable: 30% opacity, shows reason, not selectable
+- Hover state: Cyan border glow
+
+**Expected Outcome Box:**
+- Border: Cyan (`var(--primary)`)
+- Updates in real-time as crew selected
+- Probability bars could be ASCII visualized
+- Color-coded: Green for good odds, Red for bad
+
+**Buttons:**
+- CANCEL: Secondary styling, always enabled
+- CONFIRM: Primary styling
+  - Disabled: 40% opacity, dim border, no hover
+  - Enabled: Full brightness, cyan glow on hover
+
+**Color Coding:**
+- `var(--danger)` - Unfilled required slots
+- `var(--success-green)` - Filled required slots
+- `var(--primary)` - Optional slots, outcome box, confirm button
+- `var(--text-dim)` - Empty optional slots
+- `var(--warning)` - Warnings, moderate probability outcomes
+
+**Interaction States:**
+
+1. **Initial Open**: All required slots red/warning
+2. **Partial Fill**: Some required green, some red
+3. **Requirements Met**: All required green, CONFIRM enabled
+4. **Fully Optimized**: All slots (required + optional) filled
+
+**Responsive Behavior:**
+- Modal max-width: 600px
+- On narrow screens (<768px), dropdowns become full-width
+- Expected outcome section stacks vertically on mobile
+
+**Animation:**
+- Modal fade-in: 150ms
+- Background dim: 150ms
+- Dropdown slide-down: 100ms
+- Outcome update: Smooth transition 200ms
+
+**Keyboard Support:**
+- ESC: Close modal (same as CANCEL)
+- TAB: Navigate between SELECT buttons
+- ENTER on SELECT: Open dropdown
+- Arrow keys: Navigate dropdown
+- ENTER on crew: Select and close dropdown
+- ENTER on CONFIRM: Start run (if enabled)
+
 ---
 
 ## 14. AESTHETIC INSPIRATIONS

@@ -55,7 +55,7 @@ Canonical minimal runtime state shape.
     "cash": 0,
     "dirtyMoney": 0,
     "cleanMoney": 0,
-    "streetCred": 0,
+    "cred": 50,
     "heat": 0,
     "notoriety": 0
   },
@@ -243,6 +243,24 @@ Resources are numeric counters.
   "revealedByDefault": false
 }
 
+### Special Resources
+
+**Cred (Reputation)**
+- Range: 0-100 (capped)
+- Starting value: 50
+- Fluctuates based on success/failure
+- Gates crew recruitment and activity unlocks
+- Can be lost through failed operations
+- Recovered through low-risk "reputation jobs"
+
+**Heat (Police Attention)**
+- Range: 0+ (uncapped, naturally decays)
+- Always positive
+- Increases from crimes (regardless of outcome)
+- Decays over time using exponential formula
+- High heat increases discovery chances
+- Never blocks actions directly
+
 4. ITEM
 
 Items are integer inventory counts.
@@ -272,6 +290,42 @@ Defines staff roles and XP → star mapping.
   "revealedByDefault": false
 }
 
+### Role Archetypes (RPG System)
+
+**Core Roles** (Required for most operations):
+- `thief` - Primary executor, handles physical tasks
+- `driver` - Getaway specialist, logistics
+- `runner` - Low-level grunt work, starter role
+- `hacker` - Digital operations specialist
+
+**Specialist Roles** (Optional, provide strategic bonuses):
+- `fixer` - **Reputation specialist**
+  - Improves cred gains
+  - Shifts outcomes toward "clean" success
+  - Unlocks higher-tier crew recruitment
+
+- `cleaner` - **Heat reduction specialist**
+  - Reduces heat generation (40-60% reduction)
+  - Lowers passive operation discovery chance
+  - Enables sustainable high-frequency operations
+
+- `planner` - **Success rate specialist**
+  - Improves outcome probabilities
+  - May increase duration (more thorough = slower)
+  - Shifts away from "brute force" outcomes
+
+**Reputation Grinder Roles**:
+- `courier` - Low-risk delivery jobs for cred recovery
+- `lookout` - Passive cred gain, ties up crew for extended time
+- `consultant` - Mid-tier cred building, requires moderate skill
+
+**Design Notes:**
+- Specialist roles are never strictly required
+- They enable strategic depth without complexity gating
+- Players discover optimal compositions through experimentation
+- Role bonuses stack when multiple specialists are used
+- Early game: Can't afford specialists (brute force only)
+- Late game: Can field optimized teams (sustainable operations)
 
 Stars are derived, never stored.
 
@@ -324,7 +378,12 @@ Each Option creates a Run.
 
   "requirements": {
     "staff": [
-      { "roleId": "runner", "count": 1, "starsMin": 0 }
+      {
+        "roleId": "runner",
+        "count": 1,
+        "starsMin": 0,
+        "required": true
+      }
     ],
     "items": [],
     "buildings": []
@@ -347,6 +406,69 @@ Each Option creates a Run.
 
   "cooldownMs": 0
 }
+
+### Staff Requirements (RPG Crew Composition)
+
+Staff requirements support both **required** and **optional** roles, enabling strategic crew composition.
+
+**Required Roles:**
+- Must be assigned to start the operation
+- Typically the minimum viable crew (e.g., thief + driver)
+- Validates before allowing commit
+
+**Optional Roles:**
+- Provide bonuses via modifiers when assigned
+- Enable "brute force vs planned" gameplay
+- Examples: fixer (cred specialist), cleaner (heat reduction), planner (success rate)
+
+**Example: Multi-Person Heist**
+```json
+{
+  "requirements": {
+    "staff": [
+      {
+        "roleId": "thief",
+        "count": 1,
+        "starsMin": 2,
+        "required": true
+      },
+      {
+        "roleId": "driver",
+        "count": 1,
+        "starsMin": 1,
+        "required": true
+      },
+      {
+        "roleId": "fixer",
+        "count": 1,
+        "starsMin": 0,
+        "required": false,
+        "bonus": "improved reputation & success rate"
+      },
+      {
+        "roleId": "cleaner",
+        "count": 1,
+        "starsMin": 0,
+        "required": false,
+        "bonus": "reduced heat generation"
+      }
+    ]
+  }
+}
+```
+
+**Staff Requirement Fields:**
+- `roleId`: Role type identifier
+- `count`: Number of crew needed
+- `starsMin`: Minimum star rating required
+- `required`: Boolean - must have to start (default: true for backward compat)
+- `bonus`: UI hint describing optional role benefit
+
+**Gameplay Implications:**
+- **Brute force**: Use minimum required crew (fast, risky, high heat, low/negative cred)
+- **Planned approach**: Add optional specialists (slower, safer, sustainable cred)
+- **Progression**: Early game forces brute force, late game enables optimization
+- **Trade-offs**: Opportunity cost (crew tied up) vs. improved outcomes
 
 8. RUN (RUNTIME INSTANCE)
 
@@ -378,9 +500,10 @@ A) Deterministic
 {
   "type": "deterministic",
   "outputs": {
-    "resources": { "streetCred": 1 },
+    "resources": { "cash": 50 },
     "items": {}
   },
+  "credDelta": 2,
   "heatDelta": 1,
   "effects": []
 }
@@ -394,6 +517,7 @@ B) Ranged Outputs
     },
     "items": {}
   },
+  "credDelta": { "min": 1, "max": 5 },
   "heatDelta": { "min": 1, "max": 3 },
   "effects": []
 }
@@ -409,6 +533,7 @@ C) Weighted Outcomes (Preferred)
         "resources": { "dirtyMoney": 40 },
         "items": {}
       },
+      "credDelta": 3,
       "heatDelta": 2,
       "effects": []
     },
@@ -419,6 +544,7 @@ C) Weighted Outcomes (Preferred)
         "resources": { "dirtyMoney": 120 },
         "items": {}
       },
+      "credDelta": 8,
       "heatDelta": 1,
       "effects": [
         { "type": "revealActivity", "activityId": "fencing_goods" }
@@ -431,6 +557,7 @@ C) Weighted Outcomes (Preferred)
         "resources": {},
         "items": {}
       },
+      "credDelta": -20,
       "heatDelta": 6,
       "jail": { "durationMs": 43200000 },
       "effects": []
@@ -440,34 +567,255 @@ C) Weighted Outcomes (Preferred)
 
 10. MODIFIERS
 
-Modifiers adjust resolution parameters before rolling.
+Modifiers adjust resolution parameters before rolling. They stack additively and are applied before outcome selection.
 
-Canonical modifier types:
+### Canonical Modifier Types
 
-heatAbove
+**Environment-Based:**
+- `heatAbove` - Applies when heat exceeds threshold
+- `heatBelow` - Applies when heat is below threshold
+- `flagIs` - Applies when flag matches value
+- `resourceGte` - Applies when resource meets minimum
+- `hasItem` - Applies when item is in inventory
 
-heatBelow
+**Crew-Based (RPG System):**
+- `staffStars` - Scales per star rating of assigned crew
+- `staffRole` - Applies when specific role is assigned to run
+- `staffCount` - Scales based on number of crew assigned
 
-staffStars
+### Modifier Effects
 
-hasItem
+Modifiers can adjust:
+- **Outcome weights**: Shift probability distribution
+- **Delta values**: Modify heat/cred changes
+- **Multipliers**: Scale heat/cred by percentage
+- **Success chances**: Direct probability adjustments
 
-flagIs
+### Examples
 
-resourceGte
-
+**A) Star-Based Scaling**
+```json
 {
   "type": "staffStars",
-  "roleId": "runner",
+  "roleId": "thief",
   "applyPerStar": {
-    "caughtWeightDelta": -1,
-    "luckyWeightDelta": 1
+    "outcomeWeightAdjustment": {
+      "caught": -5,
+      "clean_success": +5
+    }
   }
 }
+```
 
+**B) Role-Based Bonuses (Optional Specialists)**
+```json
+{
+  "type": "staffRole",
+  "roleId": "fixer",
+  "effects": {
+    "credDeltaBonus": 5,
+    "outcomeWeightAdjustment": {
+      "caught": -15,
+      "clean_success": +15
+    }
+  }
+}
+```
 
-Modifiers may only adjust numeric values.
-They must not execute logic.
+**C) Heat Reduction Specialist**
+```json
+{
+  "type": "staffRole",
+  "roleId": "cleaner",
+  "effects": {
+    "heatDeltaMultiplier": 0.6,
+    "discoveryChanceReduction": -0.15
+  }
+}
+```
+
+**D) Multi-Effect Modifier**
+```json
+{
+  "type": "staffRole",
+  "roleId": "planner",
+  "effects": {
+    "durationMultiplier": 1.2,
+    "outcomeWeightAdjustment": {
+      "brute_force_success": -20,
+      "clean_success": +20
+    },
+    "credDeltaBonus": 3
+  }
+}
+```
+
+### Effect Types Reference
+
+**Delta Adjustments** (additive):
+- `credDeltaBonus`: Add to cred gain/loss
+- `heatDeltaReduction`: Subtract from heat gain
+- `outcomeWeightAdjustment`: Shift weight by outcome ID
+
+**Multipliers** (multiplicative):
+- `credDeltaMultiplier`: Scale final cred change (e.g., 1.5 = +50%)
+- `heatDeltaMultiplier`: Scale final heat change (e.g., 0.6 = -40%)
+- `durationMultiplier`: Scale operation time
+
+**Special**:
+- `discoveryChanceReduction`: Lower passive operation discovery chance
+
+### Stacking Rules
+
+1. **Multiple modifiers of same type**: Effects add together
+2. **Delta bonuses**: Applied before multipliers
+3. **Weight adjustments**: Sum all deltas, then clamp outcome weights to 0+
+4. **Multipliers**: Applied after all additive adjustments
+5. **Final values**: Cred clamped 0-100, heat clamped 0+
+
+### Design Principles
+
+- Modifiers may only adjust numeric values
+- They must not execute logic or mutate state
+- All effects must be data-driven and composable
+- Optional specialists provide meaningful choices, not requirements
+
+### Complete RPG Example: Jewelry Store Heist
+
+This example demonstrates the full crew composition system with brute force vs. strategic planning outcomes.
+
+```json
+{
+  "id": "jewelry_heist_smash",
+  "name": "smash and grab",
+  "description": "fast, loud, effective. pick two.",
+
+  "requirements": {
+    "staff": [
+      {
+        "roleId": "thief",
+        "count": 1,
+        "starsMin": 2,
+        "required": true
+      },
+      {
+        "roleId": "driver",
+        "count": 1,
+        "starsMin": 1,
+        "required": true
+      },
+      {
+        "roleId": "fixer",
+        "count": 1,
+        "starsMin": 0,
+        "required": false,
+        "bonus": "+5 cred, improved success rate"
+      },
+      {
+        "roleId": "cleaner",
+        "count": 1,
+        "starsMin": 0,
+        "required": false,
+        "bonus": "-40% heat generation"
+      }
+    ]
+  },
+
+  "durationMs": 180000,
+
+  "resolution": {
+    "type": "weighted_outcomes",
+    "outcomes": [
+      {
+        "id": "brute_force_success",
+        "weight": 40,
+        "outputs": { "resources": { "cash": 300 } },
+        "credDelta": -5,
+        "heatDelta": 12,
+        "effects": []
+      },
+      {
+        "id": "clean_success",
+        "weight": 30,
+        "outputs": { "resources": { "cash": 350 } },
+        "credDelta": 8,
+        "heatDelta": 3,
+        "effects": []
+      },
+      {
+        "id": "caught",
+        "weight": 30,
+        "outputs": {},
+        "credDelta": -20,
+        "heatDelta": 15,
+        "jail": { "durationMs": 86400000 },
+        "effects": []
+      }
+    ]
+  },
+
+  "modifiers": [
+    {
+      "type": "staffStars",
+      "roleId": "thief",
+      "applyPerStar": {
+        "outcomeWeightAdjustment": {
+          "caught": -5,
+          "clean_success": +5
+        }
+      }
+    },
+    {
+      "type": "staffRole",
+      "roleId": "fixer",
+      "effects": {
+        "credDeltaBonus": 5,
+        "outcomeWeightAdjustment": {
+          "caught": -15,
+          "clean_success": +15
+        }
+      }
+    },
+    {
+      "type": "staffRole",
+      "roleId": "cleaner",
+      "effects": {
+        "heatDeltaMultiplier": 0.6
+      }
+    }
+  ]
+}
+```
+
+**Outcome Scenarios:**
+
+**Scenario A: Brute Force (2★ Thief + 1★ Driver only)**
+- Caught weight: 30 - 10 (thief stars) = 20
+- Clean success weight: 30 + 10 (thief stars) = 40
+- Brute force weight: 40
+- **Probabilities**: 20% caught, 40% clean, 40% brute force
+- **If brute force**: -5 cred, +12 heat, $300
+- **Verdict**: Unsustainable, burns reputation
+
+**Scenario B: With Fixer (2★ Thief + 1★ Driver + Fixer)**
+- Caught weight: 20 - 15 (fixer) = 5
+- Clean success weight: 40 + 15 (fixer) = 55
+- Brute force weight: 40
+- **Probabilities**: 5% caught, 55% clean, 40% brute force
+- **If clean**: 8 + 5 (fixer bonus) = +13 cred, +3 heat, $350
+- **Verdict**: Builds reputation, moderate heat
+
+**Scenario C: Full Team (2★ Thief + 1★ Driver + Fixer + Cleaner)**
+- Weights same as Scenario B
+- **Probabilities**: 5% caught, 55% clean, 40% brute force
+- **If clean**: +13 cred, 3 × 0.6 (cleaner) = +2 heat, $350
+- **Verdict**: Professional operation, sustainable long-term
+
+**Strategic Implications:**
+- Early game: Limited crew forces brute force approach
+- Mid game: Can afford specialists, must choose which to prioritize
+- Late game: Full teams enable sustainable criminal enterprise
+- Risk/reward: High-cred players have more to lose from failures
 
 11. CONDITIONS
 
@@ -500,10 +848,29 @@ not
 {
   "type": "allOf",
   "conds": [
-    { "type": "resourceGte", "resourceId": "streetCred", "value": 20 },
+    { "type": "resourceGte", "resourceId": "cred", "value": 50 },
     { "type": "flagIs", "key": "met_fence", "value": true }
   ]
 }
+
+**Cred-Gated Examples:**
+```json
+{
+  "type": "resourceGte",
+  "resourceId": "cred",
+  "value": 60,
+  "description": "Requires 60+ reputation to unlock"
+}
+
+{
+  "type": "allOf",
+  "conds": [
+    { "type": "resourceGte", "resourceId": "cred", "value": 40 },
+    { "type": "staffStarsGte", "roleId": "thief", "stars": 2 }
+  ],
+  "description": "Requires 40+ cred and a 2-star thief"
+}
+```
 
 12. EFFECTS
 
@@ -575,6 +942,49 @@ Unlocking grants capability; revealing grants knowledge.
 
 The system must tolerate content being incomplete or hidden.
 
+**Cred & Heat Philosophy:**
+
+Cred (0-100, fluctuating):
+- Represents professional reputation
+- Goes up on success, down on failure
+- Loss scales with current cred (more to lose when high)
+- Gain scales with risk taken (bigger rewards for bigger jobs)
+- Gates crew recruitment and activity access
+- Can always be recovered through low-risk "reputation jobs"
+- Creates strategic choice: risk reputation for big score?
+
+Heat (0+, decaying):
+- Represents police attention
+- Always increases from crimes (even successful ones)
+- Naturally decays over time (exponential formula)
+- Never blocks actions directly
+- Increases failure chances and discovery rates
+- Punishment is indirect (higher risk) not lockout
+
+**RPG Crew Composition Philosophy:**
+
+Brute Force (early game):
+- Minimal crew (only required roles)
+- Fast execution
+- High heat generation
+- Negative or minimal cred gain
+- Unsustainable long-term
+
+Strategic Planning (late game):
+- Optimized teams with specialists
+- Slower execution (more thorough)
+- Manageable heat levels
+- Positive cred gains
+- Sustainable criminal enterprise
+
+**Core Loop:**
+1. Early: Forced to brute force (limited crew)
+2. Build cred through successes (unlock better crew)
+3. Fail occasionally (lose cred, learn from mistakes)
+4. Recover through reputation jobs (tie up crew for safety)
+5. Invest in specialists (enable strategic operations)
+6. Late: Balance risk/reward with optimized teams
+
 15. UI DISPLAY RULES
 
 ## Resolution Display
@@ -618,4 +1028,90 @@ Staff should display:
 - Status: `[AVAILABLE]` `[BUSY]` `[UNAVAILABLE]`
 
 Stars are never stored, always computed from XP thresholds at display time.
+
+## Crew Selection Interface
+
+When committing to an operation with staff requirements, a crew selection modal/panel must be displayed.
+
+**Interaction Flow:**
+1. User clicks "COMMIT" button on option card
+2. Crew selection modal opens
+3. User assigns crew members to required roles
+4. User optionally assigns specialists to optional roles
+5. Modal shows updated outcome probabilities based on selected crew
+6. User clicks "CONFIRM" to start run with selected crew
+7. Modal closes, run begins
+
+**Modal Structure:**
+
+**Header:**
+- Activity name
+- Option name
+- Option description
+
+**Required Roles Section:**
+- One row per required role
+- Shows: Role name, star requirement, [SELECT] button
+- Displays currently selected crew member (or "None Selected")
+- Visually distinct (red/warning if unfilled)
+- Must be filled before CONFIRM is enabled
+
+**Optional Roles Section:**
+- One row per optional role
+- Shows: Role name, bonus description, [SELECT] button
+- Displays currently selected crew member (or "None")
+- Visually distinct from required (dim/secondary styling)
+- Can be left empty
+
+**Crew Picker Dropdown (when [SELECT] clicked):**
+- Lists all crew members with matching role
+- Filters by role type
+- Shows for each crew member:
+  - Name
+  - Star rating (★★★)
+  - Status indicator
+  - Availability (if unavailable, show return time)
+- Only shows available crew as selectable
+- Grays out busy/unavailable crew with reason
+- Sorted: Available first, then by star rating descending
+
+**Expected Outcome Section:**
+- Shows probability distribution with current crew
+- Displays cred range: `CRED: -20 to +13`
+- Displays heat range: `HEAT: +2 to +15`
+- Updates dynamically as crew is assigned
+- Uses modifier calculations to show accurate outcomes
+
+**Footer:**
+- [CANCEL] button - closes modal without starting run
+- [CONFIRM] button - starts run with assigned crew
+  - Disabled if required roles unfilled
+  - Disabled if assigned crew doesn't meet star requirements
+  - Enabled once all requirements satisfied
+
+**Engine Method:**
+```javascript
+Engine.startRun(activityId, optionId, assignedStaffIds)
+// assignedStaffIds: ["s_001", "s_003", "s_007"]
+```
+
+**Validation Rules:**
+- All required roles must be filled
+- Assigned crew must meet minimum star requirements
+- Assigned crew must be available (not busy, not in jail)
+- Crew can only be assigned to roles they possess
+- Same crew member cannot be assigned to multiple slots
+
+**UI States:**
+- **Empty**: No crew assigned, CONFIRM disabled
+- **Partial**: Some required filled, CONFIRM disabled
+- **Valid**: All required filled, CONFIRM enabled
+- **Optimized**: All roles (including optional) filled
+
+**Visual Feedback:**
+- Required role slots: Red/warning border when empty
+- Optional role slots: Dim border, secondary color
+- Selected crew: Highlighted, shows name and stars
+- Updated probabilities: Color-coded (green for good, red for bad)
+- CONFIRM button: Disabled state clearly visible
 ```
