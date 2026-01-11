@@ -633,6 +633,16 @@ body {
   box-shadow: 0 0 8px rgba(0, 255, 0, 0.4);
 }
 
+.btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(255, 0, 0, 0.15);
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+}
+
 /* Staff List */
 .staff-item {
   padding: 0.5rem;
