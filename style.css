@@ -192,7 +192,7 @@ body {
   border: 1px solid var(--text-dim);
   color: var(--text-mid);
   padding: 0.4rem 0.8rem;
-  font-family: var(--font-mono);
+  font-family: inherit;
   font-size: 0.75rem;
   letter-spacing: 0.1em;
   cursor: pointer;
@@ -862,6 +862,18 @@ body {
   margin-bottom: 1.5rem;
 }
 
+.settings-section-header {
+  padding: 0.5rem;
+  border: 1px solid var(--text-dim);
+  background: rgba(0, 0, 0, 0.2);
+  transition: all 0.1s;
+}
+
+.settings-section-header:hover {
+  border-color: var(--primary);
+  background: rgba(0, 255, 255, 0.05);
+}
+
 .settings-section-title {
   font-size: 0.85rem;
   font-weight: bold;
@@ -870,10 +882,23 @@ body {
   letter-spacing: 0.1em;
 }
 
+.settings-section-header .settings-section-title {
+  margin-bottom: 0.3rem;
+}
+
 .settings-section-desc {
   font-size: 0.72rem;
   color: var(--text-mid);
   margin-bottom: 0.75rem;
+}
+
+.settings-section-header .settings-section-desc {
+  margin-bottom: 0;
+}
+
+.settings-submenu {
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--text-dim);
 }
 
 .settings-option {

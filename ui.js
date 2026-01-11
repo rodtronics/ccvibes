@@ -6,6 +6,7 @@ const UI = {
   currentBranch: "all",
   selectedActivity: null,
   view: "list", // list | detail
+  fontSubmenuExpanded: false,
 
   // Settings
   settings: {
@@ -178,6 +179,10 @@ const UI = {
       }
       else if (action === "toggle-glow") {
         this.toggleGlow();
+      }
+      else if (action === "toggle-font-submenu") {
+        this.fontSubmenuExpanded = !this.fontSubmenuExpanded;
+        this.renderSettings();
       }
       else if (action === "reset-game") {
         this.resetGame();
@@ -565,7 +570,20 @@ const UI = {
           if (queue.remaining === "infinite") {
             statusText.textContent = "∞ REPEATING";
           } else {
-            statusText.textContent = `REPEATING ${queue.remaining}/${queue.total}`;
+            // Calculate estimated time remaining
+            const activeRun = Engine.state.runs.find(r => r.activityId === activity.id && r.optionId === option.id);
+            let timeEstimate = "";
+            if (activeRun && option.durationMs) {
+              const totalTimeMs = queue.remaining * option.durationMs;
+              const hours = Math.floor(totalTimeMs / 3600000);
+              const minutes = Math.floor((totalTimeMs % 3600000) / 60000);
+              if (hours > 0) {
+                timeEstimate = ` (~${hours}h ${minutes}m)`;
+              } else if (minutes > 0) {
+                timeEstimate = ` (~${minutes}m)`;
+              }
+            }
+            statusText.textContent = `${queue.remaining} runs left${timeEstimate}`;
           }
 
           const stopBtn = document.createElement("button");
@@ -692,9 +710,20 @@ const UI = {
         line.style.display = "flex";
         line.style.justifyContent = "space-between";
         line.style.alignItems = "center";
-        
+
         const info = document.createElement("div");
-        info.textContent = `Assigned: ${assignedNames} | Time: ${this.formatDuration(remaining)} ${barText}`;
+        let timeText = `${this.formatDuration(remaining)} ${barText}`;
+
+        // Add "will finish at" for runs over 1 hour
+        if (remaining > 3600000) {
+          const finishTime = new Date(run.endsAt);
+          const hours = finishTime.getHours();
+          const minutes = finishTime.getMinutes();
+          const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          timeText += ` (finishes at ${timeString})`;
+        }
+
+        info.textContent = `Assigned: ${assignedNames} | ${timeText}`;
         info.className = "run-top-row"; // Reuse style
 
         // Cancel button
@@ -809,9 +838,20 @@ const UI = {
       const filled = Math.floor((progress / 100) * 10);
       const emptyChars = 10 - filled;
       const barText = `[${'='.repeat(filled)}${'-'.repeat(emptyChars)}]`;
-      
+
       const infoText = document.createElement("span");
-      infoText.textContent = `Assigned: ${assignedNames} | Time: ${this.formatDuration(remaining)} ${barText}`;
+      let timeText = `${this.formatDuration(remaining)} ${barText}`;
+
+      // Add "will finish at" for runs over 1 hour
+      if (remaining > 3600000) {
+        const finishTime = new Date(run.endsAt);
+        const hours = finishTime.getHours();
+        const minutes = finishTime.getMinutes();
+        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        timeText += ` (finishes at ${timeString})`;
+      }
+
+      infoText.textContent = `Assigned: ${assignedNames} | ${timeText}`;
 
       const cancelBtn = document.createElement("button");
       cancelBtn.className = "btn-cancel";
@@ -879,52 +919,77 @@ const UI = {
 
     container.innerHTML = "";
 
-    // Font Selection
+    // Font Selection (Collapsible)
     const fontSection = document.createElement("div");
     fontSection.className = "settings-section";
 
+    const fontHeader = document.createElement("div");
+    fontHeader.className = "settings-section-header";
+    fontHeader.style.cursor = "pointer";
+    fontHeader.dataset.action = "toggle-font-submenu";
+
     const fontTitle = document.createElement("div");
     fontTitle.className = "settings-section-title";
-    fontTitle.textContent = "FONT";
-    fontSection.appendChild(fontTitle);
+    const currentFont = this.fontOptions.find(f => f.id === this.settings.fontId) || this.fontOptions[0];
+    fontTitle.textContent = `FONT: ${currentFont.label}`;
+
+    const expandIcon = document.createElement("span");
+    expandIcon.className = "expand-icon";
+    expandIcon.textContent = this.fontSubmenuExpanded ? "▼" : "►";
+    expandIcon.style.marginLeft = "0.5rem";
+    expandIcon.style.fontSize = "0.6rem";
+
+    fontTitle.appendChild(expandIcon);
+    fontHeader.appendChild(fontTitle);
 
     const fontDesc = document.createElement("div");
     fontDesc.className = "settings-section-desc";
-    fontDesc.textContent = "Select terminal font. Changes apply immediately.";
-    fontSection.appendChild(fontDesc);
+    fontDesc.textContent = "Click to change terminal font";
+    fontHeader.appendChild(fontDesc);
 
-    this.fontOptions.forEach(font => {
-      const option = document.createElement("div");
-      option.className = "settings-option";
-      option.dataset.action = "set-font";
-      option.dataset.id = font.id;
+    fontSection.appendChild(fontHeader);
 
-      if (font.id === this.settings.fontId) {
-        option.classList.add("active");
-      }
+    // Font options submenu (collapsible)
+    if (this.fontSubmenuExpanded) {
+      const fontSubmenu = document.createElement("div");
+      fontSubmenu.className = "settings-submenu";
+      fontSubmenu.style.marginTop = "0.75rem";
 
-      const left = document.createElement("div");
+      this.fontOptions.forEach(font => {
+        const option = document.createElement("div");
+        option.className = "settings-option";
+        option.dataset.action = "set-font";
+        option.dataset.id = font.id;
 
-      const label = document.createElement("div");
-      label.className = "settings-option-label";
-      label.textContent = font.label;
+        if (font.id === this.settings.fontId) {
+          option.classList.add("active");
+        }
 
-      const preview = document.createElement("div");
-      preview.className = "settings-option-preview";
-      preview.style.fontFamily = font.fontFamily;
-      preview.textContent = "CRIME COMMITTER VI — $1,234";
+        const left = document.createElement("div");
 
-      left.appendChild(label);
-      left.appendChild(preview);
+        const label = document.createElement("div");
+        label.className = "settings-option-label";
+        label.textContent = font.label;
 
-      const status = document.createElement("div");
-      status.className = "settings-option-status";
-      status.textContent = font.id === this.settings.fontId ? "[ACTIVE]" : "";
+        const preview = document.createElement("div");
+        preview.className = "settings-option-preview";
+        preview.style.fontFamily = font.fontFamily;
+        preview.textContent = "CRIME COMMITTER VI — $1,234";
 
-      option.appendChild(left);
-      option.appendChild(status);
-      fontSection.appendChild(option);
-    });
+        left.appendChild(label);
+        left.appendChild(preview);
+
+        const status = document.createElement("div");
+        status.className = "settings-option-status";
+        status.textContent = font.id === this.settings.fontId ? "[ACTIVE]" : "";
+
+        option.appendChild(left);
+        option.appendChild(status);
+        fontSubmenu.appendChild(option);
+      });
+
+      fontSection.appendChild(fontSubmenu);
+    }
 
     container.appendChild(fontSection);
 
