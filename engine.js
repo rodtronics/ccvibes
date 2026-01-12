@@ -171,6 +171,13 @@ const Engine = {
       return { ok: false, reason: "Option locked" };
     }
 
+    // Auto-assign staff if not explicitly provided (legacy behavior until crew selection modal is implemented)
+    if (!assignedStaffIds) {
+      const autoAssigned = this.autoAssignStaff(option.requirements);
+      if (!autoAssigned.ok) return autoAssigned;
+      assignedStaffIds = autoAssigned.staffIds;
+    }
+
     const reqCheck = this.checkRequirements(option.requirements, assignedStaffIds);
     if (!reqCheck.ok) return reqCheck;
 
@@ -428,6 +435,46 @@ const Engine = {
     if (cond.type === "anyOf") return cond.conds.some(c => this.evalCondition(c));
     if (cond.type === "not") return !this.evalCondition(cond.cond);
     return false;
+  },
+
+  autoAssignStaff(requirements) {
+    if (!requirements || !requirements.staff || requirements.staff.length === 0) {
+      return { ok: true, staffIds: [] };
+    }
+
+    const assignedIds = [];
+
+    for (const req of requirements.staff) {
+      // Find available staff matching this role
+      const candidates = this.state.crew.staff.filter(s =>
+        s.roleId === req.roleId &&
+        s.status === "available" &&
+        !assignedIds.includes(s.id) // Don't assign same person twice
+      );
+
+      // Sort by stars (best first) to assign the most qualified
+      candidates.sort((a, b) => this.getStarsForStaff(b) - this.getStarsForStaff(a));
+
+      // Check if we have enough staff for this role
+      if (candidates.length < req.count) {
+        return { ok: false, reason: `Need ${req.count} ${req.roleId}, only ${candidates.length} available` };
+      }
+
+      // Check if any meet the star requirement
+      if (req.starsMin) {
+        const qualified = candidates.filter(s => this.getStarsForStaff(s) >= req.starsMin);
+        if (qualified.length === 0) {
+          return { ok: false, reason: `Need ${req.starsMin}★ ${req.roleId}` };
+        }
+      }
+
+      // Assign the required count
+      for (let i = 0; i < req.count; i++) {
+        assignedIds.push(candidates[i].id);
+      }
+    }
+
+    return { ok: true, staffIds: assignedIds };
   },
 
   checkRequirements(requirements, assignedStaffIds) {
