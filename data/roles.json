@@ -1,0 +1,26 @@
+[
+  {
+    "id": "player",
+    "name": "Player",
+    "description": "that's you",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 300 },
+      { "stars": 3, "minXp": 700 }
+    ],
+    "revealedByDefault": true
+  },
+  {
+    "id": "runner",
+    "name": "Runner",
+    "description": "fast and nimble",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 50 },
+      { "stars": 2, "minXp": 150 },
+      { "stars": 3, "minXp": 400 }
+    ],
+    "revealedByDefault": false
+  }
+]

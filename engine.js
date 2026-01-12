@@ -171,6 +171,14 @@ const Engine = {
       return { ok: false, reason: "Option locked" };
     }
 
+    // Check concurrency limit
+    if (option.maxConcurrentRuns !== undefined) {
+      const activeRunCount = this.state.runs.filter(r => r.activityId === activityId && r.optionId === optionId).length;
+      if (activeRunCount >= option.maxConcurrentRuns) {
+        return { ok: false, reason: `Max ${option.maxConcurrentRuns} concurrent run${option.maxConcurrentRuns === 1 ? '' : 's'} reached` };
+      }
+    }
+
     // Auto-assign staff if not explicitly provided (legacy behavior until crew selection modal is implemented)
     if (!assignedStaffIds) {
       const autoAssigned = this.autoAssignStaff(option.requirements);
@@ -455,22 +463,23 @@ const Engine = {
       // Sort by stars (best first) to assign the most qualified
       candidates.sort((a, b) => this.getStarsForStaff(b) - this.getStarsForStaff(a));
 
-      // Check if we have enough staff for this role
-      if (candidates.length < req.count) {
-        return { ok: false, reason: `Need ${req.count} ${req.roleId}, only ${candidates.length} available` };
-      }
-
-      // Check if any meet the star requirement
+      // Filter by star requirement if specified
+      let qualified = candidates;
       if (req.starsMin) {
-        const qualified = candidates.filter(s => this.getStarsForStaff(s) >= req.starsMin);
+        qualified = candidates.filter(s => this.getStarsForStaff(s) >= req.starsMin);
         if (qualified.length === 0) {
           return { ok: false, reason: `Need ${req.starsMin}★ ${req.roleId}` };
         }
       }
 
-      // Assign the required count
+      // Check if we have enough qualified staff for this role
+      if (qualified.length < req.count) {
+        return { ok: false, reason: `Need ${req.count} ${req.roleId}${req.starsMin ? ` (${req.starsMin}★+)` : ''}, only ${qualified.length} available` };
+      }
+
+      // Assign the required count from qualified candidates
       for (let i = 0; i < req.count; i++) {
-        assignedIds.push(candidates[i].id);
+        assignedIds.push(qualified[i].id);
       }
     }
 
@@ -656,5 +665,26 @@ const Engine = {
     if (hours > 0) return `${hours}h ${minutes % 60}m`;
     if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
     return `${seconds}s`;
+  },
+
+  // DEBUG: Add random crew member
+  addRandomCrew() {
+    const names = ["Alex", "Blake", "Casey", "Drew", "Ellis", "Finley", "Gray", "Harper", "Indigo", "Jordan", "Kelly", "Logan", "Morgan", "Nova", "Parker", "Quinn", "Riley", "Sage", "Taylor", "West"];
+
+    const randomName = names[Math.floor(Math.random() * names.length)];
+    const randomXp = Math.floor(Math.random() * 500);
+
+    const newStaff = {
+      id: this.createId("s"),
+      name: randomName,
+      roleId: "player",
+      xp: randomXp,
+      status: "available",
+      unavailableUntil: 0
+    };
+
+    this.state.crew.staff.push(newStaff);
+    this.addLog(`Hired ${randomName} (${randomXp} XP)`, "info");
+    return newStaff;
   }
 };

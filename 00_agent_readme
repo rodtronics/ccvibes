@@ -1,0 +1,9 @@
+There are 4 design documents for the game.
+01_design_philosophy.md
+02_ui_spec.md
+03_schema_engine.md
+04_lexicon.md
+
+These are living documents but they should be followed when making the game. if there is a discrepancy, it may be necessary to edit these documents but only do it if I ask.
+
+IGNORE all files in the_crypt folder

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "shell_companies",
+    "name": "shell companies",
+    "description": "paperwork that somehow weighs more than money.",
+    "visibleIf": [],
+    "unlockIf": [],
+    "durationMs": 600000,
+    "inputs": {
+      "resources": { "dirtyMoney": 200 },
+      "items": { "fakeID": 1 }
+    },
+    "effects": []
+  }
+]

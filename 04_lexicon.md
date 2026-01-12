@@ -1,4 +1,4 @@
-# Lexicon System
+# Crime Committer VI — Lexicon System
 
 The lexicon system provides centralized terminology and UI text management for Crime Committer VI.
 
@@ -33,17 +33,17 @@ The lexicon is organized into categories:
 
 ```javascript
 // Get a simple string
-const buttonText = Lexicon.get('actions.start'); // "START"
-const statusText = Lexicon.get('status.busy'); // "BUSY"
+const buttonText = Lexicon.get("actions.start"); // "START"
+const statusText = Lexicon.get("status.busy"); // "BUSY"
 ```
 
 ### Template Substitution
 
 ```javascript
 // Use templates with variables
-const message = Lexicon.template('log_templates.run_started', {
-  activityName: 'shoplifting',
-  optionName: 'grab and go'
+const message = Lexicon.template("log_templates.run_started", {
+  activityName: "shoplifting",
+  optionName: "grab and go",
 });
 // Result: "Started: shoplifting → grab and go"
 ```
@@ -51,6 +51,7 @@ const message = Lexicon.template('log_templates.run_started', {
 ### Fallback Support
 
 The Lexicon system includes automatic fallbacks:
+
 - If lexicon.json fails to load, uses empty defaults
 - If a key is not found, returns the path as-is
 - All usage includes `||` fallback to hardcoded strings for safety
@@ -64,8 +65,7 @@ The Lexicon system includes automatic fallbacks:
 this.addLog(`Dropped: ${activityName} → ${optionName}`, "warn");
 
 // After
-const message = window.Lexicon?.template('log_templates.run_dropped', { activityName, optionName })
-  || `Dropped: ${activityName} → ${optionName}`;
+const message = window.Lexicon?.template("log_templates.run_dropped", { activityName, optionName }) || `Dropped: ${activityName} → ${optionName}`;
 this.addLog(message, "warn");
 ```
 
@@ -76,7 +76,7 @@ this.addLog(message, "warn");
 button.textContent = "START";
 
 // After
-button.textContent = Lexicon.get('actions.start') || "START";
+button.textContent = Lexicon.get("actions.start") || "START";
 ```
 
 ## Extending the Lexicon

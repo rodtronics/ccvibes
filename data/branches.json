@@ -1,0 +1,4 @@
+[
+  { "id": "street", "name": "Street", "order": 1, "revealedByDefault": true },
+  { "id": "commerce", "name": "Commerce", "order": 2, "revealedByDefault": false }
+]

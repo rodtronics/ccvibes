@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(ls:*)",
-      "Bash(node -c:*)"
-    ]
+      "Bash(node -c:*)",
+      "Bash(grep:*)",
+      "Bash(node -e:*)"
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }

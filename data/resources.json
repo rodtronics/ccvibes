@@ -1,0 +1,6 @@
+[
+  { "id": "cash", "name": "Cash", "description": "money", "revealedByDefault": true },
+  { "id": "dirtyMoney", "name": "Dirty Money", "description": "needs washing", "revealedByDefault": false },
+  { "id": "heat", "name": "Heat", "description": "attention level", "revealedByDefault": true },
+  { "id": "streetCred", "name": "Street Cred", "description": "reputation", "revealedByDefault": false }
+]

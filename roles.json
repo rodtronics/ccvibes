@@ -1,0 +1,38 @@
+[
+  {
+    "id": "player",
+    "name": "mastermind",
+    "description": "you.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 300 },
+      { "stars": 3, "minXp": 700 }
+    ],
+    "revealedByDefault": true
+  },
+  {
+    "id": "thief",
+    "name": "thief",
+    "description": "handles doors, pockets, and ethics.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 300 },
+      { "stars": 3, "minXp": 700 }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "driver",
+    "name": "driver",
+    "description": "logistics and rapid exits.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 300 },
+      { "stars": 3, "minXp": 700 }
+    ],
+    "revealedByDefault": false
+  }
+]
