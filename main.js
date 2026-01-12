@@ -10,12 +10,12 @@ const DataLoader = {
   async loadAll() {
     console.log("Loading game data...");
     const [lexicon, branches, resources, items, roles, activities] = await Promise.all([
-      this.fetchJson('data/lexicon.json'),
-      this.fetchJson('data/branches.json'),
-      this.fetchJson('data/resources.json'),
-      this.fetchJson('data/items.json'),
-      this.fetchJson('data/roles.json'),
-      this.fetchJson('data/activities.json')
+      this.fetchJson("data/lexicon.json"),
+      this.fetchJson("data/branches.json"),
+      this.fetchJson("data/resources.json"),
+      this.fetchJson("data/items.json"),
+      this.fetchJson("data/roles.json"),
+      this.fetchJson("data/activities.json"),
     ]);
 
     // Initialize Lexicon globally
@@ -28,7 +28,7 @@ const DataLoader = {
       resources: resources || [],
       items: items || [],
       roles: roles || [],
-      activities: activities || []
+      activities: activities || [],
     };
   },
 
@@ -41,7 +41,7 @@ const DataLoader = {
       console.error(`Failed to load ${url}:`, err);
       return null;
     }
-  }
+  },
 };
 
 // Global Lexicon object
@@ -50,7 +50,7 @@ const Lexicon = {
 
   get(path) {
     if (!this.data) return path;
-    const parts = path.split('.');
+    const parts = path.split(".");
     let value = this.data;
     for (const part of parts) {
       value = value?.[part];
@@ -65,7 +65,7 @@ const Lexicon = {
       text = text.replace(`{${key}}`, val);
     }
     return text;
-  }
+  },
 };
 
 document.addEventListener("DOMContentLoaded", async () => {

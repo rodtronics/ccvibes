@@ -603,105 +603,46 @@ const UI = {
 
 
       else if (action === "repeat-run") {
-
-
-
         const activityId = target.dataset.activityId;
-
-
-
         const optionId = target.dataset.optionId;
-
-
-
         const count = parseInt(target.dataset.count) || 1;
-
-
-
-        Engine.setRepeatQueue(activityId, optionId, count);
-
-
-
-        this.startRun(activityId, optionId);
-
-
-
+        const result = Engine.startRun(activityId, optionId);
+        if (result.ok) {
+          Engine.setRepeatQueue(activityId, optionId, count, result.run.runId);
+          this.renderAll();
+        }
       }
 
 
 
       else if (action === "repeat-infinite") {
 
-
-
         const activityId = target.dataset.activityId;
-
-
 
         const optionId = target.dataset.optionId;
 
-
-
-        Engine.setRepeatQueue(activityId, optionId, "infinite");
-
-
-
-        this.startRun(activityId, optionId);
-
-
+        const result = Engine.startRun(activityId, optionId);
+        if (result.ok) {
+          Engine.setRepeatQueue(activityId, optionId, "infinite", result.run.runId);
+          this.renderAll();
+        }
 
       }
 
 
 
       else if (action === "stop-repeat-request") {
-
-
-
-        const activityId = target.dataset.activityId;
-
-
-
-        const optionId = target.dataset.optionId;
-
-
-
+        const runId = target.dataset.runId;
         target.dataset.action = "stop-repeat-confirm";
-
-
-
+        target.dataset.runId = runId;
         target.textContent = "CONFIRM STOP?";
-
-
-
         target.classList.add("btn-stop-confirm");
-
-
-
       }
 
-
-
       else if (action === "stop-repeat-confirm") {
-
-
-
-        const activityId = target.dataset.activityId;
-
-
-
-        const optionId = target.dataset.optionId;
-
-
-
-        Engine.stopRepeatQueue(activityId, optionId);
-
-
-
+        const runId = target.dataset.runId;
+        Engine.stopRepeatQueue(runId);
         this.renderAll();
-
-
-
       }
 
 
@@ -2515,7 +2456,7 @@ const UI = {
 
           if (result.ok) {
 
-            Engine.setRepeatQueue(activity.id, option.id, count);
+            Engine.setRepeatQueue(activity.id, option.id, count, result.run.runId);
 
             setRepeatSelection("repeat", count);
 
@@ -2573,7 +2514,7 @@ const UI = {
 
           if (result.ok) {
 
-            Engine.setRepeatQueue(activity.id, option.id, "infinite");
+            Engine.setRepeatQueue(activity.id, option.id, "infinite", result.run.runId);
 
             setRepeatSelection("forever", getRepeatInputValue());
 
@@ -2901,9 +2842,9 @@ const UI = {
         runItem.appendChild(line);
 
         // Repeat queue info and stop (only shown here)
-        const queueKey = `${run.activityId}:${run.optionId}`;
+        const queueKey = run.runId;
         const queue = Engine.state.repeatQueues[queueKey];
-        if (queue) {
+        if (queue && (!queue.boundRunId || queue.boundRunId === run.runId)) {
           const repeatInfo = document.createElement("div");
           repeatInfo.className = "run-repeat-info";
           repeatInfo.style.display = "flex";
@@ -2916,9 +2857,9 @@ const UI = {
           const stopRepeat = document.createElement("button");
           stopRepeat.className = "btn-stop";
           stopRepeat.textContent = "STOP REPEAT";
-          stopRepeat.dataset.action = "stop-repeat-request";
-          stopRepeat.dataset.activityId = run.activityId;
-          stopRepeat.dataset.optionId = run.optionId;
+          stopRepeat.dataset.runId = run.runId;
+
+
 
           repeatInfo.appendChild(stopRepeat);
           runItem.appendChild(repeatInfo);
@@ -4540,4 +4481,3 @@ const UI = {
 
 
 };
-

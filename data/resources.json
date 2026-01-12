@@ -3,4 +3,34 @@
   { "id": "dirtyMoney", "name": "Dirty Money", "description": "needs washing", "revealedByDefault": false },
   { "id": "heat", "name": "Heat", "description": "attention level", "revealedByDefault": true },
   { "id": "streetCred", "name": "Street Cred", "description": "reputation", "revealedByDefault": false }
+  {
+    "id": "cash",
+    "name": "cash",
+    "description": "liquid assets.",
+    "revealedByDefault": true
+  },
+  {
+    "id": "heat",
+    "name": "heat",
+    "description": "police attention.",
+    "revealedByDefault": true
+  },
+  {
+    "id": "streetCred",
+    "name": "street cred",
+    "description": "local influence and reputation.",
+    "revealedByDefault": false
+  },
+  {
+    "id": "dirtyMoney",
+    "name": "dirty money",
+    "description": "money that feels slightly wet.",
+    "revealedByDefault": false
+  },
+  {
+    "id": "cleanMoney",
+    "name": "clean money",
+    "description": "taxed and usable.",
+    "revealedByDefault": false
+  }
 ]

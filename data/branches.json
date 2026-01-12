@@ -1,4 +1,20 @@
 [
   { "id": "street", "name": "Street", "order": 1, "revealedByDefault": true },
   { "id": "commerce", "name": "Commerce", "order": 2, "revealedByDefault": false }
+  {
+    "id": "street",
+    "name": "street",
+    "description": "low stakes, high confidence",
+    "order": 10,
+    "revealedByDefault": true,
+    "ui": { "accent": "green" }
+  },
+  {
+    "id": "commerce",
+    "name": "commerce",
+    "description": "business, but aggressive",
+    "order": 20,
+    "revealedByDefault": true,
+    "ui": { "accent": "cyan" }
+  }
 ]

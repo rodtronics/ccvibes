@@ -156,7 +156,7 @@ const Engine = {
     }
   },
 
-  startRun(activityId, optionId, assignedStaffIds) {
+  startRun(activityId, optionId, assignedStaffIds, orderOverride = null) {
     const activity = this.content.activities.find(a => a.id === activityId);
     if (!activity) return { ok: false, reason: "Activity not found" };
 
@@ -197,12 +197,19 @@ const Engine = {
     const staff = assignedStaffIds.map(id => this.state.crew.staff.find(s => s.id === id)).filter(Boolean);
     staff.forEach(s => { s.status = "busy"; });
 
+    // Monotonic order index for stable sorting of runs in UI
+    const order = orderOverride !== null
+      ? orderOverride
+      : ((this.state._runOrderCounter || 0) + 1);
+    this.state._runOrderCounter = Math.max(this.state._runOrderCounter || 0, order);
+
     const run = {
       runId: this.createId("run"),
       activityId,
       optionId,
       startedAt: this.state.now,
       endsAt: this.state.now + option.durationMs,
+      order,
       assignedStaffIds: assignedStaffIds,
       snapshot: {
         inputsPaid: option.inputs || {},
@@ -218,6 +225,11 @@ const Engine = {
     }
 
     this.state.runs.push(run);
+    // Keep runs ordered by their stable order index to avoid jumping in UI
+    this.state.runs.sort((a, b) => {
+      if (a.order !== b.order) return a.order - b.order;
+      return a.startedAt - b.startedAt;
+    });
     const message = window.Lexicon?.template('log_templates.run_started', {
       activityName: activity.name,
       optionName: option.name
@@ -253,20 +265,19 @@ const Engine = {
     return { ok: true };
   },
 
-  setRepeatQueue(activityId, optionId, count) {
-    const key = `${activityId}:${optionId}`;
+  setRepeatQueue(activityId, optionId, count, boundRunId = null) {
+    const key = boundRunId ? boundRunId : `${activityId}:${optionId}`;
     if (count === 0) {
       delete this.state.repeatQueues[key];
     } else if (count === "infinite") {
-      this.state.repeatQueues[key] = { remaining: "infinite", total: "infinite" };
+      this.state.repeatQueues[key] = { activityId, optionId, remaining: "infinite", total: "infinite", boundRunId };
     } else {
-      this.state.repeatQueues[key] = { remaining: count, total: count };
+      this.state.repeatQueues[key] = { activityId, optionId, remaining: count, total: count, boundRunId };
     }
   },
 
-  stopRepeatQueue(activityId, optionId) {
-    const key = `${activityId}:${optionId}`;
-    delete this.state.repeatQueues[key];
+  stopRepeatQueue(runId) {
+    delete this.state.repeatQueues[runId];
   },
 
   completeRun(run) {
@@ -304,28 +315,39 @@ const Engine = {
   checkRepeatQueue(run) {
     // Check for repeat queue and auto-restart
     // Called AFTER run is removed from array and staff are freed
-    const queueKey = `${run.activityId}:${run.optionId}`;
+    const queueKey = run.runId;
     const queue = this.state.repeatQueues[queueKey];
 
-    if (queue) {
-      // Auto-restart with same staff
-      const result = this.startRun(run.activityId, run.optionId, run.assignedStaffIds);
+    if (!queue) return;
 
-      if (result.ok) {
-        // Decrement queue if not infinite
-        if (queue.remaining !== "infinite") {
-          queue.remaining--;
-          if (queue.remaining <= 0) {
-            delete this.state.repeatQueues[queueKey];
-          }
-        }
-      } else {
-        // Can't restart, stop queue
-        delete this.state.repeatQueues[queueKey];
-        const message = window.Lexicon?.template('log_templates.repeat_stopped', { reason: result.reason })
-          || `Repeat stopped: ${result.reason}`;
-        this.addLog(message, "warn");
+    // Remove old binding
+    delete this.state.repeatQueues[queueKey];
+
+    // Auto-restart with same staff
+    const result = this.startRun(run.activityId, run.optionId, run.assignedStaffIds);
+
+    if (result.ok) {
+      // Decrement queue if not infinite
+      let remaining = queue.remaining;
+      if (remaining !== "infinite") {
+        remaining = remaining - 1;
       }
+
+      if (remaining === "infinite" || remaining > 0) {
+        // Re-bind queue to the newly created run id
+        this.state.repeatQueues[result.run.runId] = {
+          activityId: queue.activityId,
+          optionId: queue.optionId,
+          remaining,
+          total: queue.total,
+          boundRunId: result.run.runId
+        };
+      }
+    } else {
+      // Can't restart, stop queue
+      const message = window.Lexicon?.template('log_templates.repeat_stopped', { reason: result.reason })
+        || `Repeat stopped: ${result.reason}`;
+      this.addLog(message, "warn");
     }
   },
 
