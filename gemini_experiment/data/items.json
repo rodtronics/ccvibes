@@ -1,0 +1,16 @@
+[
+  {
+    "id": "lockpick",
+    "name": "lockpick",
+    "description": "technically it is a hobby tool.",
+    "stackable": true,
+    "revealedByDefault": false
+  },
+  {
+    "id": "fakeID",
+    "name": "fake ID",
+    "description": "looks real enough.",
+    "stackable": true,
+    "revealedByDefault": false
+  }
+]

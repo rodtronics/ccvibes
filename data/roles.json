@@ -1,8 +1,6 @@
 [
   {
     "id": "player",
-    "name": "Player",
-    "description": "that's you",
     "name": "mastermind",
     "description": "you.",
     "xpToStars": [
@@ -39,7 +37,6 @@
   },
   {
     "id": "runner",
-    "name": "Runner",
     "name": "runner",
     "description": "fast and nimble",
     "xpToStars": [

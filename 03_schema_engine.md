@@ -55,16 +55,30 @@ Purpose: single source of truth for data structures and engine behavior. All gam
 Staff status values: `available`, `unavailable` (time-based).
 
 ## 2. Repeat Queues (state and behavior)
-Structure:
+Structure (run-bound implementation):
 ```json
 "repeatQueues": {
-  "activityId:optionId": { "remaining": 5, "total": 10 },
-  "another_activity:another_option": { "remaining": "infinite", "total": "infinite" }
+  "r_001_timestamp_abc123": {
+    "activityId": "shoplifting",
+    "optionId": "shoplifting_grab_and_go",
+    "remaining": 5,
+    "total": 10,
+    "boundRunId": "r_001_timestamp_abc123"
+  },
+  "r_002_timestamp_def456": {
+    "activityId": "panhandling",
+    "optionId": "panhandling_default",
+    "remaining": "infinite",
+    "total": "infinite",
+    "boundRunId": "r_002_timestamp_def456"
+  }
 }
 ```
-- Key: `"activityId:optionId"`.
-- Fields: `remaining` repeats left (number or `"infinite"`); `total` requested (for UI) or `"infinite"`.
-- Behavior: on run completion, if queue exists and remaining > 0 (or infinite), call `startRun()` with same parameters; decrement remaining if finite; remove when remaining reaches 0; stop if auto-restart fails (insufficient resources, no crew, etc.). Only available when `meta.repeatable === true` (can be progression-gated).
+- Key: The `runId` of the active run instance.
+- Fields: `activityId`, `optionId` (for reference); `remaining` repeats left (number or `"infinite"`); `total` requested (for UI) or `"infinite"`; `boundRunId` (matches key).
+- Behavior: on run completion, if queue exists for that `runId` and remaining > 0 (or infinite), call `startRun()` with same staff and parameters; decrement remaining if finite; rebind queue to new run's ID; remove when remaining reaches 0; stop if auto-restart fails (insufficient resources, crew busy, etc.).
+- Run-bound design allows multiple concurrent runs of the same option to each have independent repeat queues, and the queue follows the specific staff assignment.
+- Only available when `option.repeatable === true` (can be progression-gated at option level).
 
 ## 3. Persistent Operations
 Long-running passive operations distinct from runs.
@@ -151,14 +165,13 @@ UI container; never executes directly.
   "branchId": "street",
   "name": "shoplifting",
   "description": "you borrow something and forget to return it.",
-  "meta": { "tags": ["crime", "starter"], "icon": ":)", "repeatable": true },
+  "meta": { "tags": ["crime", "starter"], "icon": ":)" },
   "visibleIf": [],
   "unlockIf": [],
   "reveals": { "onReveal": [], "onUnlock": [] },
   "options": []
 }
 ```
-`repeatable` (optional, default false) controls whether repeat queue UI/behavior is available and can be progression-gated.
 
 ### Option
 Executable recipe; each creates a Run.
@@ -166,6 +179,7 @@ Executable recipe; each creates a Run.
 {
   "id": "shoplifting_grab_and_go",
   "name": "grab and go",
+  "repeatable": true,
   "description": "confidence is the real disguise.",
   "visibleIf": [],
   "unlockIf": [],
@@ -184,7 +198,8 @@ Executable recipe; each creates a Run.
   "cooldownMs": 0
 }
 ```
-Staff requirements support `required` (default true) and optional slots; optional slots describe bonuses and are expressed via modifiers.
+- `repeatable` (optional, default false) controls whether repeat queue UI/behavior is available for this specific option. Set at option level for granular control.
+- Staff requirements support `required` (default true) and optional slots; optional slots describe bonuses and are expressed via modifiers.
 
 ### Run (runtime instance)
 ```json

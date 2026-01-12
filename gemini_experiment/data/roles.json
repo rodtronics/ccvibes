@@ -34,5 +34,17 @@
       { "stars": 3, "minXp": 700 }
     ],
     "revealedByDefault": false
+  },
+  {
+    "id": "runner",
+    "name": "runner",
+    "description": "fast and nimble",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 50 },
+      { "stars": 2, "minXp": 150 },
+      { "stars": 3, "minXp": 400 }
+    ],
+    "revealedByDefault": false
   }
 ]

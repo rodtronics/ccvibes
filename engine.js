@@ -27,7 +27,7 @@ const Engine = {
     return {
       version: 6,
       now: Date.now(),
-      resources: { cash: 0, dirtyMoney: 0, cleanMoney: 0, streetCred: 0, heat: 0, notoriety: 0 },
+      resources: { cash: 0, dirtyMoney: 0, cleanMoney: 0, cred: 50, heat: 0, notoriety: 0 },
       items: {},
       flags: {},
       reveals: { branches: {}, activities: {}, resources: {}, roles: {}, tabs: {} },
@@ -42,10 +42,10 @@ const Engine = {
         }]
       },
       runs: [],
-      repeatQueues: {}, // { "activityId:optionId": { remaining: number | "infinite", total: number } }
       completions: { activity: {}, option: {} },
       log: [{ id: this.createId("log"), time: Date.now(), text: "System initialized.", kind: "info" }],
-      _lastHeatDecay: Date.now()
+      _lastHeatDecay: Date.now(),
+      _runOrderCounter: 0
     };
   },
 
@@ -58,10 +58,26 @@ const Engine = {
     state.reveals = state.reveals || { branches: {}, activities: {}, resources: {}, roles: {}, tabs: {} };
     state.crew = state.crew || { staff: [] };
     state.runs = state.runs || [];
-    state.repeatQueues = state.repeatQueues || {};
     state.completions = state.completions || { activity: {}, option: {} };
     state.log = state.log || [];
     state._lastHeatDecay = state._lastHeatDecay || Date.now();
+    // Populate missing order indices and counter for stable run ordering
+    let maxOrder = state._runOrderCounter || 0;
+    state.runs.forEach((run, idx) => {
+      if (run.order === undefined || run.order === null) {
+        run.order = idx + 1;
+      }
+      if (run.order > maxOrder) maxOrder = run.order;
+      // Migration: Add runsLeft to existing runs (they're all single runs)
+      if (run.runsLeft === undefined) {
+        run.runsLeft = 0;
+      }
+    });
+    state._runOrderCounter = maxOrder;
+    // Migration: Remove old repeatQueues if it exists
+    if (state.repeatQueues) {
+      delete state.repeatQueues;
+    }
     return state;
   },
 
@@ -156,7 +172,7 @@ const Engine = {
     }
   },
 
-  startRun(activityId, optionId, assignedStaffIds, orderOverride = null) {
+  startRun(activityId, optionId, assignedStaffIds, orderOverride = null, runsLeft = 0) {
     const activity = this.content.activities.find(a => a.id === activityId);
     if (!activity) return { ok: false, reason: "Activity not found" };
 
@@ -211,6 +227,7 @@ const Engine = {
       endsAt: this.state.now + option.durationMs,
       order,
       assignedStaffIds: assignedStaffIds,
+      runsLeft: runsLeft, // 0 = single run, -1 = infinite, N = repeat N more times
       snapshot: {
         inputsPaid: option.inputs || {},
         roll: null,
@@ -265,19 +282,13 @@ const Engine = {
     return { ok: true };
   },
 
-  setRepeatQueue(activityId, optionId, count, boundRunId = null) {
-    const key = boundRunId ? boundRunId : `${activityId}:${optionId}`;
-    if (count === 0) {
-      delete this.state.repeatQueues[key];
-    } else if (count === "infinite") {
-      this.state.repeatQueues[key] = { activityId, optionId, remaining: "infinite", total: "infinite", boundRunId };
-    } else {
-      this.state.repeatQueues[key] = { activityId, optionId, remaining: count, total: count, boundRunId };
+  stopRepeat(runId) {
+    // Stop a run from repeating by setting runsLeft to 0
+    // The current iteration will finish, but it won't restart
+    const run = this.state.runs.find(r => r.runId === runId);
+    if (run) {
+      run.runsLeft = 0;
     }
-  },
-
-  stopRepeatQueue(runId) {
-    delete this.state.repeatQueues[runId];
   },
 
   completeRun(run) {
@@ -313,38 +324,24 @@ const Engine = {
   },
 
   checkRepeatQueue(run) {
-    // Check for repeat queue and auto-restart
+    // Check if this run should repeat and auto-restart
     // Called AFTER run is removed from array and staff are freed
-    const queueKey = run.runId;
-    const queue = this.state.repeatQueues[queueKey];
 
-    if (!queue) return;
+    // Check runsLeft: 0 = don't repeat, -1 = infinite, N > 0 = repeat N more times
+    if (run.runsLeft === 0) return; // Single run, no repeat
 
-    // Remove old binding
-    delete this.state.repeatQueues[queueKey];
+    // Calculate new runsLeft for the next iteration
+    let newRunsLeft = run.runsLeft;
+    if (run.runsLeft > 0) {
+      newRunsLeft = run.runsLeft - 1; // Decrement countdown
+    }
+    // If runsLeft is -1 (infinite), it stays -1
 
-    // Auto-restart with same staff
-    const result = this.startRun(run.activityId, run.optionId, run.assignedStaffIds);
+    // Auto-restart with same staff, preserving order for stable display
+    const result = this.startRun(run.activityId, run.optionId, run.assignedStaffIds, run.order, newRunsLeft);
 
-    if (result.ok) {
-      // Decrement queue if not infinite
-      let remaining = queue.remaining;
-      if (remaining !== "infinite") {
-        remaining = remaining - 1;
-      }
-
-      if (remaining === "infinite" || remaining > 0) {
-        // Re-bind queue to the newly created run id
-        this.state.repeatQueues[result.run.runId] = {
-          activityId: queue.activityId,
-          optionId: queue.optionId,
-          remaining,
-          total: queue.total,
-          boundRunId: result.run.runId
-        };
-      }
-    } else {
-      // Can't restart, stop queue
+    if (!result.ok) {
+      // Can't restart, stop repeating
       const message = window.Lexicon?.template('log_templates.repeat_stopped', { reason: result.reason })
         || `Repeat stopped: ${result.reason}`;
       this.addLog(message, "warn");
@@ -357,11 +354,13 @@ const Engine = {
 
     if (resolution.type === "deterministic") {
       this.applyOutputs(resolution.outputs);
+      this.applyCredDelta(resolution.credDelta);
       this.applyHeatDelta(resolution.heatDelta);
       this.applyEffects(resolution.effects || []);
     }
     else if (resolution.type === "ranged_outputs") {
       this.applyRangedOutputs(resolution.outputs);
+      this.applyRangedCred(resolution.credDelta);
       this.applyRangedHeat(resolution.heatDelta);
       this.applyEffects(resolution.effects || []);
     }
@@ -371,6 +370,7 @@ const Engine = {
 
       if (outcome) {
         this.applyOutputs(outcome.outputs);
+        this.applyCredDelta(outcome.credDelta);
         this.applyHeatDelta(outcome.heatDelta);
         this.applyEffects(outcome.effects || []);
 
@@ -606,16 +606,33 @@ const Engine = {
     }
   },
 
+  applyCredDelta(credDelta) {
+    if (typeof credDelta === "number") {
+      const newCred = (this.state.resources.cred || 0) + credDelta;
+      // Clamp cred to 0-100 range per schema
+      this.state.resources.cred = Math.max(0, Math.min(100, newCred));
+    }
+  },
+
+  applyRangedCred(credDelta) {
+    if (credDelta && credDelta.min !== undefined) {
+      const amount = this.randomRange(credDelta.min, credDelta.max);
+      const newCred = (this.state.resources.cred || 0) + amount;
+      // Clamp cred to 0-100 range per schema
+      this.state.resources.cred = Math.max(0, Math.min(100, newCred));
+    }
+  },
+
   applyHeatDelta(heatDelta) {
     if (typeof heatDelta === "number") {
-      this.state.resources.heat = (this.state.resources.heat || 0) + heatDelta;
+      this.state.resources.heat = Math.max(0, (this.state.resources.heat || 0) + heatDelta);
     }
   },
 
   applyRangedHeat(heatDelta) {
     if (heatDelta && heatDelta.min !== undefined) {
       const amount = this.randomRange(heatDelta.min, heatDelta.max);
-      this.state.resources.heat = (this.state.resources.heat || 0) + amount;
+      this.state.resources.heat = Math.max(0, (this.state.resources.heat || 0) + amount);
     }
   },
 

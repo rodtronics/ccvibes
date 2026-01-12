@@ -606,9 +606,8 @@ const UI = {
         const activityId = target.dataset.activityId;
         const optionId = target.dataset.optionId;
         const count = parseInt(target.dataset.count) || 1;
-        const result = Engine.startRun(activityId, optionId);
+        const result = Engine.startRun(activityId, optionId, null, null, count);
         if (result.ok) {
-          Engine.setRepeatQueue(activityId, optionId, count, result.run.runId);
           this.renderAll();
         }
       }
@@ -621,9 +620,8 @@ const UI = {
 
         const optionId = target.dataset.optionId;
 
-        const result = Engine.startRun(activityId, optionId);
+        const result = Engine.startRun(activityId, optionId, null, null, -1);
         if (result.ok) {
-          Engine.setRepeatQueue(activityId, optionId, "infinite", result.run.runId);
           this.renderAll();
         }
 
@@ -641,7 +639,7 @@ const UI = {
 
       else if (action === "stop-repeat-confirm") {
         const runId = target.dataset.runId;
-        Engine.stopRepeatQueue(runId);
+        Engine.stopRepeat(runId);
         this.renderAll();
       }
 
@@ -2255,7 +2253,6 @@ const UI = {
         if (input) return clampCount(input.value);
         return clampCount(repeatSelection.count);
       };
-      console.log(`[UI] Rendering option ${option.id}, queueKey: ${queueKey}, queue:`, Engine.state.repeatQueues[queueKey]);
 
       // Check repeatable on option first, then activity meta, default to true
       const isRepeatable = option.repeatable !== false && activity.meta?.repeatable !== false;
@@ -2452,11 +2449,9 @@ const UI = {
 
           const count = clampCount(getRepeatInputValue());
 
-          const result = Engine.startRun(activity.id, option.id);
+          const result = Engine.startRun(activity.id, option.id, null, null, count);
 
           if (result.ok) {
-
-            Engine.setRepeatQueue(activity.id, option.id, count, result.run.runId);
 
             setRepeatSelection("repeat", count);
 
@@ -2510,11 +2505,9 @@ const UI = {
 
           e.preventDefault();
 
-          const result = Engine.startRun(activity.id, option.id);
+          const result = Engine.startRun(activity.id, option.id, null, null, -1);
 
           if (result.ok) {
-
-            Engine.setRepeatQueue(activity.id, option.id, "infinite", result.run.runId);
 
             setRepeatSelection("forever", getRepeatInputValue());
 
@@ -2841,10 +2834,8 @@ const UI = {
 
         runItem.appendChild(line);
 
-        // Repeat queue info and stop (only shown here)
-        const queueKey = run.runId;
-        const queue = Engine.state.repeatQueues[queueKey];
-        if (queue && (!queue.boundRunId || queue.boundRunId === run.runId)) {
+        // Repeat info and stop button (only shown if repeating)
+        if (run.runsLeft !== 0) {
           const repeatInfo = document.createElement("div");
           repeatInfo.className = "run-repeat-info";
           repeatInfo.style.display = "flex";
@@ -2852,14 +2843,13 @@ const UI = {
           repeatInfo.style.alignItems = "center";
           repeatInfo.style.marginTop = "0.25rem";
           repeatInfo.style.color = "var(--secondary)";
-          repeatInfo.textContent = queue.remaining === "infinite" ? "REPEATING infinite" : `REPEATING ${queue.remaining} left`;
+          repeatInfo.textContent = run.runsLeft === -1 ? "REPEATING infinite" : `REPEATING ${run.runsLeft} left`;
 
           const stopRepeat = document.createElement("button");
           stopRepeat.className = "btn-stop";
           stopRepeat.textContent = "STOP REPEAT";
+          stopRepeat.dataset.action = "stop-repeat-request";
           stopRepeat.dataset.runId = run.runId;
-
-
 
           repeatInfo.appendChild(stopRepeat);
           runItem.appendChild(repeatInfo);

@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "start": "START",
+    "stop": "STOP",
+    "drop": "DROP",
+    "confirm_stop": "CONFIRM STOP?",
+    "repeat": "REPEAT",
+    "repeat_infinite": "∞ REPEAT",
+    "cancel": "CANCEL",
+    "back": "BACK"
+  },
+  "status": {
+    "available": "AVAILABLE",
+    "busy": "BUSY",
+    "unavailable": "UNAVAILABLE",
+    "operational": "OPERATIONAL",
+    "active": "ACTIVE",
+    "idle": "IDLE",
+    "locked": "LOCKED",
+    "complete": "COMPLETE"
+  },
+  "labels": {
+    "cash": "CASH",
+    "heat": "HEAT",
+    "crew": "CREW",
+    "runs": "RUNS",
+    "uptime": "UPTIME",
+    "sys_status": "SYS.STATUS",
+    "time_remaining": "time remaining",
+    "assigned": "assigned",
+    "repeating": "REPEATING",
+    "repeating_infinite": "∞ REPEATING",
+    "runs_left": "runs left",
+    "estimated_completion": "will finish at"
+  },
+  "tabs": {
+    "activities": "ACTIVITIES",
+    "crew": "CREW",
+    "resources": "RESOURCES",
+    "settings": "SETTINGS",
+    "log": "LOG"
+  },
+  "panels": {
+    "operations": "OPERATIONS",
+    "staff_roster": "STAFF ROSTER",
+    "active_runs": "ACTIVE RUNS",
+    "resources_inventory": "RESOURCES & INVENTORY",
+    "system_settings": "SYSTEM SETTINGS",
+    "event_log": "EVENT LOG"
+  },
+  "log_templates": {
+    "run_started": "Started: {activityName} → {optionName}",
+    "run_completed": "Completed: {activityName} → {optionName}",
+    "run_dropped": "Dropped: {activityName} → {optionName}",
+    "repeat_stopped": "Repeat stopped: {reason}",
+    "staff_hired": "Hired: {staffName}",
+    "staff_unavailable": "{staffName} unavailable until {time}",
+    "insufficient_resources": "Insufficient resources",
+    "insufficient_crew": "No available crew"
+  },
+  "errors": {
+    "no_activity": "Activity not found",
+    "no_option": "Option not found",
+    "no_staff": "No available staff",
+    "insufficient_resources": "Not enough resources",
+    "staff_busy": "Staff already assigned",
+    "requirements_not_met": "Requirements not met"
+  },
+  "tooltips": {
+    "repeat_queue": "Automatically restart this operation",
+    "stop_run": "Stop and forfeit progress",
+    "increment": "Increase",
+    "decrement": "Decrease"
+  }
+}

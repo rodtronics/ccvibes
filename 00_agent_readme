@@ -1,4 +1,9 @@
-There are 4 design documents for the game.
+this is an idle game called crime committer running on pure html/js/css
+
+the main mechanism is iniating a crime and when it finishes you get results
+
+There are 4 design documents for the game. I will refer to them as the founding documents.founding
+
 01_design_philosophy.md
 02_ui_spec.md
 03_schema_engine.md
