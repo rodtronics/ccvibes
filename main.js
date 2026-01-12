@@ -87,32 +87,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   Engine.init(savedState);
   Engine.loadContent(content);
 
-  // Initialize UI
+  // Initialize UI (this sets up event listeners to Engine)
   UI.init();
   UI.renderAll();
 
-  // Start game loop
+  // Start game loop - now event-driven!
+  // Engine emits events, UI listens and updates automatically
   let tickCounter = 0;
   setInterval(() => {
-    const didComplete = Engine.tick();
+    Engine.tick(); // Engine handles state updates and emits events
 
-    // Update stats every tick
+    // Stats update on every tick
     UI.renderStats();
-
-    // Update runs display every tick
-    if (Engine.state.runs.length > 0) {
-      UI.renderRuns();
-
-      // If we're viewing an activity detail, update it too
-      if (UI.view === "detail" && UI.selectedActivity) {
-        UI.renderActivities();
-      }
-    }
-
-    // Full render if something completed
-    if (didComplete) {
-      UI.renderAll();
-    }
 
     // Auto-save every 10 ticks (10 seconds)
     tickCounter++;

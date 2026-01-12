@@ -12,6 +12,7 @@ const Engine = {
     roles: [],
     activities: []
   },
+  listeners: [],
 
   init(savedState = null) {
     if (savedState) {
@@ -107,6 +108,10 @@ const Engine = {
     const didComplete = this.processCompletedRuns();
     this.updateStaffAvailability();
     this.decayHeat();
+    this.emit('tick');
+    if (didComplete) {
+      this.emit('runsCompleted');
+    }
     return didComplete;
   },
 
@@ -253,6 +258,9 @@ const Engine = {
     }) || `Started: ${activity.name} → ${option.name}`;
     this.addLog(message, "info");
 
+    this.emit('runStarted', { run, activity, option });
+    this.emit('stateChange');
+
     return { ok: true, run };
   },
 
@@ -279,6 +287,9 @@ const Engine = {
       || `Dropped: ${activityName} → ${optionName}`;
     this.addLog(message, "warn");
 
+    this.emit('runCancelled', { run, activity, option });
+    this.emit('stateChange');
+
     return { ok: true };
   },
 
@@ -288,6 +299,8 @@ const Engine = {
     const run = this.state.runs.find(r => r.runId === runId);
     if (run) {
       run.runsLeft = 0;
+      this.emit('repeatStopped', { run });
+      this.emit('stateChange');
     }
   },
 
@@ -321,6 +334,8 @@ const Engine = {
       optionName: option.name
     }) || `Completed: ${activity.name} → ${option.name}`;
     this.addLog(message, "success");
+
+    this.emit('runCompleted', { run, activity, option });
   },
 
   checkRepeatQueue(run) {
@@ -682,16 +697,19 @@ const Engine = {
   },
 
   addLog(text, kind = "info") {
-    this.state.log.push({
+    const entry = {
       id: this.createId("log"),
       time: this.state.now,
       text,
       kind
-    });
+    };
+    this.state.log.push(entry);
 
     if (this.state.log.length > 200) {
       this.state.log = this.state.log.slice(-200);
     }
+
+    this.emit('log', entry);
   },
 
   formatDuration(ms) {
@@ -724,6 +742,18 @@ const Engine = {
 
     this.state.crew.staff.push(newStaff);
     this.addLog(`Hired ${randomName} (${randomXp} XP)`, "info");
+    this.emit('stateChange');
     return newStaff;
+  },
+
+  // Event System (Pub/Sub Pattern)
+  on(event, callback) {
+    this.listeners.push({ event, callback });
+  },
+
+  emit(event, data) {
+    this.listeners
+      .filter(l => l.event === event)
+      .forEach(l => l.callback(data));
   }
 };
