@@ -17,7 +17,7 @@ export class DOMRenderer {
   init() {
     // Clear container and set up structure
     this.container.innerHTML = '';
-    this.container.style.fontFamily = 'monospace';
+    // Font family is controlled by CSS classes (font-vga-9x8, font-vga-8x16, font-scp)
     this.container.style.lineHeight = '1';
     this.container.style.whiteSpace = 'pre';
     this.container.style.overflow = 'hidden';

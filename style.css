@@ -1,6 +1,6 @@
 @font-face {
   font-family: "VGA_9x8";
-  src: url("fonts/AcPlus_IBM_VGA_9x8.ttf") format("truetype");
+  src: url("fonts/Ac437_IBM_VGA_9x8.ttf") format("truetype");
   font-display: swap;
 }
 
@@ -30,6 +30,8 @@ body {
   border: 1px solid #0b1a2d;
   box-shadow: 0 0 24px rgba(0, 0, 0, 0.7);
   user-select: none;
+  font-variant-ligatures: none;
+  text-rendering: optimizeSpeed;
 }
 
 .font-vga-9x8 {
@@ -43,4 +45,15 @@ body {
 .font-scp {
   font-family: "Source Code Pro", "Consolas", monospace;
   font-weight: 500;
+  font-variant-ligatures: none;
+  font-feature-settings: normal;
+  letter-spacing: 0;
+}
+
+.font-fira {
+  font-family: "Fira Code", "Consolas", monospace;
+  font-weight: 500;
+  font-variant-ligatures: none;
+  font-feature-settings: normal;
+  letter-spacing: 0;
 }

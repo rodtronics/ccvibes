@@ -42,11 +42,12 @@ async function main() {
 }
 
 // Available fonts (cycle order)
-const FONTS = ['vga-9x8', 'vga-8x16', 'scp'];
+const FONTS = ['scp', 'fira', 'vga-9x8', 'vga-8x16'];
 const FONT_NAMES = {
+  'scp': 'Source Code Pro',
+  'fira': 'Fira Code',
   'vga-9x8': 'VGA 9x8 (compact)',
-  'vga-8x16': 'VGA 8x16 (classic)',
-  'scp': 'Source Code Pro (modern)'
+  'vga-8x16': 'VGA 8x16 (classic)'
 };
 
 // Settings persistence
@@ -62,7 +63,7 @@ function loadSettings() {
   } catch (err) {
     console.warn('Settings load failed', err);
   }
-  return { font: 'vga-9x8' };
+  return { font: 'scp' };
 }
 
 function saveSettings() {
@@ -85,6 +86,7 @@ function cycleFontSetting() {
   const currentIndex = FONTS.indexOf(ui.settings.font);
   const nextIndex = (currentIndex + 1) % FONTS.length;
   ui.settings.font = FONTS[nextIndex];
+  console.log(`Font changed to: ${ui.settings.font}`);
   applyFont();
   saveSettings();
 }
@@ -149,7 +151,9 @@ function handleLogInput(e) {
 }
 
 function handleSettingsInput(e) {
+  console.log(`Settings input: ${e.key}`);
   if (e.key === 'Enter' || e.key === ' ') {
+    console.log('Cycling font...');
     cycleFontSetting();
   }
 }

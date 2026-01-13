@@ -317,9 +317,10 @@ export class UI {
 
     // Map font IDs to display names
     const fontNames = {
+      'scp': 'Source Code Pro',
+      'fira': 'Fira Code',
       'vga-9x8': 'VGA 9x8 (compact)',
-      'vga-8x16': 'VGA 8x16 (classic)',
-      'scp': 'Source Code Pro (modern)'
+      'vga-8x16': 'VGA 8x16 (classic)'
     };
 
     const fontText = fontNames[this.ui.settings.font] || this.ui.settings.font;
