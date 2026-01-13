@@ -42,7 +42,6 @@ Purpose: single source of truth for data structures and engine behavior. All gam
     ]
   },
   "runs": [],
-  "repeatQueues": {},
   "persistentOperations": [],
   "completions": {
     "activity": {},
@@ -54,31 +53,49 @@ Purpose: single source of truth for data structures and engine behavior. All gam
 
 Staff status values: `available`, `unavailable` (time-based).
 
-## 2. Repeat Queues (state and behavior)
-Structure (run-bound implementation):
+**Note**: `repeatQueues` has been removed in favor of unified repeat architecture using `runsLeft` field (see section 2).
+
+## 2. Unified Repeat System (run-bound architecture)
+Repeat logic is now unified using a single `runsLeft` field on each run instance. This eliminates the separate `repeatQueues` structure.
+
+### Run Instance with Repeat Field
 ```json
-"repeatQueues": {
-  "r_001_timestamp_abc123": {
-    "activityId": "shoplifting",
-    "optionId": "shoplifting_grab_and_go",
-    "remaining": 5,
-    "total": 10,
-    "boundRunId": "r_001_timestamp_abc123"
-  },
-  "r_002_timestamp_def456": {
-    "activityId": "panhandling",
-    "optionId": "panhandling_default",
-    "remaining": "infinite",
-    "total": "infinite",
-    "boundRunId": "r_002_timestamp_def456"
-  }
+{
+  "runId": "r_001",
+  "activityId": "shoplifting",
+  "optionId": "shoplifting_grab_and_go",
+  "startedAt": 1700000000000,
+  "endsAt": 1700000006000,
+  "assignedStaffIds": ["s_001"],
+  "runsLeft": 5,
+  "snapshot": { "inputsPaid": {}, "roll": null, "plannedOutcomeId": null }
 }
 ```
-- Key: The `runId` of the active run instance.
-- Fields: `activityId`, `optionId` (for reference); `remaining` repeats left (number or `"infinite"`); `total` requested (for UI) or `"infinite"`; `boundRunId` (matches key).
-- Behavior: on run completion, if queue exists for that `runId` and remaining > 0 (or infinite), call `startRun()` with same staff and parameters; decrement remaining if finite; rebind queue to new run's ID; remove when remaining reaches 0; stop if auto-restart fails (insufficient resources, crew busy, etc.).
-- Run-bound design allows multiple concurrent runs of the same option to each have independent repeat queues, and the queue follows the specific staff assignment.
+
+### runsLeft Values
+- `0`: Single run (no repeat). This is the default for all runs.
+- `N` (positive integer): Countdown mode. After this run completes, start another run with `runsLeft = N - 1`.
+- `-1`: Infinite repeat. After this run completes, start another run with `runsLeft = -1`.
+
+### Behavior
+- On run completion, `checkRepeatQueue(run)` examines `run.runsLeft`.
+- If `runsLeft === 0`, do nothing (single run completed).
+- If `runsLeft > 0`, decrement by 1 and call `startRun(activityId, optionId, assignedStaffIds, order, newRunsLeft)`.
+- If `runsLeft === -1`, call `startRun()` with `runsLeft = -1` (infinite continuation).
+- If auto-restart fails (insufficient resources, crew busy, etc.), log warning and stop repeating.
+
+### Stop Repeat
+- `Engine.stopRepeat(runId)` sets `run.runsLeft = 0`, causing the current run to complete as a single run without restarting.
+- This allows stopping repeat behavior without forfeiting progress on the current run.
+
+### Migration
+- Legacy saved states with `repeatQueues` are migrated in `normalizeState()`:
+  - All runs default to `runsLeft: 0` if missing.
+  - Old `repeatQueues` structure is deleted.
+
+### Availability
 - Only available when `option.repeatable === true` (can be progression-gated at option level).
+- Run-bound design allows multiple concurrent runs of the same option to each have independent repeat states.
 
 ## 3. Persistent Operations
 Long-running passive operations distinct from runs.
@@ -210,10 +227,12 @@ Executable recipe; each creates a Run.
   "startedAt": 1700000000000,
   "endsAt": 1700000006000,
   "assignedStaffIds": ["s_001"],
+  "runsLeft": 0,
   "snapshot": { "inputsPaid": {}, "roll": null, "plannedOutcomeId": null }
 }
 ```
-`plannedOutcomeId`, once chosen, must not change.
+- `runsLeft`: Unified repeat field. `0` = single run, `N` = repeat N more times after this, `-1` = infinite repeat.
+- `plannedOutcomeId`, once chosen, must not change.
 
 ### Tech Node (optional, discovery-oriented)
 ```json
@@ -326,18 +345,67 @@ Examples:
 - Heat never blocks actions; consequences are time-based, not permanent.
 - Unlocking grants capability; revealing grants knowledge.
 - The system must tolerate content being incomplete or hidden.
-- Engine validation for `Engine.startRun(activityId, optionId, assignedStaffIds)`:
+- Engine validation for `Engine.startRun(activityId, optionId, assignedStaffIds, orderOverride, runsLeft)`:
   - All required roles filled.
   - Assigned crew meet star minimums and are available (not busy, not in jail).
   - Staff can only be assigned to matching roles.
   - The same crew member cannot be assigned twice.
+  - `runsLeft` parameter (optional, defaults to `0`): specifies repeat behavior for this run.
 
-## 10. Crew Composition Data Notes
+## 10. Event-Driven Architecture
+The Engine uses a publish-subscribe pattern for decoupled communication between Engine and UI layers.
+
+### Event System Structure
+```javascript
+Engine.listeners = [];
+Engine.on(event, callback);  // Subscribe to events
+Engine.emit(event, data);    // Publish events
+```
+
+### Standard Events
+- **tick**: Emitted every game tick (50ms intervals). UI uses this for smooth progress bar updates and countdown timers.
+- **stateChange**: Emitted when game state changes (resources, flags, reveals, etc.). UI re-renders affected components.
+- **runStarted**: Emitted when a new run begins. Payload: `{ run, activity, option }`.
+- **runCompleted**: Emitted when a run finishes. Payload: `{ run, activity, option, outcome }`.
+- **runCancelled**: Emitted when a run is cancelled. Payload: `{ run }`.
+- **repeatStopped**: Emitted when repeat behavior is stopped via `stopRepeat()`. Payload: `{ run }`.
+- **runsCompleted**: Emitted when runs array changes (completion, cancellation, or new run).
+- **log**: Emitted when a new log entry is added. Payload: `{ logEntry }`.
+
+### UI Integration Pattern
+The UI subscribes to Engine events during initialization:
+```javascript
+UI.setupEngineEventListeners() {
+  Engine.on('stateChange', () => { this.renderAll(); });
+  Engine.on('tick', () => { this.updateProgressBars(); });
+  Engine.on('runsCompleted', () => { this.renderAll(); });
+  // ... other listeners
+}
+```
+
+### Benefits
+- **Decoupling**: Engine never directly calls UI methods; UI decides how to respond to events.
+- **Efficiency**: Partial updates via tick events avoid full re-renders every frame.
+- **Extensibility**: New listeners can be added without modifying Engine code.
+
+## 11. Performance: Tick Interval and Smooth Updates
+- **Tick interval**: 50ms (20 updates per second) for smooth countdown animations.
+- **Auto-save**: Every 200 ticks (10 seconds at 50ms intervals).
+- **Progress updates**: Text-based progress bars update on every tick event.
+- **Duration display**: Shows tenths of seconds for durations under 1 minute (e.g., `45.3s`).
+
+### Format Rules
+- Days: `3d 12h`
+- Hours: `2h 45m`
+- Minutes: `5m 23.7s`
+- Seconds: `12.4s`
+
+## 12. Crew Composition Data Notes
 - Staff requirements support required and optional roles via `required` boolean (default true for backward compatibility).
 - Optional specialists provide strategic bonuses through modifiers; they are never strictly required.
 - Role bonuses stack; trade-offs remain via crew opportunity cost.
 
-## 11. Complete RPG Example (crew + modifiers)
+## 13. Complete RPG Example (crew + modifiers)
 ```json
 {
   "id": "jewelry_heist_smash",

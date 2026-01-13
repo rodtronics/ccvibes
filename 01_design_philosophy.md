@@ -74,3 +74,10 @@ Purpose: single source for mechanics philosophy and intent. Pair with `02_ui_spe
 - Use conditions and effects, not bespoke logic; prefer adding Options over creating new Activities.
 - Prefer flags and reveals over explicit unlocks; all content must be data-driven and expressible in the schema.
 - Tone: dry, understated, cynical, never congratulatory.
+
+## 15. Technical Architecture Principles
+- **Event-driven design**: Engine emits events; UI subscribes and responds. No direct coupling between Engine and UI layers.
+- **Unified repeat architecture**: All runs use a single `runsLeft` field (0 = single, N = countdown, -1 = infinite) rather than separate queue structures.
+- **Smooth updates**: 50ms tick interval (20 updates/sec) for fluid countdown timers and progress bars.
+- **Efficient rendering**: Partial UI updates on tick events; full renders only on state changes.
+- **Backward compatibility**: State migration handles legacy save formats gracefully.

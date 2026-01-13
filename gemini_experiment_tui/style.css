@@ -1,0 +1,38 @@
+@font-face {
+    font-family: 'VGA';
+    src: url('../fonts/AcPlus_IBM_VGA_9x8.ttf') format('truetype');
+}
+
+body {
+    background-color: #000000;
+    color: #cccccc;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+}
+
+.font-vga {
+    font-family: 'VGA', 'Courier New', monospace;
+}
+
+.font-modern {
+    font-family: 'Source Code Pro', 'Consolas', monospace;
+    font-weight: 500;
+}
+
+#game-container {
+    white-space: pre;
+    font-size: 16px;
+    line-height: 1; /* Critical for box drawing connections */
+    letter-spacing: 0; /* Critical for strict grid alignment */
+    font-variant-ligatures: none; /* Disable ligatures (e.g. -> turning into arrow) */
+    background-color: #0a1628;
+    padding: 10px;
+    border: 1px solid #333;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+    cursor: default;
+    user-select: none;
+}

@@ -349,14 +349,6 @@ const UI = {
 
       this.updateProgressBars();
 
-      // Also update the runs display if there are active runs
-
-      if (Engine.state.runs.length > 0) {
-
-        this.renderRuns();
-
-      }
-
     });
 
     // Runs completed - full re-render needed
@@ -378,35 +370,40 @@ const UI = {
   },
 
   updateProgressBars() {
-
-    // Efficiently update only progress bars without full re-render
-
+    // Efficiently update progress bars and remaining time without full re-render
     // This is called every tick for smooth animations
-
     const now = Engine.state.now;
 
-    // Update progress bars in the crew tab runs list
-
+    // Update progress bars in both crew tab and activity detail
     Engine.state.runs.forEach(run => {
-
       const elapsed = now - run.startedAt;
-
       const total = run.endsAt - run.startedAt;
-
       const progress = Math.min(100, Math.max(0, (elapsed / total) * 100));
+      const remaining = Math.max(0, run.endsAt - now);
 
-      // Update any progress bar elements that might exist
-
+      // Update text-based progress bar
       const progressBar = document.querySelector(`[data-run-id="${run.runId}"] .progress-bar`);
-
       if (progressBar) {
-
-        progressBar.style.width = `${progress}%`;
-
+        const filled = Math.floor((progress / 100) * 40);
+        const emptyChars = 40 - filled;
+        const barText = `[${'#'.repeat(filled)}${'-'.repeat(emptyChars)}]`;
+        progressBar.textContent = barText;
       }
 
+      // Update remaining time text
+      const remainingLine = document.querySelector(`[data-run-id="${run.runId}"] .run-remaining`);
+      if (remainingLine) {
+        let timeText = `Remaining: ${this.formatDuration(remaining)}`;
+        if (remaining > 3600000) {
+          const finishTime = new Date(run.endsAt);
+          const hours = finishTime.getHours();
+          const minutes = finishTime.getMinutes();
+          const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          timeText += ` (finishes at ${timeString})`;
+        }
+        remainingLine.textContent = timeText;
+      }
     });
-
   },
 
   setBranch(branchId) {
@@ -1336,129 +1333,117 @@ const UI = {
       const now = Engine.state.now;
 
       activeRuns.forEach(run => {
-
-        const option = activity.options.find(o => o.id === run.optionId);
-
-        const runItem = document.createElement("div");
-        runItem.className = "run-item-inline";
-
-        // Show which activity/option this run is executing
-        const runTitle = document.createElement("div");
-        runTitle.className = "run-name";
-        runTitle.textContent = `${activity.name} / ${option?.name || run.optionId}`;
-        runItem.appendChild(runTitle);
-
-        const assignedNames = run.assignedStaffIds.map(id => {
-
-          const s = Engine.state.crew.staff.find(staff => staff.id === id);
-
-          return s ? s.name : "Unknown";
-
-        }).join(", ");
-
-        const elapsed = now - run.startedAt;
-
-        const total = run.endsAt - run.startedAt;
-
-        const progress = Math.min(100, Math.max(0, (elapsed / total) * 100));
-
-        const remaining = Math.max(0, run.endsAt - now);
-
-        const filled = Math.floor((progress / 100) * 10);
-
-        const empty = 10 - filled;
-
-        const barText = `[${'='.repeat(filled)}${'-'.repeat(empty)}]`;
-
-        // Single line format
-
-        const line = document.createElement("div");
-
-        line.style.display = "flex";
-
-        line.style.justifyContent = "space-between";
-
-        line.style.alignItems = "center";
-
-        const info = document.createElement("div");
-
-        let timeText = `${this.formatDuration(remaining)} ${barText}`;
-
-        // Add "will finish at" for runs over 1 hour
-
-        if (remaining > 3600000) {
-
-          const finishTime = new Date(run.endsAt);
-
-          const hours = finishTime.getHours();
-
-          const minutes = finishTime.getMinutes();
-
-          const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-
-          timeText += ` (finishes at ${timeString})`;
-
-        }
-
-        info.textContent = `Assigned: ${assignedNames} | ${timeText}`;
-
-        info.className = "run-top-row"; // Reuse style
-
-        // Cancel button
-
-        const cancelBtn = document.createElement("button");
-
-        cancelBtn.className = "btn-cancel";
-
-        cancelBtn.textContent = "STOP";
-
-        cancelBtn.dataset.action = "cancel-run";
-
-        cancelBtn.dataset.runId = run.runId;
-
-        line.appendChild(info);
-
-        line.appendChild(cancelBtn);
-
-        runItem.appendChild(line);
-
-        // Repeat info and stop button (only shown if repeating)
-        if (run.runsLeft !== 0) {
-          const repeatInfo = document.createElement("div");
-          repeatInfo.className = "run-repeat-info";
-          repeatInfo.style.display = "flex";
-          repeatInfo.style.justifyContent = "space-between";
-          repeatInfo.style.alignItems = "center";
-          repeatInfo.style.marginTop = "0.25rem";
-          repeatInfo.style.color = "var(--secondary)";
-
-          // Display: current run is #1, then runsLeft more after this
-          let displayText;
-          if (run.runsLeft === -1) {
-            displayText = "REPEATING infinite";
-          } else {
-            displayText = `REPEATING (${run.runsLeft} more after this)`;
-          }
-          repeatInfo.textContent = displayText;
-
-          const stopRepeat = document.createElement("button");
-          stopRepeat.className = "btn-stop";
-          stopRepeat.textContent = "STOP REPEAT";
-          stopRepeat.dataset.action = "stop-repeat-request";
-          stopRepeat.dataset.runId = run.runId;
-
-          repeatInfo.appendChild(stopRepeat);
-          runItem.appendChild(repeatInfo);
-        }
-
+        const runItem = this.createRunItem(run, now);
         runsSection.appendChild(runItem);
-
       });
 
       container.appendChild(runsSection);
 
     }
 
+  },
+
+  createRunItem(run, now) {
+    // Shared function to create a run display item (used in both crew tab and activity detail)
+    const activity = Engine.content.activities.find(a => a.id === run.activityId);
+    const option = activity?.options.find(o => o.id === run.optionId);
+
+    const item = document.createElement("div");
+    item.className = "run-item";
+    item.dataset.runId = run.runId;
+
+    // Line 1: Crime name
+    const nameLine = document.createElement("div");
+    nameLine.className = "run-name";
+    nameLine.textContent = `${activity?.name || "Unknown"} → ${option?.name || "Unknown"}`;
+    item.appendChild(nameLine);
+
+    // Line 2: Staff
+    const assignedNames = run.assignedStaffIds.map(id => {
+      const s = Engine.state.crew.staff.find(staff => staff.id === id);
+      return s ? s.name : "Unknown";
+    }).join(", ");
+    const staffLine = document.createElement("div");
+    staffLine.className = "run-staff";
+    staffLine.textContent = `Staff: ${assignedNames}`;
+    item.appendChild(staffLine);
+
+    // Line 3: Remaining time
+    const remaining = Math.max(0, run.endsAt - now);
+    const remainingLine = document.createElement("div");
+    remainingLine.className = "run-remaining";
+    let timeText = `Remaining: ${this.formatDuration(remaining)}`;
+    if (remaining > 3600000) {
+      const finishTime = new Date(run.endsAt);
+      const hours = finishTime.getHours();
+      const minutes = finishTime.getMinutes();
+      const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      timeText += ` (finishes at ${timeString})`;
+    }
+    remainingLine.textContent = timeText;
+    item.appendChild(remainingLine);
+
+    // Line 4: Progress bar (40 chars, using #)
+    const elapsed = now - run.startedAt;
+    const total = run.endsAt - run.startedAt;
+    const progress = Math.min(100, Math.max(0, (elapsed / total) * 100));
+    const filled = Math.floor((progress / 100) * 40);
+    const emptyChars = 40 - filled;
+    const barText = `[${'#'.repeat(filled)}${'-'.repeat(emptyChars)}]`;
+
+    const progressLine = document.createElement("div");
+    progressLine.className = "run-progress";
+    progressLine.style.display = "flex";
+    progressLine.style.justifyContent = "space-between";
+    progressLine.style.alignItems = "center";
+
+    const progressBar = document.createElement("span");
+    progressBar.className = "progress-bar";
+    progressBar.textContent = barText;
+    progressLine.appendChild(progressBar);
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "btn-cancel";
+    cancelBtn.textContent = "STOP";
+    cancelBtn.dataset.action = "cancel-run";
+    cancelBtn.dataset.runId = run.runId;
+    progressLine.appendChild(cancelBtn);
+
+    item.appendChild(progressLine);
+
+    // Repeat info (only shown if repeating)
+    if (run.runsLeft !== 0) {
+      const repeatLine = document.createElement("div");
+      repeatLine.className = "run-repeat-info";
+      repeatLine.style.display = "flex";
+      repeatLine.style.justifyContent = "space-between";
+      repeatLine.style.alignItems = "center";
+      repeatLine.style.marginTop = "4px";
+      repeatLine.style.fontSize = "0.9em";
+      repeatLine.style.color = "var(--secondary)";
+
+      let displayText;
+      if (run.runsLeft === -1) {
+        displayText = "REPEATING infinite";
+      } else {
+        displayText = `REPEATING (${run.runsLeft} more after this)`;
+      }
+
+      const repeatLabel = document.createElement("span");
+      repeatLabel.textContent = displayText;
+      repeatLine.appendChild(repeatLabel);
+
+      const stopRepeatBtn = document.createElement("button");
+      stopRepeatBtn.className = "btn-stop";
+      stopRepeatBtn.textContent = "STOP REPEAT";
+      stopRepeatBtn.dataset.action = "stop-repeat-request";
+      stopRepeatBtn.dataset.runId = run.runId;
+      repeatLine.appendChild(stopRepeatBtn);
+
+      item.appendChild(repeatLine);
+    }
+
+    return item;
   },
 
   renderStaff() {
@@ -1542,87 +1527,16 @@ const UI = {
     container.innerHTML = "";
 
     if (Engine.state.runs.length === 0) {
-
       const empty = document.createElement("div");
-
       empty.className = "empty-state";
-
       empty.textContent = "No active runs.";
-
       container.appendChild(empty);
-
       return;
-
     }
 
     const now = Engine.state.now;
-
     Engine.state.runs.forEach(run => {
-      const activity = Engine.content.activities.find(a => a.id === run.activityId);
-      const option = activity?.options.find(o => o.id === run.optionId);
-
-      const item = document.createElement("div");
-      item.className = "run-item";
-      item.dataset.runId = run.runId;
-
-      // Line 1: Crime name
-      const nameLine = document.createElement("div");
-      nameLine.className = "run-name";
-      nameLine.textContent = `${activity?.name || "Unknown"} → ${option?.name || "Unknown"}`;
-      item.appendChild(nameLine);
-
-      // Line 2: Staff
-      const assignedNames = run.assignedStaffIds.map(id => {
-        const s = Engine.state.crew.staff.find(staff => staff.id === id);
-        return s ? s.name : "Unknown";
-      }).join(", ");
-      const staffLine = document.createElement("div");
-      staffLine.className = "run-staff";
-      staffLine.textContent = `Staff: ${assignedNames}`;
-      item.appendChild(staffLine);
-
-      // Line 3: Remaining time
-      const remaining = Math.max(0, run.endsAt - now);
-      const remainingLine = document.createElement("div");
-      remainingLine.className = "run-remaining";
-      let timeText = `Remaining: ${this.formatDuration(remaining)}`;
-      if (remaining > 3600000) {
-        const finishTime = new Date(run.endsAt);
-        const hours = finishTime.getHours();
-        const minutes = finishTime.getMinutes();
-        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-        timeText += ` (finishes at ${timeString})`;
-      }
-      remainingLine.textContent = timeText;
-      item.appendChild(remainingLine);
-
-      // Line 4: Progress bar (40 chars, using #)
-      const elapsed = now - run.startedAt;
-      const total = run.endsAt - run.startedAt;
-      const progress = Math.min(100, Math.max(0, (elapsed / total) * 100));
-      const filled = Math.floor((progress / 100) * 40);
-      const emptyChars = 40 - filled;
-      const barText = `[${'#'.repeat(filled)}${'-'.repeat(emptyChars)}]`;
-
-      const progressLine = document.createElement("div");
-      progressLine.className = "run-progress";
-      progressLine.style.display = "flex";
-      progressLine.style.justifyContent = "space-between";
-      progressLine.style.alignItems = "center";
-
-      const progressBar = document.createElement("span");
-      progressBar.className = "progress-bar";
-      progressBar.textContent = barText;
-      progressLine.appendChild(progressBar);
-
-      const cancelBtn = document.createElement("button");
-      cancelBtn.className = "btn-cancel";
-      cancelBtn.textContent = "STOP";
-      cancelBtn.dataset.action = "cancel-run";
-      cancelBtn.dataset.runId = run.runId;
-      progressLine.appendChild(cancelBtn);
-
-      item.appendChild(progressLine);
+      const item = this.createRunItem(run, now);
       container.appendChild(item);
     });
   },
@@ -2018,23 +1932,17 @@ const UI = {
   },
 
   formatDuration(ms) {
-
-    const seconds = Math.floor(ms / 1000);
-
+    const totalSeconds = ms / 1000;
+    const seconds = Math.floor(totalSeconds);
+    const tenths = Math.floor((totalSeconds % 1) * 10);
     const minutes = Math.floor(seconds / 60);
-
     const hours = Math.floor(minutes / 60);
-
     const days = Math.floor(hours / 24);
 
     if (days > 0) return `${days}d ${hours % 24}h`;
-
     if (hours > 0) return `${hours}h ${minutes % 60}m`;
-
-    if (minutes > 0) return `${minutes}m`;
-
-    return `${seconds}s`;
-
+    if (minutes > 0) return `${minutes}m ${seconds % 60}.${tenths}s`;
+    return `${seconds}.${tenths}s`;
   },
 
   formatTime(timestamp) {
