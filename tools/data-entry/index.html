@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCVibes Data Entry - Activities/Crimes</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <h1>CCVibes Data Entry</h1>
+      <p class="subtitle">Activity & Crime JSON Generator</p>
+    </header>
+
+    <div class="main-layout">
+      <!-- Form Panel -->
+      <div class="form-panel">
+        <form id="activityForm">
+          <!-- Basic Info Section -->
+          <section class="form-section">
+            <h2>Basic Info</h2>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="id">ID <span class="required">*</span></label>
+                <input type="text" id="id" name="id" placeholder="e.g., bank_heist" required>
+                <small>Unique identifier, snake_case</small>
+              </div>
+              <div class="form-group">
+                <label for="branchId">Branch ID <span class="required">*</span></label>
+                <select id="branchId" name="branchId" required>
+                  <option value="street">street</option>
+                  <option value="commerce">commerce</option>
+                  <option value="tech">tech</option>
+                  <option value="violence">violence</option>
+                  <option value="social">social</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="name">Name <span class="required">*</span></label>
+                <input type="text" id="name" name="name" placeholder="e.g., Bank Heist" required>
+              </div>
+              <div class="form-group">
+                <label for="icon">Icon</label>
+                <input type="text" id="icon" name="icon" placeholder="e.g., 🏦" class="icon-input">
+              </div>
+            </div>
+            <div class="form-group full-width">
+              <label for="description">Description <span class="required">*</span></label>
+              <textarea id="description" name="description" placeholder="e.g., the big score. retirement plan." required></textarea>
+            </div>
+            <div class="form-group full-width">
+              <label for="tags">Tags</label>
+              <input type="text" id="tags" name="tags" placeholder="e.g., crime, high-risk, long">
+              <small>Comma-separated list</small>
+            </div>
+          </section>
+
+          <!-- Visibility & Unlock Conditions -->
+          <section class="form-section">
+            <h2>Visibility & Unlock Conditions</h2>
+            <div class="conditions-container">
+              <div class="condition-group">
+                <h3>Visible If</h3>
+                <div id="visibleIfConditions" class="condition-list"></div>
+                <button type="button" class="btn-add" onclick="addCondition('visibleIf')">+ Add Condition</button>
+              </div>
+              <div class="condition-group">
+                <h3>Unlock If</h3>
+                <div id="unlockIfConditions" class="condition-list"></div>
+                <button type="button" class="btn-add" onclick="addCondition('unlockIf')">+ Add Condition</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Options Section -->
+          <section class="form-section">
+            <h2>Options</h2>
+            <div id="optionsContainer"></div>
+            <button type="button" class="btn-add btn-large" onclick="addOption()">+ Add Option</button>
+          </section>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="clearForm()">Clear Form</button>
+            <button type="button" class="btn-primary" onclick="generateJSON()">Generate JSON</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Output Panel -->
+      <div class="output-panel">
+        <div class="output-header">
+          <h2>JSON Output</h2>
+          <button type="button" class="btn-copy" onclick="copyJSON()">
+            <span id="copyText">Copy</span>
+          </button>
+        </div>
+        <pre id="jsonOutput" class="json-output">// Generated JSON will appear here</pre>
+
+        <div class="output-footer">
+          <h3>Quick Actions</h3>
+          <button type="button" class="btn-secondary" onclick="loadFromJSON()">Load from JSON</button>
+          <button type="button" class="btn-secondary" onclick="downloadJSON()">Download JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Templates -->
+  <template id="conditionTemplate">
+    <div class="condition-item">
+      <select class="condition-type" onchange="updateConditionFields(this)">
+        <option value="resourceGte">Resource >= Value</option>
+        <option value="resourceLte">Resource <= Value</option>
+        <option value="flagSet">Flag is Set</option>
+        <option value="activityCompleted">Activity Completed</option>
+        <option value="xpGte">XP >= Value</option>
+      </select>
+      <div class="condition-fields">
+        <input type="text" class="condition-resource" placeholder="resourceId">
+        <input type="number" class="condition-value" placeholder="value">
+      </div>
+      <button type="button" class="btn-remove" onclick="removeCondition(this)">×</button>
+    </div>
+  </template>
+
+  <template id="optionTemplate">
+    <div class="option-card">
+      <div class="option-header">
+        <h3>Option <span class="option-number"></span></h3>
+        <button type="button" class="btn-remove" onclick="removeOption(this)">Remove</button>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Option ID <span class="required">*</span></label>
+          <input type="text" class="option-id" placeholder="e.g., bank_heist_night">
+        </div>
+        <div class="form-group">
+          <label>Option Name <span class="required">*</span></label>
+          <input type="text" class="option-name" placeholder="e.g., night raid">
+        </div>
+      </div>
+
+      <div class="form-group full-width">
+        <label>Description</label>
+        <textarea class="option-description" placeholder="e.g., when the vault sleeps."></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Duration (ms)</label>
+          <input type="number" class="option-duration" placeholder="e.g., 60000" value="30000">
+        </div>
+        <div class="form-group">
+          <label>Cooldown (ms)</label>
+          <input type="number" class="option-cooldown" placeholder="e.g., 120000" value="0">
+        </div>
+        <div class="form-group">
+          <label>XP Reward</label>
+          <input type="number" class="option-xp" placeholder="e.g., 50" value="10">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group checkbox-group">
+          <label>
+            <input type="checkbox" class="option-repeatable" checked>
+            Repeatable
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Max Concurrent Runs</label>
+          <input type="number" class="option-maxConcurrent" placeholder="1" value="1" min="1">
+        </div>
+      </div>
+
+      <!-- Requirements -->
+      <div class="subsection">
+        <h4>Requirements</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Staff Role</label>
+            <select class="req-staff-role">
+              <option value="">None</option>
+              <option value="player">player</option>
+              <option value="lookout">lookout</option>
+              <option value="driver">driver</option>
+              <option value="muscle">muscle</option>
+              <option value="hacker">hacker</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Staff Count</label>
+            <input type="number" class="req-staff-count" placeholder="1" min="0" value="1">
+          </div>
+          <div class="form-group">
+            <label>Min Stars</label>
+            <input type="number" class="req-staff-stars" placeholder="0" min="0" max="5" value="0">
+          </div>
+        </div>
+      </div>
+
+      <!-- Inputs -->
+      <div class="subsection">
+        <h4>Inputs (Resources Consumed)</h4>
+        <div class="inputs-list"></div>
+        <button type="button" class="btn-add btn-small" onclick="addInput(this)">+ Add Input</button>
+      </div>
+
+      <!-- Resolution -->
+      <div class="subsection">
+        <h4>Resolution</h4>
+        <div class="form-group">
+          <label>Resolution Type</label>
+          <select class="resolution-type" onchange="updateResolutionFields(this)">
+            <option value="deterministic">Deterministic (Fixed outputs)</option>
+            <option value="ranged_outputs">Ranged Outputs (Min-Max)</option>
+            <option value="weighted_outcomes" selected>Weighted Outcomes (Multiple results)</option>
+          </select>
+        </div>
+        <div class="resolution-fields">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Modifiers -->
+      <div class="subsection collapsible">
+        <h4 onclick="toggleCollapsible(this)">Modifiers (Advanced) <span class="collapse-icon">▼</span></h4>
+        <div class="collapsible-content" style="display: none;">
+          <div class="modifiers-list"></div>
+          <button type="button" class="btn-add btn-small" onclick="addModifier(this)">+ Add Modifier</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="outcomeTemplate">
+    <div class="outcome-card">
+      <div class="outcome-header">
+        <span class="outcome-label">Outcome</span>
+        <button type="button" class="btn-remove btn-small" onclick="removeOutcome(this)">×</button>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Outcome ID</label>
+          <input type="text" class="outcome-id" placeholder="e.g., success">
+        </div>
+        <div class="form-group">
+          <label>Weight</label>
+          <input type="number" class="outcome-weight" placeholder="50" value="50" min="1">
+        </div>
+        <div class="form-group">
+          <label>Heat Delta</label>
+          <input type="number" class="outcome-heat" placeholder="0" value="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cash Output</label>
+          <input type="number" class="outcome-cash" placeholder="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>Cred Output</label>
+          <input type="number" class="outcome-cred" placeholder="0" value="0">
+        </div>
+        <div class="form-group">
+          <label>Jail Duration (ms)</label>
+          <input type="number" class="outcome-jail" placeholder="0 = no jail" value="0">
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="inputTemplate">
+    <div class="input-item">
+      <select class="input-resource">
+        <option value="cash">cash</option>
+        <option value="cred">cred</option>
+        <option value="heat">heat</option>
+      </select>
+      <input type="number" class="input-amount" placeholder="Amount" value="0">
+      <button type="button" class="btn-remove btn-small" onclick="removeInput(this)">×</button>
+    </div>
+  </template>
+
+  <template id="modifierTemplate">
+    <div class="modifier-item">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Staff Attribute</label>
+          <select class="modifier-attribute">
+            <option value="stealth">stealth</option>
+            <option value="speed">speed</option>
+            <option value="charm">charm</option>
+            <option value="tech">tech</option>
+            <option value="violence">violence</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Target Outcome</label>
+          <input type="text" class="modifier-outcome" placeholder="e.g., success">
+        </div>
+        <div class="form-group">
+          <label>Weight Delta per Point</label>
+          <input type="number" class="modifier-delta" placeholder="5" value="5">
+        </div>
+        <button type="button" class="btn-remove" onclick="removeModifier(this)">×</button>
+      </div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
