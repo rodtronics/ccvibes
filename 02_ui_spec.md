@@ -28,6 +28,28 @@ Purpose: single source for visual language, layout, and interaction patterns. Pa
 - Shows branch selection and available Activities; selecting an Activity opens a detail pane listing Options and requirements.
 - Primary control happens through Activity detail views.
 - Possible branches: Primordial, Drugs, Tech, Smuggling/Logistics, Fraud/Grift, Corruption/Influence.
+- **Active runs are displayed within the activity detail view**: Each activity shows its currently running operations inline, allowing concurrent runs to be visible and managed from the activity's own panel.
+
+### 5.1 Concurrent Runs Display
+
+Activities display their active runs directly in the detail panel:
+
+**Per-option status line:**
+- Shows active run count: `"2 active runs"` (if no limit) or `"2/4 concurrent runs"` (with limit)
+- Uses warning color when at limit: `"Concurrency limit reached (3/3)"`
+- Placeholder space maintained when no runs to preserve layout stability
+
+**Active runs section:**
+- Appears below options list when runs are active for this activity
+- Section header: `"ACTIVE RUNS (5)"` showing total count
+- Each run displayed using 4-line block format (see section 12)
+- Multiple concurrent runs visible simultaneously
+- Allows monitoring all jaywalking runs within jaywalking detail, all shoplifting runs within shoplifting detail, etc.
+
+**Visual hierarchy:**
+- Active runs use warning/accent colors (orange borders) to stand out
+- Dimmed display when panel not focused (see section 15)
+- Progress bars update in real-time without full refresh
 
 ## 6. Active Runs
 
@@ -241,3 +263,40 @@ UI.setupEngineEventListeners() {
 - **Performance**: Avoids unnecessary full re-renders; progress bars update smoothly via partial updates.
 - **Decoupling**: UI never directly polls Engine state; responds only to events.
 - **Maintainability**: Clear separation between state management (Engine) and presentation (UI).
+
+## 15. Visual Focus and Dimming
+
+The UI uses visual dimming to indicate focus and guide attention within multi-panel layouts.
+
+### Focus Tracking
+
+- UI maintains a `focus` state indicating which panel or element currently has user attention
+- In Activities tab: focus can be 'branch', 'activity', or 'option'
+- Other tabs may define their own focus contexts
+
+### Dimming Behavior
+
+- **Focused panel**: Full brightness using standard Palette colors
+- **Non-focused panels**: Dimmed using darker color variants
+- **Active runs in non-focused activity**: Dimmed display when the activity detail panel is not currently focused
+- **Borders**: Always use DIM_GRAY regardless of focus (maintain visual hierarchy)
+
+### Dimming Strategy
+
+- Text colors: Reduce brightness by using dimmer variants from Palette (e.g., TERMINAL_GREEN_DIM instead of TERMINAL_GREEN)
+- Active run cards: Apply dim colors to all text and progress bars when parent activity is not focused
+- Transition: No animation; instant color change on focus change
+- Preserve legibility: Dimmed content should still be readable, just visually recessed
+
+### Activities Tab Focus Example
+
+- When focus is 'branch': Branch column bright, activity and option columns dimmed
+- When focus is 'activity': Activity column bright, branch and option columns dimmed
+- When focus is 'option': Option detail panel bright (including any active runs), branch and activity columns dimmed
+
+### Purpose
+
+- Reduces visual clutter by de-emphasizing non-focused content
+- Guides user attention to currently active navigation area
+- Maintains awareness of other panels without competing for attention
+- Aligns with terminal aesthetic of focused workspace

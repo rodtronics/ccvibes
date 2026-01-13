@@ -1,6 +1,12 @@
 @font-face {
-  font-family: "VGA";
+  font-family: "VGA_9x8";
   src: url("fonts/AcPlus_IBM_VGA_9x8.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "VGA_8x16";
+  src: url("fonts/Ac437_IBM_VGA_8x16.ttf") format("truetype");
   font-display: swap;
 }
 
@@ -26,8 +32,12 @@ body {
   user-select: none;
 }
 
-.font-vga {
-  font-family: "VGA", "Courier New", monospace;
+.font-vga-9x8 {
+  font-family: "VGA_9x8", "Courier New", monospace;
+}
+
+.font-vga-8x16 {
+  font-family: "VGA_8x16", "Courier New", monospace;
 }
 
 .font-scp {
