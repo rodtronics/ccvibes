@@ -26,6 +26,8 @@ export class UI {
 
   // Main render entry point using layered composition
   render() {
+    this.buffer.forceUppercase = !!this.ui.settings.allCaps;
+
     // Layer 0: Clear background
     this.buffer.fill(' ', Palette.LIGHT_GRAY, Palette.BLACK);
 
@@ -339,10 +341,17 @@ export class UI {
     const timeText = this.formatMs(remaining);
     this.buffer.writeText(x, y + 1, timeText, Palette.MID_GRAY, bgColor);
 
-    // Line 3: Progress bar + buttons
+    // Line 3: Smooth gradient progress bar + buttons
     const barWidth = maxWidth - 8;
     const pct = (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt);
-    this.buffer.drawProgressBar(x, y + 2, barWidth, pct, Palette.NEON_CYAN, bgColor);
+    // Gradient from yellow/green to cyan, with dim gray as the empty color
+    this.buffer.drawSmoothProgressBar(
+      x, y + 2, barWidth, pct,
+      Palette.BRIGHT_YELLOW,  // Start color (left side of gradient)
+      Palette.NEON_CYAN,      // End color (right side of gradient)
+      Palette.DIM_GRAY,       // Empty color (unfilled blocks)
+      bgColor
+    );
 
     // Stop buttons - only show when the run is selected
     if (selected) {
@@ -361,7 +370,6 @@ export class UI {
     // Select colors based on dimmed state
     const nameColor = dimmed ? Palette.NEON_TEAL_DIM : Palette.NEON_TEAL;
     const textColor = dimmed ? Palette.DIM_GRAY : Palette.MID_GRAY;
-    const progressColor = dimmed ? Palette.NEON_CYAN_DIM : Palette.NEON_CYAN;
 
     // Line 1: Crime name
     const nameText = `${activity?.name || '?'} → ${option?.name || '?'}`;
@@ -376,10 +384,19 @@ export class UI {
     const remainingText = `Remaining: ${this.formatMs(remaining)}`;
     this.buffer.writeText(x, y + 2, remainingText.slice(0, maxWidth), textColor, Palette.BLACK);
 
-    // Line 4: Progress bar
+    // Line 4: Smooth gradient progress bar
     const pct = Math.min(1, Math.max(0, (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt)));
     const barWidth = Math.min(40, maxWidth - 6);
-    this.buffer.drawProgressBar(x, y + 3, barWidth, pct, progressColor, Palette.BLACK);
+    // Use dimmed colors if the run card itself is dimmed
+    const gradientStart = dimmed ? Palette.ELECTRIC_ORANGE : Palette.BRIGHT_YELLOW;
+    const gradientEnd = dimmed ? Palette.NEON_CYAN_DIM : Palette.NEON_CYAN;
+    this.buffer.drawSmoothProgressBar(
+      x, y + 3, barWidth, pct,
+      gradientStart,
+      gradientEnd,
+      Palette.DIM_GRAY,
+      Palette.BLACK
+    );
     this.buffer.writeText(x + barWidth + 1, y + 3, 'STOP', Palette.HEAT_RED, Palette.BLACK);
   }
 
@@ -517,8 +534,19 @@ export class UI {
       this.buffer.writeText(Layout.WIDTH - 18, funnyRow, '<ENTER> TOGGLE', Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
+    // Force caps toggle
+    const capsRow = top + 10;
+    const capsSelected = selectedSetting === 6;
+    const capsOn = !!this.ui.settings.allCaps;
+    this.buffer.writeText(3, capsRow, capsSelected ? '>' : ' ', Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, capsRow, '7. Force caps', capsSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(18, capsRow, capsOn ? 'ENABLED' : 'DISABLED', capsOn ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
+    if (capsSelected) {
+      this.buffer.writeText(Layout.WIDTH - 18, capsRow, '<ENTER> TOGGLE', Palette.SUCCESS_GREEN, Palette.BLACK);
+    }
+
     // Help text
-    this.buffer.writeText(4, top + 11, 'Arrows to move | 1-6 select | Enter toggles | LEFT/RIGHT resize font', Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(4, top + 11, 'Arrows to move | 1-7 select | Enter toggles | LEFT/RIGHT resize font', Palette.DIM_GRAY, Palette.BLACK);
   }
 
   // Tab rendering helper - renders tab with colored hotkey letter and optional glow

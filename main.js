@@ -67,6 +67,7 @@ function loadSettings() {
     hotkeyGlow: true,
     bloom: false,
     funnyNames: false,
+    allCaps: false,
     zoom: 100, // Font size zoom percentage (100, 150, 200, 250, etc.)
   };
 
@@ -357,11 +358,11 @@ function handleOptionsInput(e) {
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.selectedSetting = Math.min(5, ui.selectedSetting + 1);
+    ui.selectedSetting = Math.min(6, ui.selectedSetting + 1);
   }
 
-  // Number key selection (1-6)
-  if (e.key >= '1' && e.key <= '6') {
+  // Number key selection (1-7)
+  if (e.key >= '1' && e.key <= '7') {
     ui.selectedSetting = parseInt(e.key) - 1;
   }
 
@@ -401,6 +402,9 @@ function handleOptionsInput(e) {
       saveSettings();
     } else if (ui.selectedSetting === 5) {
       ui.settings.funnyNames = !ui.settings.funnyNames;
+      saveSettings();
+    } else if (ui.selectedSetting === 6) {
+      ui.settings.allCaps = !ui.settings.allCaps;
       saveSettings();
     }
   }

@@ -1,10 +1,4 @@
-when a crime can be repeatable, we should get rid of the "G" hotkey for single. hitting return will run a single run. pressing N (not M) opens the option to choose how many runs (this should be able to go down to 1). then enter. or I to select infinite
-
-crew management. should be a way to scroll up and down. remove button for adding 5 people at a time.
-
 when differenct branches are selected, the background behind the crimes is different colour. this is defined in the branches.json
-
-the extra special characters like the caution symbol and infinite symbol throw out the spacing
 
 menu for resources/stats. perhaps this could be tabbed? resources is exactly that, a list of all the resources you have. stats will just tell you about what's going on.
 
