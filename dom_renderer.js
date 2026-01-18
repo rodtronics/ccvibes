@@ -62,7 +62,12 @@ export class DOMRenderer {
         }
 
         // Add the character (escape HTML entities)
-        row += this.escapeHtml(char);
+        // Wrap progress bar characters in class for CSS negative letter-spacing
+        if (cell.progressBar) {
+          row += `<span class="pb">${this.escapeHtml(char)}</span>`;
+        } else {
+          row += this.escapeHtml(char);
+        }
       }
 
       // Close any open span at end of row

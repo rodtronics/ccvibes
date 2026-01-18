@@ -23,6 +23,7 @@ export class FrameBuffer {
           fg: Palette.LIGHT_GRAY,
           bg: Palette.BLACK,
           dirty: true,
+          progressBar: false,  // Flag for CSS targeting of progress bar chars
         };
       }
     }
@@ -196,6 +197,7 @@ export class FrameBuffer {
   // - The leading character interpolates from emptyColor to its target gradient color
   // - Filled portion has a gradient across it (startColor -> endColor)
   // - Uses solid blocks (█) for a clean look
+  // - Marks cells with progressBar flag for CSS negative letter-spacing
   drawSmoothProgressBar(x, y, width, percent, startColor, endColor, emptyColor, bg) {
     if (width < 1) return;
 
@@ -221,6 +223,11 @@ export class FrameBuffer {
       } else {
         // Empty
         this.setCell(x + i, y, '█', emptyColor, bg);
+      }
+
+      // Mark this cell as part of progress bar for CSS targeting
+      if (this.inBounds(x + i, y)) {
+        this.cells[y][x + i].progressBar = true;
       }
     }
   }

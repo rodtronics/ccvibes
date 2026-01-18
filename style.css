@@ -80,3 +80,9 @@ body {
 #game.font-fira {
   line-height: 1.1;
 }
+
+/* Progress bar block characters - use negative margin to overlap blocks without affecting text spacing */
+.pb {
+  display: inline-block;
+  margin-right: 0;
+}
