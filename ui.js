@@ -35,9 +35,9 @@ export class UI {
     this.renderStatusRail();
     this.renderTabBar();
 
-    if (this.ui.tab === 'activities') this.renderActivitiesTab();
-    if (this.ui.tab === 'runs') this.renderRunsTab();
-    if (this.ui.tab === 'log') this.renderLogTab();
+    if (this.ui.tab === 'jobs') this.renderJobsTab();
+    if (this.ui.tab === 'active') this.renderActiveTab();
+    if (this.ui.tab === 'crew') this.renderCrewTab();
     if (this.ui.tab === 'settings') this.renderSettingsTab();
   }
 
@@ -59,20 +59,8 @@ export class UI {
 
     // Tab bar gets no box, just content
 
-    // Main content area structure varies by tab
-    if (this.ui.tab === 'activities') {
-      const branchW = 30;
-      const activityW = 50;
-      const detailW = Layout.WIDTH - branchW - activityW;
-
-      // All borders use DIM_GRAY for subtle, recessed structure
-      this.buffer.drawBox(0, 3, branchW, Layout.HEIGHT - 3, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.drawBox(branchW, 3, activityW, Layout.HEIGHT - 3, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.drawBox(branchW + activityW, 3, detailW, Layout.HEIGHT - 3, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
-    } else {
-      // Default: single main panel with dark border
-      this.buffer.drawBox(0, 3, Layout.WIDTH, Layout.HEIGHT - 3, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
-    }
+    // Main content area - single panel with dark border
+    this.buffer.drawBox(0, 3, Layout.WIDTH, Layout.HEIGHT - 3, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
   }
 
   renderStatusRail() {
@@ -100,140 +88,129 @@ export class UI {
 
   renderTabBar() {
     const tabs = [
-      { id: 'activities', label: '1 ACTIVITIES' },
-      { id: 'runs', label: '2 ACTIVE' },
-      { id: 'log', label: '3 LOG' },
-      { id: 'settings', label: '4 SETTINGS' },
+      { id: 'jobs', label: 'JOBS', hotkey: 'j' },
+      { id: 'active', label: 'ACTIVE', hotkey: 'a' },
+      { id: 'crew', label: 'CREW', hotkey: 'c' },
+      { id: 'settings', label: 'SETTINGS', hotkey: 's' },
     ];
 
-    let x = 1;
+    let x = 2;
     const y = 2;
 
     tabs.forEach((tab) => {
       const active = tab.id === this.ui.tab;
-      const text = `[${tab.label}]`;
-      const fg = active ? Palette.BLACK : Palette.MID_GRAY;
-      const bg = active ? Palette.SUCCESS_GREEN : null;
-
-      this.buffer.writeText(x, y, text, fg, bg);
-      x += text.length + 1;
+      const width = this.renderTab(
+        x, y,
+        tab.label,
+        tab.hotkey,
+        active,
+        Palette.NEON_CYAN,
+        Palette.BLACK,
+        Palette.DIM_GRAY
+      );
+      x += width + 3; // Add spacing between tabs
     });
 
     // Help text on right
     this.buffer.writeTextRight(
       Layout.WIDTH - 2,
       y,
-      'ARROWS NAV | ENTER SELECT | 1-4 SWITCH',
+      'ARROWS | ENTER | BACKSPACE | NUMS',
       Palette.DIM_GRAY,
       Palette.BLACK
     );
   }
 
-  renderActivitiesTab() {
-    const top = 4;
-    const branchW = 15;
-    const activityW = 25;
-    const detailW = Layout.WIDTH - branchW - activityW;
-
+  renderJobsTab() {
     const branches = this.getVisibleBranches();
     const branch = branches[this.ui.branchIndex] || branches[0];
     const activities = this.getVisibleActivities(branch?.id);
-    const activity = activities[this.ui.activityIndex] || activities[0];
-    const options = this.getVisibleOptions(activity);
+    const activity = activities[this.ui.activityIndex];
+    const options = activity ? this.getVisibleOptions(activity) : [];
 
-    // Determine which panels are focused
-    const branchFocused = this.ui.focus === 'branch';
-    const activityFocused = this.ui.focus === 'activity';
-    const optionFocused = this.ui.focus === 'option';
-
-    // Branch column title
-    const branchTitleColor = branchFocused ? Palette.TERMINAL_GREEN : Palette.TERMINAL_GREEN_DIMMER;
-    this.buffer.writeText(2, top, 'BRANCH', branchTitleColor, Palette.BLACK);
-
-    // Branch list
+    // Row 4: Branch tabs (secondary navigation)
+    let tabX = 2;
+    const tabY = 4;
     branches.forEach((b, i) => {
-      const row = top + 1 + i;
-      const selected = this.ui.focus === 'branch' && this.ui.branchIndex === i;
-      const text = b.name.padEnd(branchW - 3).slice(0, branchW - 3);
-      const fg = selected ? Palette.BLACK : (branchFocused ? Palette.TERMINAL_GREEN_DIM : Palette.TERMINAL_GREEN_DIMMER);
-      const bg = selected ? Palette.SUCCESS_GREEN : null;
-
-      this.buffer.writeText(2, row, text, fg, bg);
+      const isActive = i === this.ui.branchIndex;
+      const width = this.renderTab(
+        tabX, tabY,
+        b.name.toUpperCase(),
+        b.hotkey || '',
+        isActive,
+        Palette.TERMINAL_GREEN,
+        Palette.BLACK,
+        Palette.DIM_GRAY
+      );
+      tabX += width + 2;
     });
 
-    // Activity column title
-    const activityTitleColor = activityFocused ? Palette.NEON_CYAN : Palette.NEON_CYAN_DIM;
-    this.buffer.writeText(branchW + 2, top, 'ACTIVITY', activityTitleColor, Palette.BLACK);
+    // Determine layout based on focus
+    const showingOptions = this.ui.focus === 'option' && activity;
 
-    // Activity list
-    activities.slice(0, Layout.HEIGHT - top - 2).forEach((a, i) => {
-      const row = top + 1 + i;
-      const selected = this.ui.focus === 'activity' && this.ui.activityIndex === i;
-      const prefix = selected ? '>' : ' ';
-      const text = `${prefix} ${a.name}`.padEnd(activityW - 2).slice(0, activityW - 2);
-      const fg = selected ? Palette.BLACK : (activityFocused ? Palette.NEON_TEAL : Palette.NEON_TEAL_DIM);
-      const bg = selected ? Palette.NEON_CYAN : null;
+    if (!showingOptions) {
+      // ACTIVITY LIST VIEW (focused on activities, numbered 1-9)
+      const listTop = 6;
+      const listTitle = branch ? branch.name.toUpperCase() + ' JOBS' : 'JOBS';
+      this.buffer.writeText(2, listTop, listTitle, Palette.NEON_CYAN, Palette.BLACK);
 
-      this.buffer.writeText(branchW + 1, row, text, fg, bg);
-    });
+      // Show numbered list of activities
+      activities.slice(0, 9).forEach((a, i) => {
+        const row = listTop + 2 + i;
+        const number = i + 1;
+        const selected = this.ui.activityIndex === i;
+        const fg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
+        const prefix = selected ? '>' : ' ';
 
-    // Options detail panel
-    const detailX = branchW + activityW + 2;
-
-    const optionsTitleColor = optionFocused ? Palette.HOT_PINK : Palette.HOT_PINK_DIM;
-    this.buffer.writeText(detailX, top, 'OPTIONS', optionsTitleColor, Palette.BLACK);
-
-    if (activity) {
-      const activityNameColor = optionFocused ? Palette.NEON_CYAN : Palette.NEON_CYAN_DIM;
-      this.buffer.writeText(detailX, top + 1, activity.name.toUpperCase(), activityNameColor, Palette.BLACK);
-
-      const descColor = optionFocused ? Palette.LIGHT_GRAY : Palette.MID_GRAY;
-      const descLines = this.wrapText(activity.description || '', detailW - 4);
-      descLines.slice(0, 2).forEach((line, idx) => {
-        this.buffer.writeText(detailX, top + 2 + idx, line, descColor, Palette.BLACK);
+        this.buffer.writeText(2, row, `${prefix}${number}.`, fg, Palette.BLACK);
+        this.buffer.writeText(6, row, a.name, fg, Palette.BLACK);
       });
 
-      let currentY = top + 5;
+      // Show description of selected activity
+      if (activity) {
+        const descY = listTop + 13;
+        this.buffer.drawHLine(2, descY, Layout.WIDTH - 4, '─', Palette.DIM_GRAY, Palette.BLACK);
+        this.buffer.writeText(2, descY + 1, activity.name.toUpperCase(), Palette.NEON_CYAN, Palette.BLACK);
 
-      // Options list
-      options.forEach((opt, i) => {
-        const y = currentY;
-        const selected = this.ui.focus === 'option' && this.ui.optionIndex === i;
-
-        // Divider with option name
-        const dividerColor = selected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
-        this.buffer.drawHLine(detailX - 1, y, detailW - 2, '─', dividerColor, Palette.BLACK);
-        this.buffer.writeText(detailX, y, ` ${opt.name} `, dividerColor, Palette.BLACK);
-
-        // Option details (use dimmed colors when not focused)
-        const detailColor = optionFocused ? Palette.MID_GRAY : Palette.DIM_GRAY;
-        this.buffer.writeText(detailX, y + 1, `Duration: ${this.formatMs(opt.durationMs)}`, detailColor, Palette.BLACK);
-        this.buffer.writeText(detailX, y + 2, `Req: ${this.describeRequirements(opt.requirements)}`, detailColor, Palette.BLACK);
-        this.buffer.writeText(detailX, y + 3, `Outcome: ${this.summarizeResolution(opt.resolution)}`, detailColor, Palette.BLACK);
-
-        if (selected) {
-          this.buffer.writeText(branchW + activityW + detailW - 16, y + 1, '[ENTER] START', Palette.SUCCESS_GREEN, Palette.BLACK);
-        }
-
-        currentY += 4;
-      });
-
-      // Active runs section for this activity
-      const activeRuns = this.engine.state.runs.filter(run => run.activityId === activity.id);
-      if (activeRuns.length > 0) {
-        // Section header
-        const headerY = currentY + 1;
-        const headerColor = optionFocused ? Palette.ELECTRIC_ORANGE : Palette.ELECTRIC_ORANGE_DIM;
-        this.buffer.writeText(detailX, headerY, `ACTIVE RUNS (${activeRuns.length})`, headerColor, Palette.BLACK);
-
-        // Draw each active run using 4-line format (dimmed if panel not focused)
-        activeRuns.forEach((run, idx) => {
-          const runY = headerY + 2 + (idx * 5);
-          this.renderRunCard(run, detailX, runY, detailW - 4, !optionFocused);
+        const descLines = this.wrapText(activity.description || '', Layout.WIDTH - 6);
+        descLines.slice(0, 3).forEach((line, idx) => {
+          this.buffer.writeText(2, descY + 2 + idx, line, Palette.MID_GRAY, Palette.BLACK);
         });
+
+        this.buffer.writeText(2, Layout.HEIGHT - 2, '[ENTER] Select options', Palette.SUCCESS_GREEN, Palette.BLACK);
       }
     } else {
-      this.buffer.writeText(detailX, top + 2, 'No activity available.', Palette.DIM_GRAY, Palette.BLACK);
+      // OPTIONS VIEW (showing numbered options for selected activity)
+      const optionsTop = 6;
+      this.buffer.writeText(2, optionsTop, activity.name.toUpperCase(), Palette.NEON_CYAN, Palette.BLACK);
+
+      const descLines = this.wrapText(activity.description || '', Layout.WIDTH - 6);
+      descLines.slice(0, 2).forEach((line, idx) => {
+        this.buffer.writeText(2, optionsTop + 1 + idx, line, Palette.MID_GRAY, Palette.BLACK);
+      });
+
+      // Show numbered options
+      options.slice(0, 9).forEach((opt, i) => {
+        const optY = optionsTop + 4 + (i * 5);
+        const number = i + 1;
+        const selected = this.ui.optionIndex === i;
+        const fg = selected ? Palette.SUCCESS_GREEN : Palette.NEON_TEAL;
+
+        // Number and name
+        this.buffer.writeText(2, optY, `${number}.`, fg, Palette.BLACK);
+        this.buffer.writeText(5, optY, opt.name, fg, Palette.BLACK);
+
+        // Details
+        const detailFg = selected ? Palette.MID_GRAY : Palette.DIM_GRAY;
+        this.buffer.writeText(5, optY + 1, `Duration: ${this.formatMs(opt.durationMs)}`, detailFg, Palette.BLACK);
+        this.buffer.writeText(5, optY + 2, `Req: ${this.describeRequirements(opt.requirements)}`, detailFg, Palette.BLACK);
+
+        if (selected) {
+          this.buffer.writeText(5, optY + 3, '[ENTER] START', Palette.SUCCESS_GREEN, Palette.BLACK);
+        }
+      });
+
+      this.buffer.writeText(2, Layout.HEIGHT - 2, '[BACKSPACE] Back to jobs', Palette.DIM_GRAY, Palette.BLACK);
     }
   }
 
@@ -267,7 +244,7 @@ export class UI {
     this.buffer.writeText(x + barWidth + 1, y + 3, 'STOP', Palette.HEAT_RED, Palette.BLACK);
   }
 
-  renderRunsTab() {
+  renderActiveTab() {
     const top = 5;
 
     this.buffer.writeText(2, top - 1, 'ACTIVE OPERATIONS', Palette.SUCCESS_GREEN, Palette.BLACK);
@@ -286,23 +263,10 @@ export class UI {
     });
   }
 
-  renderLogTab() {
+  renderCrewTab() {
     const top = 5;
-    const maxRows = Layout.HEIGHT - top - 2;
-
-    this.buffer.writeText(2, top - 1, 'LOG (UP/DOWN TO SCROLL)', Palette.SUCCESS_GREEN, Palette.BLACK);
-
-    const entries = this.engine.state.log.slice(this.ui.logOffset, this.ui.logOffset + maxRows);
-    entries.forEach((entry, idx) => {
-      const y = top + idx;
-      const time = new Date(entry.timestamp).toLocaleTimeString();
-
-      let color = Palette.NEON_TEAL;
-      if (entry.type === 'error') color = Palette.HEAT_RED;
-      if (entry.type === 'success') color = Palette.SUCCESS_GREEN;
-
-      this.buffer.writeText(2, y, `[${time}] ${entry.message}`.slice(0, Layout.WIDTH - 4), color, Palette.BLACK);
-    });
+    this.buffer.writeText(2, top - 1, 'CREW MANAGEMENT', Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(2, top + 1, 'Coming soon...', Palette.DIM_GRAY, Palette.BLACK);
   }
 
   renderSettingsTab() {
@@ -325,6 +289,31 @@ export class UI {
     const fontText = fontNames[this.ui.settings.font] || this.ui.settings.font;
     this.buffer.writeText(18, top + 2, fontText, Palette.WHITE, Palette.DARKER_BLUE);
     this.buffer.writeText(Layout.WIDTH - 18, top + 2, '<ENTER> CYCLE', Palette.SUCCESS_GREEN, Palette.BLACK);
+  }
+
+  // Tab rendering helper - renders tab with underlined hotkey
+  renderTab(x, y, label, hotkey, isActive, activeFg, activeBg, inactiveFg) {
+    // Find the hotkey position in the label (case insensitive)
+    const lowerLabel = label.toLowerCase();
+    const lowerHotkey = hotkey.toLowerCase();
+    const hotkeyIndex = lowerLabel.indexOf(lowerHotkey);
+
+    const fg = isActive ? activeFg : inactiveFg;
+    const bg = isActive ? activeBg : null;
+
+    // Write the label character by character, underlining the hotkey
+    for (let i = 0; i < label.length; i++) {
+      const char = label[i];
+      if (i === hotkeyIndex) {
+        // Underline the hotkey character by writing it, then underlining on next row
+        this.buffer.writeText(x + i, y, char, fg, bg);
+        this.buffer.writeText(x + i, y + 1, '─', fg, bg);
+      } else {
+        this.buffer.writeText(x + i, y, char, fg, bg);
+      }
+    }
+
+    return label.length; // Return width for positioning next tab
   }
 
   // Helper methods

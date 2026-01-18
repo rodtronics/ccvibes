@@ -4,6 +4,7 @@
     "name": "street",
     "description": "low stakes, high confidence",
     "order": 10,
+    "hotkey": "s",
     "revealedByDefault": true,
     "ui": { "accent": "green" }
   },
@@ -12,6 +13,7 @@
     "name": "commerce",
     "description": "business, but aggressive",
     "order": 20,
+    "hotkey": "c",
     "revealedByDefault": true,
     "ui": { "accent": "cyan" }
   }

@@ -13,8 +13,8 @@ const engine = new Engine();
 
 // UI state (navigation, selections, settings)
 const ui = {
-  tab: 'activities', // activities, runs, log, settings
-  focus: 'activity', // branch | activity | option
+  tab: 'jobs', // jobs, active, crew, settings
+  focus: 'activity', // activity | option
   branchIndex: 0,
   activityIndex: 0,
   optionIndex: 0,
@@ -93,61 +93,86 @@ function cycleFontSetting() {
 
 // Input handling by tab
 function handleInput(e) {
-  // Tab switching
-  if (e.key === '1') ui.tab = 'activities';
-  if (e.key === '2') ui.tab = 'runs';
-  if (e.key === '3') ui.tab = 'log';
-  if (e.key === '4') ui.tab = 'settings';
+  // Tab switching (J, A, C, S)
+  if (e.key === 'j' || e.key === 'J') ui.tab = 'jobs';
+  if (e.key === 'a' || e.key === 'A') ui.tab = 'active';
+  if (e.key === 'c' || e.key === 'C') ui.tab = 'crew';
+  if (e.key === 's' || e.key === 'S') ui.tab = 'settings';
 
   // Tab-specific input
-  if (ui.tab === 'activities') handleActivitiesInput(e);
-  if (ui.tab === 'runs') handleRunsInput(e);
-  if (ui.tab === 'log') handleLogInput(e);
+  if (ui.tab === 'jobs') handleJobsInput(e);
+  if (ui.tab === 'active') handleActiveInput(e);
+  if (ui.tab === 'crew') handleCrewInput(e);
   if (ui.tab === 'settings') handleSettingsInput(e);
 
   render();
 }
 
-function handleActivitiesInput(e) {
+function handleJobsInput(e) {
   const branches = uiLayer.getVisibleBranches();
   const branch = branches[ui.branchIndex] || branches[0];
   const activities = uiLayer.getVisibleActivities(branch?.id);
-  const activity = activities[ui.activityIndex] || activities[0];
-  const options = uiLayer.getVisibleOptions(activity);
+  const activity = activities[ui.activityIndex];
+  const options = activity ? uiLayer.getVisibleOptions(activity) : [];
 
-  if (ui.focus === "branch") {
-    if (e.key === "ArrowUp") ui.branchIndex = Math.max(0, ui.branchIndex - 1);
-    if (e.key === "ArrowDown") ui.branchIndex = Math.min(branches.length - 1, ui.branchIndex + 1);
-    if (e.key === "ArrowRight" || e.key === "Enter") {
-      ui.focus = "activity";
+  // Branch hotkeys
+  branches.forEach((b, i) => {
+    if (e.key === b.hotkey || e.key === b.hotkey?.toUpperCase()) {
+      ui.branchIndex = i;
       ui.activityIndex = 0;
       ui.optionIndex = 0;
+      ui.focus = 'activity';
     }
-  } else if (ui.focus === "activity") {
-    if (e.key === "ArrowUp") ui.activityIndex = Math.max(0, ui.activityIndex - 1);
-    if (e.key === "ArrowDown") ui.activityIndex = Math.min(Math.max(0, activities.length - 1), ui.activityIndex + 1);
-    if (e.key === "ArrowLeft") ui.focus = "branch";
-    if (e.key === "ArrowRight" || e.key === "Enter") {
-      ui.focus = "option";
+  });
+
+  // Number keys for selection
+  if (e.key >= '1' && e.key <= '9') {
+    const num = parseInt(e.key);
+    if (ui.focus === 'activity') {
+      // Select activity by number
+      if (num - 1 < activities.length) {
+        ui.activityIndex = num - 1;
+      }
+    } else if (ui.focus === 'option') {
+      // Select and start option by number
+      if (num - 1 < options.length) {
+        ui.optionIndex = num - 1;
+        startSelectedRun(activity, options[num - 1]);
+      }
+    }
+  }
+
+  // Backspace to go back
+  if (e.key === 'Backspace') {
+    if (ui.focus === 'option') {
+      ui.focus = 'activity';
       ui.optionIndex = 0;
     }
-  } else if (ui.focus === "option") {
-    if (e.key === "ArrowUp") ui.optionIndex = Math.max(0, ui.optionIndex - 1);
-    if (e.key === "ArrowDown") ui.optionIndex = Math.min(Math.max(0, options.length - 1), ui.optionIndex + 1);
-    if (e.key === "ArrowLeft") ui.focus = "activity";
-    if (e.key === "Enter") startSelectedRun(activity, options[ui.optionIndex]);
+  }
+
+  // Arrow key navigation
+  if (ui.focus === 'activity') {
+    if (e.key === 'ArrowUp') ui.activityIndex = Math.max(0, ui.activityIndex - 1);
+    if (e.key === 'ArrowDown') ui.activityIndex = Math.min(Math.max(0, activities.length - 1), ui.activityIndex + 1);
+    if (e.key === 'Enter' && activity) {
+      ui.focus = 'option';
+      ui.optionIndex = 0;
+    }
+  } else if (ui.focus === 'option') {
+    if (e.key === 'ArrowUp') ui.optionIndex = Math.max(0, ui.optionIndex - 1);
+    if (e.key === 'ArrowDown') ui.optionIndex = Math.min(Math.max(0, options.length - 1), ui.optionIndex + 1);
+    if (e.key === 'Enter') startSelectedRun(activity, options[ui.optionIndex]);
   }
 }
 
-function handleRunsInput(e) {
+function handleActiveInput(e) {
   // Placeholder for future run management
-  if (e.key === 'Escape') ui.tab = 'activities';
+  if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
 }
 
-function handleLogInput(e) {
-  const maxOffset = Math.max(0, engine.state.log.length - 1);
-  if (e.key === 'ArrowUp') ui.logOffset = Math.min(maxOffset, ui.logOffset + 1);
-  if (e.key === 'ArrowDown') ui.logOffset = Math.max(0, ui.logOffset - 1);
+function handleCrewInput(e) {
+  // Placeholder for crew management
+  if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
 }
 
 function handleSettingsInput(e) {
