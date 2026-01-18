@@ -4,7 +4,8 @@
       "Bash(ls:*)",
       "Bash(node -c:*)",
       "Bash(grep:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(start \"\" \"c:\\\\Users\\\\Andrew\\\\Documents\\\\GitHub\\\\ccvibes\\\\ccvibes\\\\data-builder\\\\tui-designer-v2.html\")"
     ],
     "defaultMode": "bypassPermissions"
   }

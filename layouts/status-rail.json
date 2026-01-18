@@ -1,0 +1,48 @@
+{
+  "name": "Status Rail",
+  "description": "Top status bar with title, cash, heat meter",
+  "lines": [
+    {
+      "type": "border",
+      "char": "═",
+      "color": "dim"
+    },
+    {
+      "type": "text",
+      "x": 1,
+      "segments": [
+        { "text": "CRIME COMMITTER VI", "gradient": "cyber" },
+        { "text": "  |  ", "color": "dim" },
+        { "text": "CASH: ", "color": "gray" },
+        { "text": "${{cash}}", "color": "green" },
+        { "text": "  |  ", "color": "dim" },
+        { "text": "HEAT ", "color": "gray" }
+      ]
+    },
+    {
+      "type": "bar",
+      "y": 1,
+      "x": 64,
+      "width": 20,
+      "fill": "{{heatPercent}}",
+      "gradient": "heat",
+      "fullChar": "#",
+      "emptyChar": "-"
+    },
+    {
+      "type": "text",
+      "y": 1,
+      "x": 85,
+      "segments": [
+        { "text": " {{heatPercent}}%", "color": "red" },
+        { "text": "  |  ", "color": "dim" },
+        { "text": "RUNS: {{runCount}}", "color": "white" }
+      ]
+    },
+    {
+      "type": "border",
+      "char": "═",
+      "color": "dim"
+    }
+  ]
+}

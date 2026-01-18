@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crime Committer TUI Designer v3</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap');
+
+        @font-face {
+            font-family: 'IBM VGA 8x16';
+            src: url('../fonts/Ac437_IBM_VGA_8x16.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'IBM VGA 9x8';
+            src: url('../fonts/Ac437_IBM_VGA_9x8.ttf') format('truetype');
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            color: #e8e8e8;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1900px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 20px;
+        }
+
+        .panel h2 {
+            color: #00ffff;
+            margin-bottom: 15px;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 500px;
+            background: #0a0a0a;
+            color: #e8e8e8;
+            border: 1px solid #333;
+            padding: 15px;
+            font-family: 'Fira Code', 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: vertical;
+        }
+
+        .preview-container {
+            position: relative;
+        }
+
+        .preview {
+            background: #000000;
+            border: 2px solid #333;
+            padding: 20px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.2;
+            white-space: pre;
+            overflow-x: auto;
+            min-height: 500px;
+            position: relative;
+        }
+
+        .preview.font-fira-code { font-family: 'Fira Code', monospace; }
+        .preview.font-ibm-vga-8x16 { font-family: 'IBM VGA 8x16', monospace; }
+        .preview.font-ibm-vga-9x8 { font-family: 'IBM VGA 9x8', monospace; }
+        .preview.font-consolas { font-family: 'Consolas', monospace; }
+        .preview.font-courier { font-family: 'Courier New', monospace; }
+
+        .preview.with-grid {
+            background-image:
+                repeating-linear-gradient(0deg, transparent, transparent 14.4px, rgba(0, 255, 255, 0.05) 14.4px, rgba(0, 255, 255, 0.05) 15.6px),
+                repeating-linear-gradient(90deg, transparent, transparent 8.4px, rgba(0, 255, 255, 0.05) 8.4px, rgba(0, 255, 255, 0.05) 9.6px);
+        }
+
+        .coords-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            font-family: 'Consolas', monospace;
+            font-size: 10px;
+            color: rgba(0, 255, 255, 0.4);
+            padding: 20px;
+            line-height: 1.2;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #00ffff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            background: #00cccc;
+        }
+
+        button:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: #ff00ff;
+        }
+
+        button.secondary:hover {
+            background: #cc00cc;
+        }
+
+        button.tertiary {
+            background: #666;
+            color: #fff;
+        }
+
+        button.tertiary:hover {
+            background: #888;
+        }
+
+        button.small {
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+
+        .info {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #999;
+        }
+
+        .info code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #00ffff;
+        }
+
+        .error-display {
+            background: #1a0000;
+            border: 1px solid #ff0044;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #ff4d4d;
+            display: none;
+        }
+
+        .error-display.visible {
+            display: block;
+        }
+
+        pre.code-output {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            padding: 15px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin-top: 15px;
+            max-height: 300px;
+        }
+
+        .export-section {
+            margin-top: 20px;
+        }
+
+        select, input[type="number"], input[type="text"] {
+            background: #0a0a0a;
+            color: #e8e8e8;
+            border: 1px solid #333;
+            padding: 8px;
+            font-size: 13px;
+        }
+
+        .resolution-control {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .resolution-control label {
+            color: #999;
+            font-size: 13px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            color: #999;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .collapsible {
+            margin-top: 15px;
+        }
+
+        .collapsible-header {
+            background: #0a0a0a;
+            padding: 10px;
+            border: 1px solid #333;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .collapsible-header:hover {
+            background: #1a1a1a;
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.open {
+            max-height: 3000px;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 3px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .status-item {
+            display: flex;
+            gap: 10px;
+        }
+
+        .saved-layouts {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .saved-layout-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 3px;
+        }
+
+        .saved-layout-item:hover {
+            background: #1a1a1a;
+        }
+
+        .saved-layout-name {
+            color: #00ffff;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .saved-layout-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .template-item {
+            padding: 15px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .template-item:hover {
+            background: #1a1a1a;
+            border-color: #00ffff;
+        }
+
+        .template-name {
+            color: #00ffff;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .template-desc {
+            color: #999;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="panel">
+            <h2>Layout Definition (JSON)</h2>
+
+            <div class="status-bar">
+                <div class="status-item">
+                    <span id="status-lines">Lines: 0</span>
+                    <span id="status-chars">Chars: 0</span>
+                </div>
+                <div class="status-item">
+                    <span id="status-valid" style="color: #7bff9f;">✓ Valid JSON</span>
+                </div>
+            </div>
+
+            <div class="toolbar">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="auto-render" checked>
+                    <label for="auto-render">Auto Render</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="show-grid">
+                    <label for="show-grid">Show Grid</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="show-coords">
+                    <label for="show-coords">Show Coords</label>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button onclick="renderPreview()">Render</button>
+                <button class="tertiary" onclick="formatJSON()">Format JSON</button>
+                <button class="tertiary" onclick="undo()" id="undo-btn" disabled>Undo</button>
+                <button class="tertiary" onclick="redo()" id="redo-btn" disabled>Redo</button>
+                <input type="text" id="save-name" placeholder="Layout name..." style="width: 150px;">
+                <button class="secondary" onclick="saveLayout()">Save</button>
+            </div>
+
+            <div class="resolution-control">
+                <label>Width:</label>
+                <input type="number" id="width" value="200" min="40" max="300">
+                <label>Height:</label>
+                <input type="number" id="height" value="60" min="10" max="100">
+                <button class="small" onclick="renderPreview()">Apply</button>
+                <button class="small tertiary" onclick="setResolution(200, 60)">Game Default (200x60)</button>
+                <button class="small tertiary" onclick="setResolution(80, 25)">Classic (80x25)</button>
+            </div>
+
+            <div class="resolution-control">
+                <label>Font:</label>
+                <select id="font-select" onchange="changeFont()">
+                    <option value="consolas">Consolas</option>
+                    <option value="fira-code" selected>Fira Code</option>
+                    <option value="ibm-vga-8x16">IBM VGA 8x16</option>
+                    <option value="ibm-vga-9x8">IBM VGA 9x8</option>
+                    <option value="courier">Courier New</option>
+                </select>
+                <label>Size:</label>
+                <select id="font-size" onchange="changeFontSize()">
+                    <option value="10">10px</option>
+                    <option value="12">12px</option>
+                    <option value="14" selected>14px</option>
+                    <option value="16">16px</option>
+                    <option value="18">18px</option>
+                    <option value="20">20px</option>
+                </select>
+            </div>
+
+            <textarea id="layout-input" spellcheck="false"></textarea>
+
+            <div class="error-display" id="error-display"></div>
+
+            <div class="collapsible">
+                <div class="collapsible-header" onclick="toggleCollapsible('templates')">
+                    <span>🎮 Game Layout Templates</span>
+                    <span>▼</span>
+                </div>
+                <div class="collapsible-content open" id="templates-content">
+                    <div class="template-grid" id="template-grid"></div>
+                </div>
+            </div>
+
+            <div class="collapsible">
+                <div class="collapsible-header" onclick="toggleCollapsible('saved')">
+                    <span>💾 Saved Layouts</span>
+                    <span>▼</span>
+                </div>
+                <div class="collapsible-content" id="saved-content">
+                    <div class="saved-layouts" id="saved-layouts"></div>
+                </div>
+            </div>
+
+            <div class="collapsible">
+                <div class="collapsible-header" onclick="toggleCollapsible('colors')">
+                    <span>🎨 Color & Gradient Reference</span>
+                    <span>▼</span>
+                </div>
+                <div class="collapsible-content" id="colors-content">
+                    <div style="padding: 10px; background: #0a0a0a; margin-top: 10px;">
+                        <div style="margin-bottom: 15px;">
+                            <strong style="color: #00ffff;">Available Colors:</strong><br>
+                            <div id="color-reference" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 8px; font-size: 11px;"></div>
+                        </div>
+                        <div>
+                            <strong style="color: #00ffff;">Available Gradients:</strong><br>
+                            <div id="gradient-reference" style="margin-top: 8px; font-size: 11px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info">
+                <strong>Layout Format:</strong><br>
+                <code>type</code>: "border", "text", "bar", "tabs", "box", "panel"<br>
+                <code>x, y</code>: Position (optional, auto-increments y)<br>
+                <code>gradient</code>: Gradient name for text<br>
+                <code>align</code>: "left", "center", "right"<br>
+                <strong>Keyboard:</strong> Ctrl+Z (Undo), Ctrl+Y (Redo), Ctrl+S (Save)
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Live Preview</h2>
+            <div class="preview-container">
+                <div class="preview font-fira-code" id="preview"></div>
+                <div class="coords-overlay" id="coords-overlay"></div>
+            </div>
+
+            <div class="export-section">
+                <h2 style="margin-top: 20px;">Export Options</h2>
+                <div class="controls">
+                    <button onclick="exportJSON()">Export JSON</button>
+                    <button onclick="exportJavaScript()">Export JS Code</button>
+                    <button onclick="exportCharBuffer()">Export Char Buffer</button>
+                    <button class="tertiary" onclick="copyToClipboard()">Copy to Clipboard</button>
+                </div>
+                <pre class="code-output" id="export-output"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Color definitions
+        const COLORS = {
+            dim: '#444444',
+            white: '#e8e8e8',
+            gray: '#888888',
+            cyan: '#00ffff',
+            pink: '#ff00ff',
+            magenta: '#ff00ff',
+            green: '#7bff9f',
+            red: '#ff4d4d',
+            gold: '#ffcc55',
+            teal: '#42c7b8',
+            blue: '#2f87b5',
+            amber: '#d89b2b',
+            brown: '#b36b00',
+            purple: '#9966ff',
+            orange: '#ff8844',
+            yellow: '#ffff00'
+        };
+
+        // Gradient definitions
+        const GRADIENTS = {
+            'cool': ['#00ffff', '#33ddbb', '#7bff9f'],
+            'warm': ['#ff00ff', '#dd33aa', '#bb6688'],
+            'heat': ['#ff4d4d', '#ff8844', '#ffcc55'],
+            'blackbody': ['#330000', '#660000', '#990000', '#cc0000', '#ff3300', '#ff6600', '#ff9900', '#ffcc00', '#ffff66'],
+            'rainbow': ['#ff0066', '#ff6600', '#ffcc00', '#00ff66', '#00ffff', '#0066ff', '#cc00ff'],
+            'cyber': ['#9966ff', '#6688ff', '#42c7b8'],
+            'ocean': ['#0066cc', '#0099dd', '#00cccc', '#00ffcc'],
+            'sunset': ['#ff6600', '#ff8844', '#ffaa66', '#ffcc88'],
+            'yellow-purple': ['#ffff00', '#ffcc00', '#ff9900', '#ff6699', '#cc66cc', '#9966ff'],
+            'green-blue': ['#00ff00', '#00dd44', '#00bb88', '#0099cc', '#0077ff', '#0055ff'],
+            'red-blue': ['#ff0000', '#dd0066', '#bb00aa', '#8800cc', '#5500ff', '#0000ff'],
+            'gold-cyan': ['#ffcc00', '#ccaa00', '#998800', '#669999', '#33aaaa', '#00ffff'],
+            'pink-teal': ['#ff00ff', '#dd33cc', '#bb6699', '#999966', '#77aa99', '#42c7b8'],
+            'fire': ['#ff0000', '#ff3300', '#ff6600', '#ff9900', '#ffcc00', '#ffff00'],
+            'ice': ['#ffffff', '#ccffff', '#99ffff', '#66ccff', '#3399ff', '#0066cc'],
+            'toxic': ['#00ff00', '#66ff00', '#99ff00', '#ccff00', '#ffff00', '#ffcc00'],
+            'neon': ['#ff00ff', '#ff00aa', '#ff0055', '#ff0000', '#ff5500', '#ffaa00']
+        };
+
+        // CharBuffer class for rendering
+        class CharBuffer {
+            constructor(width, height) {
+                this.width = width;
+                this.height = height;
+                this.chars = Array(height).fill(null).map(() =>
+                    Array(width).fill(null).map(() => ({ char: ' ', color: COLORS.white }))
+                );
+            }
+
+            setChar(x, y, char, color = COLORS.white) {
+                if (y >= 0 && y < this.height && x >= 0 && x < this.width) {
+                    this.chars[y][x] = { char, color };
+                }
+            }
+
+            drawLine(y, char, color = COLORS.dim, start = 0, end = null) {
+                end = end === null ? this.width : end;
+                for (let x = start; x < end && x < this.width; x++) {
+                    this.setChar(x, y, char, color);
+                }
+            }
+
+            drawText(x, y, text, color = COLORS.white, align = 'left') {
+                if (align === 'center') {
+                    x = Math.floor((this.width - text.length) / 2);
+                } else if (align === 'right') {
+                    x = this.width - text.length - 1;
+                }
+
+                for (let i = 0; i < text.length; i++) {
+                    this.setChar(x + i, y, text[i], color);
+                }
+            }
+
+            drawGradientText(x, y, text, gradientName, align = 'left') {
+                if (align === 'center') {
+                    x = Math.floor((this.width - text.length) / 2);
+                } else if (align === 'right') {
+                    x = this.width - text.length - 1;
+                }
+
+                const gradient = GRADIENTS[gradientName] || GRADIENTS.cool;
+                const step = (gradient.length - 1) / Math.max(1, text.length - 1);
+
+                for (let i = 0; i < text.length; i++) {
+                    const colorIndex = Math.min(Math.floor(i * step), gradient.length - 1);
+                    const nextIndex = Math.min(colorIndex + 1, gradient.length - 1);
+                    const t = (i * step) - colorIndex;
+                    const color = interpolateColor(gradient[colorIndex], gradient[nextIndex], t);
+                    this.setChar(x + i, y, text[i], color);
+                }
+            }
+
+            drawBar(x, y, width, fillRatio, gradientName = 'heat', emptyChar = '░', fullChar = '█') {
+                const filledCount = Math.floor(width * fillRatio);
+                const gradient = GRADIENTS[gradientName] || GRADIENTS.heat;
+
+                for (let i = 0; i < width; i++) {
+                    if (i < filledCount) {
+                        const colorIndex = Math.floor((i / filledCount) * (gradient.length - 1));
+                        this.setChar(x + i, y, fullChar, gradient[colorIndex]);
+                    } else {
+                        this.setChar(x + i, y, emptyChar, COLORS.dim);
+                    }
+                }
+            }
+
+            toHTML() {
+                let html = '';
+                for (let y = 0; y < this.height; y++) {
+                    for (let x = 0; x < this.width; x++) {
+                        const cell = this.chars[y][x];
+                        html += `<span style="color: ${cell.color}">${cell.char === ' ' ? '&nbsp;' : escapeHtml(cell.char)}</span>`;
+                    }
+                    html += '\n';
+                }
+                return html;
+            }
+
+            toArray() {
+                return this.chars.map(row =>
+                    row.map(cell => ({ char: cell.char, color: cell.color }))
+                );
+            }
+        }
+
+        function interpolateColor(color1, color2, t) {
+            const r1 = parseInt(color1.slice(1, 3), 16);
+            const g1 = parseInt(color1.slice(3, 5), 16);
+            const b1 = parseInt(color1.slice(5, 7), 16);
+            const r2 = parseInt(color2.slice(1, 3), 16);
+            const g2 = parseInt(color2.slice(3, 5), 16);
+            const b2 = parseInt(color2.slice(5, 7), 16);
+
+            const r = Math.round(r1 + (r2 - r1) * t);
+            const g = Math.round(g1 + (g2 - g1) * t);
+            const b = Math.round(b1 + (b2 - b1) * t);
+
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // History management for undo/redo
+        let history = [];
+        let historyIndex = -1;
+
+        function addToHistory(value) {
+            // Remove any future history if we're not at the end
+            if (historyIndex < history.length - 1) {
+                history = history.slice(0, historyIndex + 1);
+            }
+
+            history.push(value);
+            historyIndex = history.length - 1;
+
+            // Limit history to 50 items
+            if (history.length > 50) {
+                history.shift();
+                historyIndex--;
+            }
+
+            updateHistoryButtons();
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                document.getElementById('layout-input').value = history[historyIndex];
+                renderPreview();
+                updateHistoryButtons();
+            }
+        }
+
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                document.getElementById('layout-input').value = history[historyIndex];
+                renderPreview();
+                updateHistoryButtons();
+            }
+        }
+
+        function updateHistoryButtons() {
+            document.getElementById('undo-btn').disabled = historyIndex <= 0;
+            document.getElementById('redo-btn').disabled = historyIndex >= history.length - 1;
+        }
+
+        function updateCoordinateOverlay() {
+            const overlay = document.getElementById('coords-overlay');
+            if (!document.getElementById('show-coords').checked) {
+                overlay.textContent = '';
+                return;
+            }
+
+            const width = parseInt(document.getElementById('width').value);
+            const height = parseInt(document.getElementById('height').value);
+
+            let coords = '';
+            // Show column numbers every 10
+            for (let x = 0; x < width; x += 10) {
+                coords += x.toString().padStart(10, ' ');
+            }
+            coords += '\n';
+
+            // Show row numbers
+            for (let y = 0; y < Math.min(height, 30); y++) {
+                coords += y.toString().padStart(2, '0') + '\n';
+            }
+
+            overlay.textContent = coords;
+        }
+
+        function renderPreview() {
+            try {
+                const width = parseInt(document.getElementById('width').value);
+                const height = parseInt(document.getElementById('height').value);
+                const input = document.getElementById('layout-input').value;
+
+                // Update status bar
+                document.getElementById('status-lines').textContent = 'Lines: ' + input.split('\n').length;
+                document.getElementById('status-chars').textContent = 'Chars: ' + input.length;
+
+                const layout = JSON.parse(input);
+
+                const buffer = new CharBuffer(width, height);
+
+                layout.lines.forEach((line, index) => {
+                    const y = line.y !== undefined ? line.y : index;
+
+                    if (line.type === 'border') {
+                        const char = line.char || '─';
+                        const color = COLORS[line.color] || COLORS.dim;
+                        buffer.drawLine(y, char, color);
+                    }
+                    else if (line.type === 'text') {
+                        let x = line.x || 1;
+                        line.segments.forEach(seg => {
+                            if (seg.gradient) {
+                                buffer.drawGradientText(x, y, seg.text, seg.gradient, line.align);
+                                x += seg.text.length;
+                            } else {
+                                const color = COLORS[seg.color] || COLORS.white;
+                                buffer.drawText(x, y, seg.text, color, line.align);
+                                x += seg.text.length;
+                            }
+                        });
+                    }
+                    else if (line.type === 'bar') {
+                        const x = line.x || 1;
+                        const barWidth = line.width || 10;
+                        const fillRatio = line.fill || 0.7;
+                        buffer.drawBar(x, y, barWidth, fillRatio, line.gradient, line.emptyChar, line.fullChar);
+                    }
+                    else if (line.type === 'tabs') {
+                        let x = line.x || 1;
+                        line.items.forEach((item, idx) => {
+                            if (item.gradient) {
+                                if (item.bracket) {
+                                    buffer.drawText(x, y, '[', COLORS.dim);
+                                    x++;
+                                    buffer.drawGradientText(x, y, item.text, item.gradient);
+                                    x += item.text.length;
+                                    buffer.drawText(x, y, ']', COLORS.dim);
+                                    x++;
+                                } else {
+                                    buffer.drawGradientText(x, y, item.text, item.gradient);
+                                    x += item.text.length;
+                                }
+                            } else {
+                                const color = COLORS[item.color] || COLORS.gray;
+                                buffer.drawText(x, y, item.text, color);
+                                x += item.text.length;
+                            }
+
+                            if (idx < line.items.length - 1) {
+                                const separator = line.separator || '  ';
+                                buffer.drawText(x, y, separator, COLORS.dim);
+                                x += separator.length;
+                            }
+                        });
+                    }
+                });
+
+                document.getElementById('preview').innerHTML = buffer.toHTML();
+                window.currentBuffer = buffer;
+
+                // Update status
+                document.getElementById('status-valid').textContent = '✓ Valid JSON';
+                document.getElementById('status-valid').style.color = '#7bff9f';
+                document.getElementById('error-display').classList.remove('visible');
+
+                updateCoordinateOverlay();
+            } catch (e) {
+                document.getElementById('preview').textContent = 'Error: ' + e.message;
+                document.getElementById('status-valid').textContent = '✗ Invalid JSON';
+                document.getElementById('status-valid').style.color = '#ff4d4d';
+                document.getElementById('error-display').textContent = 'Error: ' + e.message;
+                document.getElementById('error-display').classList.add('visible');
+            }
+        }
+
+        // Template definitions based on UI spec
+        const GAME_TEMPLATES = {
+            'status-rail': {
+                name: 'Status Rail',
+                desc: 'Top status bar with title, cash, heat, etc.',
+                layout: {
+                    lines: [
+                        { type: 'border', char: '═', color: 'dim' },
+                        {
+                            type: 'text',
+                            x: 1,
+                            segments: [
+                                { text: 'CRIME COMMITTER VI', gradient: 'cyber' },
+                                { text: '  |  ', color: 'dim' },
+                                { text: 'CASH: ', color: 'gray' },
+                                { text: '$12,450', color: 'green' },
+                                { text: '  |  ', color: 'dim' },
+                                { text: 'HEAT ', color: 'gray' }
+                            ]
+                        },
+                        { type: 'bar', y: 1, x: 64, width: 20, fill: 0.67, gradient: 'heat', fullChar: '#', emptyChar: '-' },
+                        { type: 'text', y: 1, x: 85, segments: [{ text: ' 67%', color: 'red' }, { text: '  |  ', color: 'dim' }, { text: 'RUNS: 3', color: 'white' }] },
+                        { type: 'border', char: '═', color: 'dim' }
+                    ]
+                }
+            },
+            'tab-bar': {
+                name: 'Tab Bar',
+                desc: 'Navigation tabs for different views',
+                layout: {
+                    lines: [
+                        {
+                            type: 'tabs',
+                            x: 1,
+                            separator: '  ',
+                            items: [
+                                { text: '[ACTIVITIES]', gradient: 'cool', bracket: true },
+                                { text: '[TECH WEB]', color: 'gray', bracket: true },
+                                { text: '[CREW]', color: 'gray', bracket: true },
+                                { text: '[INVENTORY]', color: 'gray', bracket: true },
+                                { text: '[ACTIVE]', color: 'gray', bracket: true },
+                                { text: '[LOG]', color: 'gray', bracket: true }
+                            ]
+                        },
+                        { type: 'border', char: '─', color: 'dim' }
+                    ]
+                }
+            },
+            'activities-3col': {
+                name: 'Activities 3-Column',
+                desc: '3-column layout: branches, activities, options',
+                layout: {
+                    lines: [
+                        { type: 'border', char: '═', color: 'dim' },
+                        {
+                            type: 'text',
+                            x: 2,
+                            segments: [
+                                { text: 'BRANCHES', color: 'white' },
+                                { text: '                  ', color: 'dim' },
+                                { text: 'ACTIVITIES', color: 'white' },
+                                { text: '                           ', color: 'dim' },
+                                { text: 'OPTION DETAIL', color: 'white' }
+                            ]
+                        },
+                        { type: 'border', char: '─', color: 'dim' },
+                        {
+                            type: 'text',
+                            x: 2,
+                            y: 3,
+                            segments: [
+                                { text: '> Primordial', gradient: 'warm' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 2,
+                            y: 4,
+                            segments: [
+                                { text: '  Drugs', color: 'gray' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 2,
+                            y: 5,
+                            segments: [
+                                { text: '  Tech', color: 'gray' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 2,
+                            y: 6,
+                            segments: [
+                                { text: '  Smuggling', color: 'gray' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 30,
+                            y: 3,
+                            segments: [
+                                { text: '> Jaywalking', color: 'white' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 30,
+                            y: 4,
+                            segments: [
+                                { text: '  Shoplifting', color: 'gray' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 30,
+                            y: 5,
+                            segments: [
+                                { text: '  Burglary', color: 'gray' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 75,
+                            y: 3,
+                            segments: [
+                                { text: 'JAYWALKING', gradient: 'cool' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 75,
+                            y: 4,
+                            segments: [
+                                { text: 'Walk across street illegally', color: 'gray' }
+                            ]
+                        },
+                        { type: 'border', y: 5, x: 75, char: '─', color: 'dim' },
+                        {
+                            type: 'text',
+                            x: 75,
+                            y: 6,
+                            segments: [
+                                { text: 'Duration: 30s  |  Reward: $5', color: 'white' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 75,
+                            y: 7,
+                            segments: [
+                                { text: '[ COMMIT ]', color: 'green' }
+                            ]
+                        }
+                    ]
+                }
+            },
+            'active-run': {
+                name: 'Active Run (4-line block)',
+                desc: 'Single active run display from spec',
+                layout: {
+                    lines: [
+                        {
+                            type: 'text',
+                            x: 1,
+                            y: 0,
+                            segments: [
+                                { text: 'Shoplifting → Grab and Go', color: 'white' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 1,
+                            y: 1,
+                            segments: [
+                                { text: 'Staff: Runner_001, Thief_003', color: 'gray' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 1,
+                            y: 2,
+                            segments: [
+                                { text: 'Remaining: 45.3s', color: 'white' }
+                            ]
+                        },
+                        { type: 'bar', y: 3, x: 1, width: 40, fill: 0.4, gradient: 'cool', fullChar: '#', emptyChar: '-' },
+                        {
+                            type: 'text',
+                            x: 43,
+                            y: 3,
+                            segments: [
+                                { text: ' [ STOP ]', color: 'red' }
+                            ]
+                        }
+                    ]
+                }
+            },
+            'active-run-repeat': {
+                name: 'Active Run with Repeat',
+                desc: '5-line block with repeat status',
+                layout: {
+                    lines: [
+                        {
+                            type: 'text',
+                            x: 1,
+                            y: 0,
+                            segments: [
+                                { text: 'Shoplifting → Grab and Go', color: 'white' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 1,
+                            y: 1,
+                            segments: [
+                                { text: 'Staff: Runner_001, Thief_003', color: 'gray' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 1,
+                            y: 2,
+                            segments: [
+                                { text: 'Remaining: 45.3s', color: 'white' }
+                            ]
+                        },
+                        { type: 'bar', y: 3, x: 1, width: 40, fill: 0.4, gradient: 'cool', fullChar: '#', emptyChar: '-' },
+                        {
+                            type: 'text',
+                            x: 43,
+                            y: 3,
+                            segments: [
+                                { text: ' [ STOP ]', color: 'red' }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            x: 1,
+                            y: 4,
+                            segments: [
+                                { text: 'REPEATING (5 more after this)', color: 'green' },
+                                { text: '  [ STOP REPEAT ]', color: 'orange' }
+                            ]
+                        }
+                    ]
+                }
+            },
+            'full-game-layout': {
+                name: 'Full Game Layout',
+                desc: 'Complete 200x60 game screen',
+                layout: {
+                    lines: [
+                        // Status rail (rows 0-2)
+                        { type: 'border', y: 0, char: '═', color: 'dim' },
+                        {
+                            type: 'text',
+                            x: 1,
+                            y: 1,
+                            segments: [
+                                { text: 'CRIME COMMITTER VI', gradient: 'cyber' },
+                                { text: '  |  CASH: ', color: 'gray' },
+                                { text: '$12,450', color: 'green' },
+                                { text: '  |  HEAT ', color: 'gray' }
+                            ]
+                        },
+                        { type: 'bar', y: 1, x: 64, width: 20, fill: 0.67, gradient: 'heat', fullChar: '#', emptyChar: '-' },
+                        { type: 'text', y: 1, x: 85, segments: [{ text: ' 67%  |  RUNS: 3  |  14:23:45', color: 'white' }] },
+                        { type: 'border', y: 2, char: '═', color: 'dim' },
+
+                        // Tab bar (rows 3-4)
+                        {
+                            type: 'tabs',
+                            x: 1,
+                            y: 3,
+                            separator: '  ',
+                            items: [
+                                { text: '[ACTIVITIES]', gradient: 'cool', bracket: true },
+                                { text: '[CREW]', color: 'gray', bracket: true },
+                                { text: '[ACTIVE]', color: 'gray', bracket: true },
+                                { text: '[LOG]', color: 'gray', bracket: true }
+                            ]
+                        },
+                        { type: 'border', y: 4, char: '─', color: 'dim' },
+
+                        // Main content area header (row 5)
+                        {
+                            type: 'text',
+                            x: 2,
+                            y: 5,
+                            segments: [
+                                { text: 'BRANCHES', color: 'white' },
+                                { text: '                  ACTIVITIES                           DETAIL', color: 'gray' }
+                            ]
+                        },
+                        { type: 'border', y: 6, char: '─', color: 'dim' },
+
+                        // Bottom status line (row 58-59)
+                        { type: 'border', y: 58, char: '─', color: 'dim' },
+                        {
+                            type: 'text',
+                            x: 1,
+                            y: 59,
+                            segments: [
+                                { text: '[ESC] Back  [ENTER] Select  [TAB] Next Tab', color: 'gray' }
+                            ]
+                        }
+                    ]
+                }
+            }
+        };
+
+        // Initialize template grid
+        function initTemplates() {
+            const grid = document.getElementById('template-grid');
+            Object.entries(GAME_TEMPLATES).forEach(([key, template]) => {
+                const item = document.createElement('div');
+                item.className = 'template-item';
+                item.onclick = () => loadTemplate(key);
+                item.innerHTML = `
+                    <div class="template-name">${template.name}</div>
+                    <div class="template-desc">${template.desc}</div>
+                `;
+                grid.appendChild(item);
+            });
+        }
+
+        // Initialize color reference
+        function initColorReference() {
+            const colorRef = document.getElementById('color-reference');
+            Object.entries(COLORS).forEach(([name, hex]) => {
+                const item = document.createElement('div');
+                item.style.cssText = 'display: flex; align-items: center; gap: 5px;';
+                item.innerHTML = `
+                    <span style="color: ${hex}; font-family: monospace;">█</span>
+                    <span style="color: #999;">${name}</span>
+                `;
+                colorRef.appendChild(item);
+            });
+        }
+
+        // Initialize gradient reference
+        function initGradientReference() {
+            const gradRef = document.getElementById('gradient-reference');
+            Object.entries(GRADIENTS).forEach(([name, colors]) => {
+                const item = document.createElement('div');
+                item.style.cssText = 'margin-bottom: 8px;';
+
+                let preview = '';
+                for (let i = 0; i < 20; i++) {
+                    const idx = Math.floor((i / 20) * (colors.length - 1));
+                    const nextIdx = Math.min(idx + 1, colors.length - 1);
+                    const t = ((i / 20) * (colors.length - 1)) - idx;
+                    const color = interpolateColor(colors[idx], colors[nextIdx], t);
+                    preview += `<span style="color: ${color}; font-family: monospace;">█</span>`;
+                }
+
+                item.innerHTML = `
+                    <div style="color: #999; margin-bottom: 2px;">${name}:</div>
+                    <div>${preview}</div>
+                `;
+                gradRef.appendChild(item);
+            });
+        }
+
+        function loadTemplate(key) {
+            const template = GAME_TEMPLATES[key];
+            if (template) {
+                const layout = JSON.stringify(template.layout, null, 2);
+                document.getElementById('layout-input').value = layout;
+                addToHistory(layout);
+                renderPreview();
+            }
+        }
+
+        function setResolution(width, height) {
+            document.getElementById('width').value = width;
+            document.getElementById('height').value = height;
+            renderPreview();
+        }
+
+        function changeFont() {
+            const font = document.getElementById('font-select').value;
+            const preview = document.getElementById('preview');
+            preview.className = 'preview font-' + font;
+            if (document.getElementById('show-grid').checked) {
+                preview.classList.add('with-grid');
+            }
+        }
+
+        function changeFontSize() {
+            const size = document.getElementById('font-size').value;
+            document.getElementById('preview').style.fontSize = size + 'px';
+        }
+
+        function toggleCollapsible(id) {
+            const content = document.getElementById(id + '-content');
+            content.classList.toggle('open');
+        }
+
+        function formatJSON() {
+            try {
+                const input = document.getElementById('layout-input').value;
+                const parsed = JSON.parse(input);
+                document.getElementById('layout-input').value = JSON.stringify(parsed, null, 2);
+                renderPreview();
+            } catch (e) {
+                alert('Cannot format invalid JSON');
+            }
+        }
+
+        function saveLayout() {
+            const name = document.getElementById('save-name').value.trim();
+            if (!name) {
+                alert('Please enter a name for the layout');
+                return;
+            }
+
+            const input = document.getElementById('layout-input').value;
+            const saved = JSON.parse(localStorage.getItem('tui-layouts-v3') || '{}');
+            saved[name] = input;
+            localStorage.setItem('tui-layouts-v3', JSON.stringify(saved));
+
+            document.getElementById('save-name').value = '';
+            loadSavedLayouts();
+        }
+
+        function loadSavedLayouts() {
+            const saved = JSON.parse(localStorage.getItem('tui-layouts-v3') || '{}');
+            const container = document.getElementById('saved-layouts');
+
+            if (Object.keys(saved).length === 0) {
+                container.innerHTML = '<div style="color: #666; padding: 10px;">No saved layouts</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            Object.keys(saved).forEach(name => {
+                const item = document.createElement('div');
+                item.className = 'saved-layout-item';
+                item.innerHTML = `
+                    <span class="saved-layout-name" onclick="loadSavedLayout('${name}')">${name}</span>
+                    <div class="saved-layout-actions">
+                        <button class="small tertiary" onclick="deleteSavedLayout('${name}')">Delete</button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function loadSavedLayout(name) {
+            const saved = JSON.parse(localStorage.getItem('tui-layouts-v3') || '{}');
+            if (saved[name]) {
+                document.getElementById('layout-input').value = saved[name];
+                addToHistory(saved[name]);
+                renderPreview();
+            }
+        }
+
+        function deleteSavedLayout(name) {
+            if (confirm(`Delete layout "${name}"?`)) {
+                const saved = JSON.parse(localStorage.getItem('tui-layouts-v3') || '{}');
+                delete saved[name];
+                localStorage.setItem('tui-layouts-v3', JSON.stringify(saved));
+                loadSavedLayouts();
+            }
+        }
+
+        function exportJSON() {
+            const input = document.getElementById('layout-input').value;
+            document.getElementById('export-output').textContent = input;
+        }
+
+        function exportJavaScript() {
+            if (!window.currentBuffer) {
+                alert('Render preview first!');
+                return;
+            }
+
+            const code = `// TUI Layout for Crime Committer VI
+const layout = ${document.getElementById('layout-input').value};
+
+// Viewport: ${document.getElementById('width').value}x${document.getElementById('height').value}
+// Font: ${document.getElementById('font-select').value}
+
+// Use with CharBuffer renderer
+const renderer = new CharBuffer(${document.getElementById('width').value}, ${document.getElementById('height').value});
+renderer.renderLayout(layout);
+`;
+            document.getElementById('export-output').textContent = code;
+        }
+
+        function exportCharBuffer() {
+            if (!window.currentBuffer) {
+                alert('Render preview first!');
+                return;
+            }
+
+            const bufferData = window.currentBuffer.toArray();
+            const code = `// Character Buffer Export
+const charBuffer = ${JSON.stringify(bufferData, null, 2)};
+
+// Width: ${window.currentBuffer.width}
+// Height: ${window.currentBuffer.height}
+// Access: charBuffer[y][x].char, charBuffer[y][x].color
+`;
+            document.getElementById('export-output').textContent = code;
+        }
+
+        function copyToClipboard() {
+            const output = document.getElementById('export-output').textContent;
+            if (!output) {
+                alert('Nothing to copy');
+                return;
+            }
+
+            navigator.clipboard.writeText(output).then(() => {
+                alert('Copied to clipboard!');
+            }).catch(err => {
+                alert('Failed to copy: ' + err);
+            });
+        }
+
+        // Auto-render on input
+        document.getElementById('layout-input').addEventListener('input', function() {
+            if (document.getElementById('auto-render').checked) {
+                clearTimeout(window.autoRenderTimeout);
+                window.autoRenderTimeout = setTimeout(() => {
+                    const currentValue = this.value;
+                    if (history[historyIndex] !== currentValue) {
+                        addToHistory(currentValue);
+                    }
+                    renderPreview();
+                }, 500);
+            }
+        });
+
+        // Grid and coords toggles
+        document.getElementById('show-grid').addEventListener('change', function() {
+            document.getElementById('preview').classList.toggle('with-grid', this.checked);
+        });
+
+        document.getElementById('show-coords').addEventListener('change', function() {
+            updateCoordinateOverlay();
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z' && !e.shiftKey) {
+                    e.preventDefault();
+                    undo();
+                } else if ((e.key === 'y') || (e.key === 'z' && e.shiftKey)) {
+                    e.preventDefault();
+                    redo();
+                } else if (e.key === 's') {
+                    e.preventDefault();
+                    document.getElementById('save-name').focus();
+                }
+            }
+        });
+
+        // Initialize
+        window.addEventListener('load', () => {
+            initTemplates();
+            initColorReference();
+            initGradientReference();
+            loadSavedLayouts();
+            loadTemplate('status-rail');
+        });
+    </script>
+</body>
+</html>

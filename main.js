@@ -42,10 +42,9 @@ async function main() {
 }
 
 // Available fonts (cycle order)
-const FONTS = ['scp', 'fira', 'vga-9x8', 'vga-8x16'];
+const FONTS = ['fira', 'vga-9x8', 'vga-8x16'];
 const FONT_NAMES = {
-  'scp': 'Source Code Pro',
-  'fira': 'Fira Code',
+  'fira': 'Fira Code (modern)',
   'vga-9x8': 'VGA 9x8 (compact)',
   'vga-8x16': 'VGA 8x16 (classic)'
 };
@@ -58,12 +57,13 @@ function loadSettings() {
       const parsed = JSON.parse(raw);
       // Migrate old font settings
       if (parsed.font === 'vga') parsed.font = 'vga-9x8';
+      if (parsed.font === 'scp') parsed.font = 'fira';
       if (FONTS.includes(parsed.font)) return parsed;
     }
   } catch (err) {
     console.warn('Settings load failed', err);
   }
-  return { font: 'scp' };
+  return { font: 'fira' };
 }
 
 function saveSettings() {

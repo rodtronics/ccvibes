@@ -4,16 +4,16 @@
 
 import { Palette, BoxStyles } from './palette.js';
 
-// Layout constants for 200x60 viewport
+// Layout constants for 80x25 viewport
 export const Layout = {
-  WIDTH: 200,
-  HEIGHT: 60,
+  WIDTH: 80,
+  HEIGHT: 25,
 
-  statusRail: { x: 0, y: 0, width: 200, height: 2 },
-  tabBar: { x: 0, y: 2, width: 200, height: 1 },
-  mainPanel: { x: 0, y: 3, width: 140, height: 54 },
-  logPanel: { x: 140, y: 3, width: 60, height: 54 },
-  footer: { x: 0, y: 57, width: 200, height: 3 },
+  statusRail: { x: 0, y: 0, width: 80, height: 2 },
+  tabBar: { x: 0, y: 2, width: 80, height: 1 },
+  mainPanel: { x: 0, y: 3, width: 56, height: 20 },
+  logPanel: { x: 56, y: 3, width: 24, height: 20 },
+  footer: { x: 0, y: 23, width: 80, height: 2 },
 };
 
 export class UI {
@@ -131,8 +131,8 @@ export class UI {
 
   renderActivitiesTab() {
     const top = 4;
-    const branchW = 30;
-    const activityW = 50;
+    const branchW = 15;
+    const activityW = 25;
     const detailW = Layout.WIDTH - branchW - activityW;
 
     const branches = this.getVisibleBranches();
@@ -317,8 +317,7 @@ export class UI {
 
     // Map font IDs to display names
     const fontNames = {
-      'scp': 'Source Code Pro',
-      'fira': 'Fira Code',
+      'fira': 'Fira Code (modern)',
       'vga-9x8': 'VGA 9x8 (compact)',
       'vga-8x16': 'VGA 8x16 (classic)'
     };

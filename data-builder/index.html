@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CC6 Activity Builder</title>
+  <style>
+    :root {
+      --bg: #0c101a;
+      --panel: #111827;
+      --panel-strong: #0f1724;
+      --border: #1f2937;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #7dd3fc;
+      --accent-2: #a5b4fc;
+      --success: #34d399;
+      --danger: #f87171;
+      --warning: #fbbf24;
+      --code: #d1d5db;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: radial-gradient(circle at 20% 20%, rgba(125,211,252,0.04), transparent 35%), radial-gradient(circle at 80% 10%, rgba(165,180,252,0.05), transparent 35%), var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", "Space Grotesk", "Inter", "SF Pro Text", system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+    }
+
+    h1, h2, h3, h4 {
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    p { margin: 0; }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      background: #0b1220;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: "DM Mono", "JetBrains Mono", "Fira Code", monospace;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(125,211,252,0.2);
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(125,211,252,0.14), rgba(165,180,252,0.10));
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      transition: all 0.15s ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+    }
+
+    button.ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
+    }
+
+    button.ghost:hover { color: var(--text); }
+
+    button.danger {
+      background: rgba(248,113,113,0.12);
+      border-color: rgba(248,113,113,0.6);
+      color: var(--danger);
+    }
+
+    button.small { padding: 6px 10px; font-size: 0.85rem; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .topbar .eyebrow {
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.16em;
+      font-size: 0.75rem;
+      margin-bottom: 4px;
+    }
+
+    .topbar h1 {
+      font-size: 1.8rem;
+      color: var(--text);
+    }
+
+    .topbar .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    }
+
+    .panel + .panel { margin-top: 12px; }
+
+    .panel__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .muted { color: var(--muted); }
+
+    .input-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .two-col {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .three-col {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .pill {
+      background: #0a101b;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .pill-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .option-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      background: rgba(255,255,255,0.02);
+      margin-bottom: 12px;
+    }
+
+    .option-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .subheader {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: rgba(125,211,252,0.1);
+      border: 1px solid rgba(125,211,252,0.25);
+      color: var(--accent);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      letter-spacing: 0.01em;
+    }
+
+    .json-output {
+      background: #0a0f18;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+      max-height: 80vh;
+    }
+
+    pre {
+      margin: 0;
+      color: var(--code);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .list .item {
+      background: #0b1220;
+      border: 1px dashed var(--border);
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+
+    .flex {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .stacked { display: grid; gap: 12px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">crime committer vi</div>
+      <h1>Activity + Crime Data Builder</h1>
+      <p class="muted">Start with one crime, capture blockers, keep iterating. Output matches the schema for fast copy/paste.</p>
+    </div>
+    <div class="actions">
+      <button class="ghost small" onclick="refreshOutputs()">Refresh JSON</button>
+      <button class="small" onclick="copyJSON()">Copy JSON</button>
+      <button class="danger small" onclick="clearBuilder()">Reset</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="stacked">
+      <section class="panel">
+        <div class="panel__header">
+          <h2>Activity Basics</h2>
+          <span class="badge">one crime at a time</span>
+        </div>
+        <div class="input-grid two-col">
+          <div>
+            <label for="activityId">Activity ID (snake_case)</label>
+            <input type="text" id="activityId" placeholder="shoplifting">
+          </div>
+          <div>
+            <label for="branchId">Branch</label>
+            <select id="branchId">
+              <option value="street">street</option>
+              <option value="commerce">commerce</option>
+              <option value="finance">finance</option>
+              <option value="tech">tech</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+          <div>
+            <label for="activityName">Name</label>
+            <input type="text" id="activityName" placeholder="shoplifting">
+          </div>
+          <div>
+            <label for="icon">Icon (emoji/monospace)</label>
+            <input type="text" id="icon" placeholder=":)" maxlength="4">
+          </div>
+        </div>
+        <div class="input-grid">
+          <div>
+            <label for="activityDescription">Description</label>
+            <textarea id="activityDescription" placeholder="dry, understated, cynical tone."></textarea>
+          </div>
+          <div>
+            <label for="tags">Tags (comma separated)</label>
+            <input type="text" id="tags" placeholder="crime, starter, long">
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel__header">
+          <h2>Gating & Reveals</h2>
+          <span class="muted">Define how players find/unlock this crime.</span>
+        </div>
+        <div class="input-grid two-col">
+          <div>
+            <div class="subheader">
+              <span>Visible If</span>
+              <button class="ghost small" onclick="addCondition('activity|visibleIf')">+ condition</button>
+            </div>
+            <div id="activityVisibleIf"></div>
+          </div>
+          <div>
+            <div class="subheader">
+              <span>Unlock If</span>
+              <button class="ghost small" onclick="addCondition('activity|unlockIf')">+ condition</button>
+            </div>
+            <div id="activityUnlockIf"></div>
+          </div>
+          <div>
+            <div class="subheader">
+              <span>On Reveal</span>
+              <button class="ghost small" onclick="addEffect('activity|onReveal')">+ effect</button>
+            </div>
+            <div id="activityOnReveal"></div>
+          </div>
+          <div>
+            <div class="subheader">
+              <span>On Unlock</span>
+              <button class="ghost small" onclick="addEffect('activity|onUnlock')">+ effect</button>
+            </div>
+            <div id="activityOnUnlock"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel__header">
+          <h2>Options</h2>
+          <button class="ghost small" onclick="addOption()">+ Add Option</button>
+        </div>
+        <div id="optionsList"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel__header">
+          <h2>Iteration Notes</h2>
+          <span class="muted">Track problems and solutions as you iterate.</span>
+        </div>
+        <div class="input-grid two-col">
+          <div>
+            <label for="problemsNote">Problems / blockers</label>
+            <textarea id="problemsNote" placeholder="what stops the player? what feels thin?"></textarea>
+          </div>
+          <div>
+            <label for="solutionsNote">Solutions / next moves</label>
+            <textarea id="solutionsNote" placeholder="fix by adding new resource, reveal, modifier, option..."></textarea>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="stacked">
+      <section class="panel">
+        <div class="panel__header">
+          <h2>JSON Output</h2>
+          <button class="ghost small" onclick="copyJSON()">Copy</button>
+        </div>
+        <div class="json-output">
+          <pre id="jsonOutput">// fill in fields to generate JSON</pre>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel__header">
+          <h2>Reliance Map</h2>
+          <span class="muted">See dependencies, gates, and reveals at a glance.</span>
+        </div>
+        <div id="relianceList" class="list">
+          <div class="item muted">No data yet. Add an activity and option to map reliance.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="builder.js"></script>
+</body>
+</html>
