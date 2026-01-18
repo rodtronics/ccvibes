@@ -60,7 +60,7 @@ export class Engine {
 
     for (const [file, key] of files) {
       try {
-        const res = await fetch(`data/${file}`);
+        const res = await fetch(`data/${file}`, { cache: 'no-store' });
         this.data[key] = await res.json();
       } catch (err) {
         console.warn(`Failed to load ${file}`, err);
@@ -271,7 +271,9 @@ export class Engine {
     staff.forEach((s) => (s.status = "available"));
 
     this.resolveOutcome(option, run, staff);
-    this.log(`Completed: ${activity.name} / ${option.name}`, "success");
+    if (!run.snapshot?.botched) {
+      this.log(`Completed: ${activity.name} / ${option.name}`, "success");
+    }
 
     // Handle repeat runs
     if (run.runsLeft !== 0) {
@@ -286,7 +288,11 @@ export class Engine {
       );
 
       if (!result.ok) {
-        this.log(`Repeat failed: ${result.reason}`, 'warning');
+        const reasonText = String(result.reason || 'Unknown');
+        const clarifiedReason = reasonText === 'No crew available'
+          ? 'Assigned crew unavailable (jailed or busy)'
+          : reasonText;
+        this.log(`Repeat failed: ${clarifiedReason}`, 'warning');
         this.saveState();  // Save state even if repeat fails
       }
       // Note: startRun already saves state if successful
@@ -375,9 +381,18 @@ export class Engine {
       this.applyHeat(outcome.heatDelta);
       this.applyEffects(outcome.effects);
       if (outcome.jail) {
+        const activity = this.data.activities.find((a) => a.id === run.activityId);
+        const activityName = activity?.name || "Unknown";
+        const optionName = option?.name || "Unknown";
+        const durationMs = outcome.jail.durationMs || 0;
+        const durationText = this.formatDuration(durationMs);
+        run.runsLeft = 0;
+        run.snapshot.botched = true;
+        this.log(`Botched: ${activityName} / ${optionName}`, "warning");
         staff.forEach((s) => {
           s.status = "unavailable";
-          s.unavailableUntil = this.state.now + outcome.jail.durationMs;
+          s.unavailableUntil = this.state.now + durationMs;
+          this.log(`Unavailable: ${s.name} jailed for ${durationText}.`, "warning");
         });
       }
     }
@@ -467,6 +482,14 @@ export class Engine {
     if (!range) return;
     const amount = this.randomBetween(range.min, range.max);
     this.applyHeat(amount);
+  }
+
+  formatDuration(ms) {
+    const seconds = Math.max(0, Math.round(ms / 1000));
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}m ${secs}s`;
   }
 
   applyEffects(effects) {

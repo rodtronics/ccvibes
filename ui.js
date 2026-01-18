@@ -10,11 +10,11 @@ export const Layout = {
   WIDTH: 80,
   HEIGHT: 25,
 
-  statusRail: { x: 0, y: 0, width: 80, height: 2 },
-  tabBar: { x: 0, y: 2, width: 80, height: 1 },
-  mainPanel: { x: 0, y: 3, width: 56, height: 20 },
-  logPanel: { x: 56, y: 3, width: 24, height: 20 },
-  footer: { x: 0, y: 23, width: 80, height: 2 },
+  statusRail: { x: 0, y: 0, width: 80, height: 1 },
+  tabBar: { x: 0, y: 1, width: 80, height: 1 },
+  mainPanel: { x: 0, y: 2, width: 56, height: 23 },
+  logPanel: { x: 56, y: 2, width: 24, height: 23 },
+  footer: { x: 0, y: 24, width: 80, height: 1 },
 };
 
 export class UI {
@@ -41,6 +41,9 @@ export class UI {
     if (this.ui.tab === 'jobs') this.renderJobsTab();
     if (this.ui.tab === 'active') this.renderActiveTab();
     if (this.ui.tab === 'crew') this.renderCrewTab();
+    if (this.ui.tab === 'resources') this.renderResourcesTab();
+    if (this.ui.tab === 'stats') this.renderStatsTab();
+    if (this.ui.tab === 'log') this.renderLogTab();
     if (this.ui.tab === 'options') this.renderOptionsTab();
   }
 
@@ -49,26 +52,15 @@ export class UI {
     // This is the structure layer that content will overwrite
     // VISUAL HIERARCHY: Borders are DARK, content/titles will be BRIGHT
 
-    // Status rail box (dark border)
-    this.buffer.drawBox(
-      Layout.statusRail.x,
-      Layout.statusRail.y,
-      Layout.statusRail.width,
-      Layout.statusRail.height,
-      BoxStyles.SINGLE,
-      Palette.DIM_GRAY,
-      Palette.BLACK
-    );
-
     // Tab bar gets no box, just content
 
     // Main content area - single panel with dark border
-    this.buffer.drawBox(0, 3, Layout.WIDTH, Layout.HEIGHT - 3, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.drawBox(0, 2, Layout.WIDTH, Layout.HEIGHT - 2, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
   }
 
   renderStatusRail() {
     const x = 2;
-    const y = 1;
+    const y = 0;
 
     // Title (overwrites box border)
     this.buffer.writeText(x, y, 'CRIME COMMITTER VI', Palette.NEON_CYAN, Palette.BLACK);
@@ -94,11 +86,14 @@ export class UI {
       { id: 'jobs', label: 'JOBS', hotkey: 'j' },
       { id: 'active', label: 'ACTIVE', hotkey: 'a' },
       { id: 'crew', label: 'CREW', hotkey: 'c' },
+      { id: 'resources', label: 'RESOURCES', hotkey: 'r' },
+      { id: 'stats', label: 'STATS', hotkey: 's' },
+      { id: 'log', label: 'LOG', hotkey: 'l' },
       { id: 'options', label: 'OPTIONS', hotkey: 'o' },
     ];
 
     let x = 2;
-    const y = 2;
+    const y = 1;
 
     tabs.forEach((tab) => {
       const active = tab.id === this.ui.tab;
@@ -126,7 +121,7 @@ export class UI {
 
     // Row 4: Branch tabs (secondary navigation)
     let tabX = 2;
-    const tabY = 4;
+    const tabY = 3;
     branches.forEach((b, i) => {
       const isActive = i === this.ui.branchIndex;
       // Use color from schema, fallback to TERMINAL_GREEN
@@ -151,7 +146,7 @@ export class UI {
 
     if (!showingOptions) {
       // ACTIVITY LIST VIEW (focused on activities, numbered 1-9)
-      const listTop = 6;
+      const listTop = 5;
       const listTitle = branch ? branch.name.toUpperCase() + ' JOBS' : 'JOBS';
       this.buffer.writeText(2, listTop, listTitle, Palette.NEON_CYAN, Palette.BLACK);
 
@@ -183,7 +178,7 @@ export class UI {
     } else {
       // OPTIONS VIEW (showing numbered options for selected activity)
       // Split into two columns: LEFT = options list, RIGHT = active runs
-      const optionsTop = 6;
+      const optionsTop = 5;
       const leftCol = { x: 2, width: 48 };
       const rightCol = { x: 52, width: 26 };
 
@@ -401,7 +396,7 @@ export class UI {
   }
 
   renderActiveTab() {
-    const top = 5;
+    const top = 4;
 
     this.buffer.writeText(2, top - 1, 'ACTIVE OPERATIONS', Palette.SUCCESS_GREEN, Palette.BLACK);
 
@@ -420,7 +415,7 @@ export class UI {
   }
 
   renderCrewTab() {
-    const top = 5;
+    const top = 4;
     this.buffer.writeText(2, top - 1, 'CREW MANAGEMENT', Palette.SUCCESS_GREEN, Palette.BLACK);
 
     // Current crew count
@@ -445,15 +440,71 @@ export class UI {
       const y = rosterTop + idx;
       const statusColor = member.status === 'available' ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE;
       const rowNumber = scrollOffset + idx + 1;
-      this.buffer.writeText(2, y, `${rowNumber}. ${member.name} - ${member.roleId} (${member.status})`, statusColor, Palette.BLACK);
+      let statusLabel = member.status;
+      if (member.status === 'unavailable') {
+        const remaining = Math.max(0, (member.unavailableUntil || 0) - this.engine.state.now);
+        statusLabel = remaining > 0 ? `JAIL ${this.formatMs(remaining)}` : 'UNAVAILABLE';
+      }
+      this.buffer.writeText(2, y, `${rowNumber}. ${member.name} - ${member.roleId} (${statusLabel})`, statusColor, Palette.BLACK);
     });
 
     // Simple ASCII scrollbar using '|' for track and '*' for thumb
     this.renderScrollBar(Layout.WIDTH - 3, rosterTop, visibleRows, crewCount, scrollOffset, Palette.DIM_GRAY, Palette.BLACK);
   }
 
+  renderResourcesTab() {
+    const top = 4;
+    this.buffer.writeText(2, top - 1, 'RESOURCES', Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(2, top + 1, 'Resources view coming soon.', Palette.DIM_GRAY, Palette.BLACK);
+  }
+
+  renderStatsTab() {
+    const top = 4;
+    this.buffer.writeText(2, top - 1, 'STATS', Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(2, top + 1, 'Stats view coming soon.', Palette.DIM_GRAY, Palette.BLACK);
+  }
+
+  renderLogTab() {
+    const top = 4;
+    this.buffer.writeText(2, top - 1, 'LOG', Palette.SUCCESS_GREEN, Palette.BLACK);
+
+    const listTop = top + 1;
+    const listBottom = Layout.HEIGHT - 3;
+    const visibleRows = Math.max(0, listBottom - listTop + 1);
+    const entries = this.engine.state.log || [];
+    const scrollOffset = this.clampScrollOffset('log', entries.length, visibleRows);
+
+    const colorForType = (type) => {
+      const key = (type || '').toString().toLowerCase();
+      if (key === 'success') return Palette.SUCCESS_GREEN;
+      if (key === 'error') return Palette.HEAT_RED;
+      if (key === 'warning' || key === 'warn') return Palette.HEAT_ORANGE;
+      return Palette.MID_GRAY;
+    };
+
+    const availableWidth = Layout.WIDTH - 4;
+    const visibleEntries = entries.slice(scrollOffset, scrollOffset + visibleRows);
+    visibleEntries.forEach((entry, idx) => {
+      const y = listTop + idx;
+      const time = new Date(entry.timestamp || Date.now()).toLocaleTimeString();
+      const line = `${time} ${entry.message || ''}`.slice(0, availableWidth);
+      this.buffer.writeText(2, y, line, colorForType(entry.type), Palette.BLACK);
+    });
+
+    this.renderScrollBar(
+      Layout.WIDTH - 3,
+      listTop,
+      visibleRows,
+      entries.length,
+      scrollOffset,
+      Palette.DIM_GRAY,
+      Palette.BLACK,
+      visibleRows
+    );
+  }
+
   renderOptionsTab() {
-    const top = 6;
+    const top = 5;
     const selectedSetting = this.ui.selectedSetting ?? 0;
 
     this.buffer.writeText(2, top - 2, 'OPTIONS', Palette.SUCCESS_GREEN, Palette.BLACK);
@@ -470,7 +521,8 @@ export class UI {
     const fontNames = {
       'fira': 'Fira Code (modern)',
       'vga-9x8': 'VGA 9x8 (compact)',
-      'vga-8x16': 'VGA 8x16 (classic)'
+      'vga-8x16': 'VGA 8x16 (classic)',
+      'jetbrains-mono': 'JetBrains Mono (bold)'
     };
 
     const fontText = fontNames[this.ui.settings.font] || this.ui.settings.font;
@@ -554,7 +606,7 @@ export class UI {
     // Normalize inputs and locate the hotkey within the label
     const safeLabel = label || '';
     const lowerLabel = safeLabel.toLowerCase();
-    const normalizedHotkey = (hotkey || '').toLowerCase();
+    const normalizedHotkey = (hotkey || '').toString().trim().toLowerCase();
     const hotkeyIndex = normalizedHotkey ? lowerLabel.indexOf(normalizedHotkey) : -1;
 
     const fg = isActive ? activeFg : inactiveFg;
@@ -568,7 +620,7 @@ export class UI {
     // Write the label character by character, applying gradient/hotkey styling
     for (let i = 0; i < safeLabel.length; i++) {
       const char = safeLabel[i];
-      const isHotkey = !isActive && hotkeyIndex === i && hotkeyIndex >= 0;
+      const isHotkey = hotkeyIndex === i && hotkeyIndex >= 0;
       const isGlow = !isActive && glowEnabled && hotkeyIndex >= 0 && Math.abs(i - hotkeyIndex) === 1;
 
       // Base color comes from gradient (if enabled) or the tab foreground

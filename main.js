@@ -14,11 +14,12 @@ const engine = new Engine();
 const BLOOM_OVERLAY_ID = 'bloom-overlay';
 
 // Settings constants (must be defined before loadSettings)
-const FONTS = ['fira', 'vga-9x8', 'vga-8x16'];
+const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono'];
 const FONT_NAMES = {
   'fira': 'Fira Code (modern)',
   'vga-9x8': 'VGA 9x8 (compact)',
-  'vga-8x16': 'VGA 8x16 (classic)'
+  'vga-8x16': 'VGA 8x16 (classic)',
+  'jetbrains-mono': 'JetBrains Mono (bold)'
 };
 const MIN_ZOOM = 100; // %
 const MAX_ZOOM = 300; // %
@@ -26,7 +27,7 @@ const ZOOM_STEP = 50; // %
 
 // UI state (navigation, selections, options)
 const ui = {
-  tab: 'jobs', // jobs, active, crew, options
+  tab: 'jobs', // jobs, active, crew, resources, stats, options
   focus: 'activity', // activity | option
   branchIndex: 0,
   activityIndex: 0,
@@ -142,12 +143,18 @@ function handleInput(e) {
   }
   if (e.key === 'a' || e.key === 'A') ui.tab = 'active';
   if (e.key === 'c' || e.key === 'C') ui.tab = 'crew';
+  if (e.key === 'r' || e.key === 'R') ui.tab = 'resources';
+  if (e.key === 's' || e.key === 'S') ui.tab = 'stats';
+  if (e.key === 'l' || e.key === 'L') ui.tab = 'log';
   if (e.key === 'o' || e.key === 'O') ui.tab = 'options';
 
   // Tab-specific input
   if (ui.tab === 'jobs') handleJobsInput(e);
   if (ui.tab === 'active') handleActiveInput(e);
   if (ui.tab === 'crew') handleCrewInput(e);
+  if (ui.tab === 'resources') handleResourcesInput(e);
+  if (ui.tab === 'stats') handleStatsInput(e);
+  if (ui.tab === 'log') handleLogInput(e);
   if (ui.tab === 'options') handleOptionsInput(e);
 
   render();
@@ -162,15 +169,16 @@ function handleJobsInput(e) {
   const key = (e.key || '').toLowerCase();
 
   // Branch hotkeys
-  branches.forEach((b, i) => {
-    const hotkey = (b.hotkey || '').toLowerCase();
+  for (let i = 0; i < branches.length; i++) {
+    const hotkey = (branches[i].hotkey || '').toString().trim().toLowerCase();
     if (hotkey && key === hotkey) {
       ui.branchIndex = i;
       ui.activityIndex = 0;
       ui.optionIndex = 0;
       ui.focus = 'activity';
+      return;
     }
-  });
+  }
 
   // Number keys for selection
   if (e.key >= '1' && e.key <= '9') {
@@ -280,6 +288,40 @@ function handleJobsInput(e) {
 
 function handleActiveInput(e) {
   // Placeholder for future run management
+  if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
+}
+
+function handleResourcesInput(e) {
+  // Placeholder for future resources management
+  if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
+}
+
+function handleStatsInput(e) {
+  // Placeholder for future stats screen
+  if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
+}
+
+function handleLogInput(e) {
+  const top = 4;
+  const listTop = top + 1;
+  const listBottom = Layout.HEIGHT - 3;
+  const visibleRows = Math.max(0, listBottom - listTop + 1);
+  const totalLogs = engine.state.log.length;
+  const pageStep = Math.max(1, visibleRows - 1);
+  const maxOffset = Math.max(0, totalLogs - visibleRows);
+
+  const setLogScroll = (next) => {
+    if (!ui.scroll) ui.scroll = {};
+    ui.scroll.log = Math.max(0, Math.min(maxOffset, next));
+  };
+
+  if (e.key === 'ArrowDown') setLogScroll((ui.scroll?.log || 0) + 1);
+  if (e.key === 'ArrowUp') setLogScroll((ui.scroll?.log || 0) - 1);
+  if (e.key === 'PageDown') setLogScroll((ui.scroll?.log || 0) + pageStep);
+  if (e.key === 'PageUp') setLogScroll((ui.scroll?.log || 0) - pageStep);
+  if (e.key === 'End') setLogScroll(maxOffset);
+  if (e.key === 'Home') setLogScroll(0);
+
   if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
 }
 

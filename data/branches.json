@@ -16,11 +16,11 @@
     "name": "STREET",
     "description": "description here",
     "order": 20,
-    "hotkey": "s",
+    "hotkey": "t",
     "revealedByDefault": true,
     "ui": {
-      "color": "LIME",
-      "gradient": "new_branch"
+      "color": "NEON_CYAN",
+      "gradient": "street"
     }
   },
   {

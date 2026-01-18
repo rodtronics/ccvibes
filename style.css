@@ -10,6 +10,12 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "JetBrains_Mono_ExtraBold";
+  src: url("fonts/JetBrainsMono-ExtraBold.ttf") format("truetype");
+  font-display: swap;
+}
+
 body {
   margin: 0;
   background: #050b14;
@@ -78,6 +84,20 @@ body {
 
 /* ID + class to override the base #game line-height when using Fira */
 #game.font-fira {
+  line-height: 1.1;
+}
+
+.font-jetbrains-mono {
+  font-family: "JetBrains_Mono_ExtraBold", "Consolas", monospace;
+  font-weight: 800;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0, "clig" 0;
+  letter-spacing: 0;
+  line-height: 1.1; /* Consistent line-height for alignment */
+}
+
+/* ID + class to override the base #game line-height when using JetBrains Mono */
+#game.font-jetbrains-mono {
   line-height: 1.1;
 }
 
