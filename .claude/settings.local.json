@@ -5,7 +5,8 @@
       "Bash(node -c:*)",
       "Bash(grep:*)",
       "Bash(node -e:*)",
-      "Bash(start \"\" \"c:\\\\Users\\\\Andrew\\\\Documents\\\\GitHub\\\\ccvibes\\\\ccvibes\\\\data-builder\\\\tui-designer-v2.html\")"
+      "Bash(start \"\" \"c:\\\\Users\\\\Andrew\\\\Documents\\\\GitHub\\\\ccvibes\\\\ccvibes\\\\data-builder\\\\tui-designer-v2.html\")",
+      "Bash(python -m http.server:*)"
     ],
     "defaultMode": "bypassPermissions"
   }

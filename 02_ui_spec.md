@@ -10,9 +10,9 @@ Purpose: single source for visual language, layout, and interaction patterns. Pa
 
 ## 2. Viewport and Layout
 
-- Fixed viewport: 200 columns × 60 rows (200x60 character grid).
-- No page scroll; panels scroll internally; designed for modern screen sizes.
-- Primary layout: status rail at top, tab bar beneath, main panel below, wide log panel where appropriate.
+- Fixed viewport: **80 columns × 25 rows (80x25 character grid)** - classic terminal dimensions.
+- No page scroll; panels scroll internally; compact layout for focused gameplay.
+- Primary layout: status rail at top, tab bar beneath, single main panel (full width).
 
 ## 3. Status Rail
 
@@ -20,15 +20,67 @@ Purpose: single source for visual language, layout, and interaction patterns. Pa
 
 ## 4. Tabs and Navigation
 
-- Tabs may include: Activities, Tech Web, Crew, Inventory, Economy, Active, Log.
-- Not all tabs are visible at start; tabs can appear or become usable over time; existence of a tab implies discovery, not mastery.
+### Main Tabs (Top Level)
 
-## 5. Activities View
+- **Jobs (J)**: Browse criminal activities by branch, select jobs, start operations
+- **Active (A)**: Monitor all active runs, manage ongoing operations
+- **Crew (C)**: Manage crew members (future implementation)
+- **Settings (S)**: Configure display options (font selection)
 
-- Shows branch selection and available Activities; selecting an Activity opens a detail pane listing Options and requirements.
-- Primary control happens through Activity detail views.
-- Possible branches: Primordial, Drugs, Tech, Smuggling/Logistics, Fraud/Grift, Corruption/Influence.
-- **Active runs are displayed within the activity detail view**: Each activity shows its currently running operations inline, allowing concurrent runs to be visible and managed from the activity's own panel.
+Tabs use **hotkey navigation** with underlined letters:
+- Press J/A/C/S to switch tabs instantly
+- Active tab displays in bright color (cyan), inactive tabs dimmed (gray)
+- Hotkey letter highlighted in bright cyan on inactive tabs only
+
+### Secondary Navigation (Branch Tabs)
+
+Within the Jobs tab, branches appear as secondary tabs:
+- Each branch has a single-letter hotkey (e.g., **S**treet, c**O**mmerce)
+- Hotkey letter must exist within the branch name
+- Highlighted in bright cyan when branch is inactive
+- Active branch tab shown in full color
+
+### Number-Based Selection
+
+Jobs and options use numbered selection for fast access:
+- **1-9 keys** select items from lists
+- In job list: Press number to instantly open that job's options
+- In options list: Press number to instantly start that option
+- **Backspace** returns to previous screen
+- Arrow keys provide alternative navigation
+
+## 5. Jobs View (formerly Activities)
+
+The Jobs tab uses a streamlined two-screen navigation:
+
+### Screen 1: Job List
+
+- Branch tabs displayed at top (row 4)
+- Numbered list of jobs (1-9) for selected branch
+- Selected job highlighted with `>` prefix and bright color
+- Job description shown at bottom
+- Press number key to drill into job options
+- Press Enter on selected job to see options
+
+### Screen 2: Options View
+
+- Job name and description at top
+- Numbered list of options (1-9) with details:
+  - Option name
+  - Duration estimate
+  - Requirements (crew, items, etc.)
+- Press number to instantly start that option
+- Press Backspace to return to job list
+- No third-level navigation - stays compact
+
+**Active runs display:**
+- Active runs for current job shown in options view
+- Compact 4-line format per run
+- Real-time progress updates
+
+**Possible branches:**
+- Street, Commerce (currently implemented)
+- Future: Tech, Smuggling, Fraud, Corruption
 
 ### 5.1 Concurrent Runs Display
 
@@ -264,7 +316,75 @@ UI.setupEngineEventListeners() {
 - **Decoupling**: UI never directly polls Engine state; responds only to events.
 - **Maintainability**: Clear separation between state management (Engine) and presentation (UI).
 
-## 15. Visual Focus and Dimming
+## 15. UI Customization via Data Schema
+
+Branches and UI elements support color/gradient customization through their JSON definitions:
+
+### Branch UI Schema
+
+```json
+{
+  "id": "street",
+  "name": "street",
+  "hotkey": "s",
+  "ui": {
+    "color": "TERMINAL_GREEN",
+    "gradient": null
+  }
+}
+```
+
+**Fields:**
+- `hotkey`: Single letter that appears in the branch name (case insensitive)
+- `ui.color`: Palette color name for active branch tab (e.g., "TERMINAL_GREEN", "NEON_CYAN")
+- `ui.gradient`: Gradient name for future gradient text support (see GRADIENTS.md)
+
+**Hotkey Requirements:**
+- Must be a single character
+- Must appear in the branch `name` field
+- Case insensitive matching
+- Game will find and highlight this letter in the tab label
+
+**Color Support:**
+- Active tab displays in specified color
+- Inactive tab dims to DIM_GRAY
+- Hotkey letter in inactive tab highlighted in NEON_CYAN
+
+**Future Gradient Support:**
+When gradients are implemented:
+- If `ui.gradient` is set, use gradient instead of solid color
+- Gradient names from GRADIENTS.md (cyber, cool, warm, heat, etc.)
+- Smooth color transitions across tab label characters
+
+### Main Tab Configuration
+
+Main tabs are currently hardcoded in `ui.js` but could be moved to JSON:
+
+```javascript
+// Current implementation (hardcoded)
+const tabs = [
+  { id: 'jobs', label: 'JOBS', hotkey: 'j' },
+  { id: 'active', label: 'ACTIVE', hotkey: 'a' },
+  { id: 'crew', label: 'CREW', hotkey: 'c' },
+  { id: 'settings', label: 'SETTINGS', hotkey: 's' },
+];
+```
+
+Future JSON schema could add color/gradient support:
+
+```json
+{
+  "id": "jobs",
+  "label": "JOBS",
+  "hotkey": "j",
+  "ui": {
+    "color": "NEON_CYAN",
+    "gradient": null
+  }
+}
+```
+
+## 16. Visual Focus and Dimming
 
 The UI uses visual dimming to indicate focus and guide attention within multi-panel layouts.
 

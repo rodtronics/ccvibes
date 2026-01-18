@@ -246,32 +246,31 @@ The game uses a fixed viewport resolution:
 
 ```javascript
 const VIEWPORT = {
-  width: 200,   // 200 columns
-  height: 60    // 60 rows
+  width: 80,    // 80 columns (classic terminal width)
+  height: 25    // 25 rows (classic terminal height)
 };
 ```
 
-This large viewport provides sufficient space for:
-- Detailed panel layouts with multiple simultaneous views
-- Data-dense displays without excessive scrolling
-- Clear visual hierarchy and breathing room
-- Modern screen sizes while maintaining character-based aesthetic
+This classic terminal resolution provides:
+- Familiar terminal dimensions (VT100 standard)
+- Compact, focused layout that fits anywhere
+- Forces prioritization of important information
+- Authentic terminal aesthetic
+- Easy to make dynamic/resizable in future
 
 ### Panel System
 
-The 200x60 viewport is divided into fixed panels as defined in `02_ui_spec.md`:
+The 80x25 viewport is divided into fixed panels as defined in `02_ui_spec.md`:
 
 ```javascript
 const Layout = {
-  statusRail: { x: 0, y: 0, width: 200, height: 2 },
-  tabBar: { x: 0, y: 2, width: 200, height: 1 },
-  mainPanel: { x: 0, y: 3, width: 140, height: 54 },
-  logPanel: { x: 140, y: 3, width: 60, height: 54 },
-  footer: { x: 0, y: 57, width: 200, height: 3 },
+  statusRail: { x: 0, y: 0, width: 80, height: 2 },
+  tabBar: { x: 0, y: 2, width: 80, height: 1 },
+  mainPanel: { x: 0, y: 3, width: 80, height: 22 },
 };
 ```
 
-Note: Exact panel dimensions are subject to design iteration; the buffer system supports arbitrary layouts.
+Note: The layout uses a single full-width main panel instead of split panels to maximize usable space at 80x25. The log has been removed as a separate panel - events are shown contextually within the main panel as needed.
 
 Panels can write to their region without knowing absolute coordinates:
 
@@ -331,13 +330,13 @@ function renderFrame(buffer) {
   buffer.fill(' ', Palette.LIGHT_GRAY, Palette.BLACK);
 
   // Layer 1: Structure (borders)
-  buffer.drawBox(0, 0, 200, 60, BoxStyles.SINGLE, Palette.NEON_CYAN, Palette.BLACK);
-  buffer.drawBox(0, 3, 140, 54, BoxStyles.SINGLE, Palette.TERMINAL_GREEN, Palette.BLACK);
-  buffer.drawBox(140, 3, 60, 54, BoxStyles.SINGLE, Palette.TERMINAL_GREEN, Palette.BLACK);
+  buffer.drawBox(0, 0, 80, 25, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
+  buffer.drawBox(0, 3, 80, 22, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
 
   // Layer 2: Content (overwrites borders as needed)
   buffer.writeText(2, 1, 'CRIME COMMITTER VI', Palette.NEON_CYAN, Palette.BLACK);
-  buffer.writeText(2, 5, 'Activities:', Palette.WHITE, Palette.BLACK);
+  buffer.writeText(2, 2, 'JOBS', Palette.NEON_CYAN, Palette.BLACK); // Active tab
+  buffer.writeText(10, 2, 'ACTIVE', Palette.DIM_GRAY, Palette.BLACK); // Inactive tab
   // ... more content
 
   // Layer 3: Overlays (if any)

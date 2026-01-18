@@ -32,6 +32,22 @@ body {
   user-select: none;
   font-variant-ligatures: none;
   text-rendering: optimizeSpeed;
+  filter: none;
+  transition: filter 150ms ease, font-size 120ms ease;
+}
+
+.bloom-overlay,
+#bloom-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  /* Give the layer some light to blend; screen will only brighten */
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px) saturate(200%);
+  mix-blend-mode: screen;
+  opacity: 0.3;
+  z-index: 10;
+  display: none;
 }
 
 .font-vga-9x8 {
@@ -51,9 +67,10 @@ body {
 }
 
 .font-fira {
-  font-family: "Fira Code", "Consolas", monospace;
+  /* Force strict monospace fallback chain and disable ligatures for alignment */
+  font-family: "Fira Code", "Fira Mono", "DejaVu Sans Mono", "Consolas", monospace;
   font-weight: 500;
   font-variant-ligatures: none;
-  font-feature-settings: normal;
+  font-feature-settings: "liga" 0, "calt" 0, "clig" 0;
   letter-spacing: 0;
 }

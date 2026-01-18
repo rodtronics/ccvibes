@@ -81,3 +81,14 @@ Purpose: single source for mechanics philosophy and intent. Pair with `02_ui_spe
 - **Smooth updates**: 50ms tick interval (20 updates/sec) for fluid countdown timers and progress bars.
 - **Efficient rendering**: Partial UI updates on tick events; full renders only on state changes.
 - **Backward compatibility**: State migration handles legacy save formats gracefully.
+
+## 16. Visual Aesthetic Philosophy
+
+The game should look "pretty", not just functional or modern:
+- Use gradients throughout for visual interest (branch tabs, UI elements)
+- Apply color thoughtfully to create atmosphere and hierarchy
+- Terminal-style character grid maintains authenticity
+- Optional CSS glow filter for subtle ambient effect (user preference)
+- Avoid CSS tricks except for the optional global glow filter
+- Pretty should enhance, not distract from gameplay clarity
+- Branch-specific background colors provide subtle visual context

@@ -3,6 +3,7 @@
 // Based on 05_rendering_engine.md
 
 import { Palette, BoxStyles } from './palette.js';
+import { getGradientColors } from './gradients.js';
 
 export class FrameBuffer {
   constructor(width, height) {
@@ -92,6 +93,35 @@ export class FrameBuffer {
     const str = String(text);
     const startX = x - str.length + 1;
     this.writeText(startX, y, str, fg, bg);
+  }
+
+  // Gradient text operations
+  drawGradientText(x, y, text, gradientName, bg, align = 'left') {
+    if (!text) return;
+    const str = String(text);
+
+    // Get interpolated colors for each character
+    const colors = getGradientColors(gradientName, str.length);
+    if (colors.length === 0) {
+      // Fallback to regular text if gradient doesn't exist
+      this.writeText(x, y, str, Palette.LIGHT_GRAY, bg);
+      return;
+    }
+
+    // Calculate starting position based on alignment
+    let startX = x;
+    if (align === 'center') {
+      startX = Math.floor((this.width - str.length) / 2);
+    } else if (align === 'right') {
+      startX = x - str.length + 1;
+    }
+
+    // Draw each character with its interpolated color
+    for (let i = 0; i < str.length; i++) {
+      this.setCell(startX + i, y, str[i], colors[i], bg);
+    }
+
+    return str.length;
   }
 
   // Box drawing

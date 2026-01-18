@@ -42,6 +42,7 @@ export class Engine {
 
   async init() {
     await this.loadData();
+    this.loadState();  // Load saved state before applying defaults
     this.applyDefaultReveals();
     this.log("System online.", "info");
   }
@@ -65,6 +66,71 @@ export class Engine {
         console.warn(`Failed to load ${file}`, err);
         this.log(`Failed to load ${file}`, "warn");
       }
+    }
+  }
+
+  loadState() {
+    try {
+      const saved = localStorage.getItem('ccv_game_state');
+      if (!saved) {
+        console.log('No saved state found, starting fresh');
+        return;
+      }
+
+      const parsed = JSON.parse(saved);
+      console.log('Loading saved state:', parsed);
+
+      // Merge saved state with defaults
+      this.state = {
+        ...this.state,
+        ...parsed,
+        now: Date.now()  // Always use current time
+      };
+
+      // Process any runs that should have completed while offline
+      const now = Date.now();
+      const completedOffline = [];
+      const stillActive = [];
+
+      this.state.runs.forEach((run) => {
+        if (run.endsAt <= now) {
+          completedOffline.push(run);
+        } else {
+          stillActive.push(run);
+        }
+      });
+
+      // Complete offline runs
+      this.state.runs = stillActive;
+      completedOffline.forEach((run) => {
+        console.log(`Completing run that finished offline: ${run.runId}`);
+        this.completeRun(run);
+      });
+
+      console.log(`State loaded: ${completedOffline.length} runs completed offline, ${stillActive.length} still active`);
+    } catch (err) {
+      console.warn('Failed to load state:', err);
+      this.log('Failed to load saved state', 'warn');
+    }
+  }
+
+  saveState() {
+    try {
+      const toSave = {
+        version: this.state.version,
+        resources: this.state.resources,
+        items: this.state.items,
+        flags: this.state.flags,
+        reveals: this.state.reveals,
+        crew: this.state.crew,
+        runs: this.state.runs,
+        log: this.state.log.slice(0, 50)  // Save only last 50 log entries
+      };
+
+      localStorage.setItem('ccv_game_state', JSON.stringify(toSave));
+      console.log('State saved:', toSave);
+    } catch (err) {
+      console.warn('Failed to save state:', err);
     }
   }
 
@@ -127,7 +193,7 @@ export class Engine {
     }
   }
 
-  startRun(activityId, optionId, assignedStaffIds) {
+  startRun(activityId, optionId, assignedStaffIds, runsLeft = 0) {
     this.state.now = Date.now();
     const activity = this.data.activities.find((a) => a.id === activityId);
     if (!activity) return { ok: false, reason: "Activity not found" };
@@ -171,11 +237,13 @@ export class Engine {
       startedAt: this.state.now,
       endsAt: this.state.now + duration,
       assignedStaffIds: staffIds,
+      runsLeft: runsLeft,  // 0 = single, N = N more after this, -1 = infinite
       snapshot: { plannedOutcomeId }
     };
 
     this.state.runs.push(run);
     this.log(`Started: ${activity.name} / ${option.name}`, "info");
+    this.saveState();  // Save state after starting run
     return { ok: true, run };
   }
 
@@ -204,6 +272,85 @@ export class Engine {
 
     this.resolveOutcome(option, run, staff);
     this.log(`Completed: ${activity.name} / ${option.name}`, "success");
+
+    // Handle repeat runs
+    if (run.runsLeft !== 0) {
+      const nextRunsLeft = run.runsLeft === -1 ? -1 : run.runsLeft - 1;
+
+      // Try to restart with same staff
+      const result = this.startRun(
+        run.activityId,
+        run.optionId,
+        run.assignedStaffIds,
+        nextRunsLeft
+      );
+
+      if (!result.ok) {
+        this.log(`Repeat failed: ${result.reason}`, 'warning');
+        this.saveState();  // Save state even if repeat fails
+      }
+      // Note: startRun already saves state if successful
+    } else {
+      this.saveState();  // Save state after single run completion
+    }
+  }
+
+  stopRun(runId) {
+    const run = this.state.runs.find((r) => r.runId === runId);
+    if (!run) return { ok: false, reason: 'Run not found' };
+
+    // Mark staff available
+    run.assignedStaffIds.forEach((id) => {
+      const staff = this.state.crew.staff.find((s) => s.id === id);
+      if (staff) staff.status = 'available';
+    });
+
+    // Remove from active runs
+    this.state.runs = this.state.runs.filter((r) => r.runId !== runId);
+    this.log('Run stopped (progress forfeited)', 'warning');
+    this.saveState();  // Save state after stopping run
+    return { ok: true };
+  }
+
+  stopRepeat(runId) {
+    const run = this.state.runs.find((r) => r.runId === runId);
+    if (!run) return { ok: false, reason: 'Run not found' };
+
+    run.runsLeft = 0;  // Convert to single run
+    this.log('Repeat stopped (current run will complete)', 'info');
+    this.saveState();  // Save state after stopping repeat
+    return { ok: true };
+  }
+
+  canStartRun(activityId, optionId) {
+    // Validate WITHOUT mutating state
+    const activity = this.data.activities.find((a) => a.id === activityId);
+    if (!activity) return { ok: false, reason: 'Activity not found' };
+
+    const option = activity.options.find((o) => o.id === optionId);
+    if (!option) return { ok: false, reason: 'Option not found' };
+
+    if (!this.isActivityVisible(activity)) {
+      return { ok: false, reason: 'Activity hidden' };
+    }
+
+    if (!this.isOptionUnlocked(option)) {
+      return { ok: false, reason: 'Option locked' };
+    }
+
+    // Check if we can auto-assign staff
+    const staffIds = this.autoAssign(option.requirements);
+    if (!staffIds || staffIds.length === 0) {
+      return { ok: false, reason: 'No crew available' };
+    }
+
+    const reqCheck = this.checkRequirements(option.requirements, staffIds);
+    if (!reqCheck.ok) return reqCheck;
+
+    const inputCheck = this.checkInputs(option.inputs);
+    if (!inputCheck.ok) return inputCheck;
+
+    return { ok: true };
   }
 
   resolveOutcome(option, run, staff) {

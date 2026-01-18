@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Branches Designer - Crime Committer VI</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      background: #0a0a0a;
+      color: #00ff00;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #00ff00;
+      text-shadow: 0 0 10px #00ff00;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 300px 1fr 400px;
+      gap: 20px;
+      height: calc(100vh - 120px);
+    }
+
+    .panel {
+      background: #1a1a1a;
+      border: 2px solid #00ff00;
+      padding: 15px;
+      overflow-y: auto;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+    }
+
+    .panel h2 {
+      margin-bottom: 15px;
+      font-size: 1.2em;
+      color: #00ff00;
+      border-bottom: 1px solid #00ff00;
+      padding-bottom: 5px;
+    }
+
+    .branch-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .branch-item {
+      background: #0f0f0f;
+      border: 1px solid #00aa00;
+      padding: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .branch-item:hover {
+      background: #1a1a1a;
+      border-color: #00ff00;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+    }
+
+    .branch-item.selected {
+      background: #003300;
+      border-color: #00ff00;
+      box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
+    }
+
+    .branch-item-name {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .branch-item-desc {
+      font-size: 0.85em;
+      color: #00cc00;
+      opacity: 0.8;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #00ff00;
+      font-size: 0.9em;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      background: #0a0a0a;
+      border: 1px solid #00aa00;
+      color: #00ff00;
+      padding: 8px;
+      font-family: inherit;
+      font-size: 0.95em;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+      border-color: #00ff00;
+      box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    input[type="checkbox"] {
+      margin-right: 8px;
+    }
+
+    button {
+      background: #003300;
+      border: 1px solid #00ff00;
+      color: #00ff00;
+      padding: 10px 20px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95em;
+      transition: all 0.2s;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    button:hover {
+      background: #004400;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+    }
+
+    button:active {
+      background: #002200;
+    }
+
+    button.danger {
+      border-color: #ff0000;
+      color: #ff0000;
+      background: #330000;
+    }
+
+    button.danger:hover {
+      background: #440000;
+      box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    pre {
+      background: #0a0a0a;
+      border: 1px solid #00aa00;
+      padding: 15px;
+      overflow-x: auto;
+      font-size: 0.85em;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .gradient-preview {
+      margin-top: 10px;
+      height: 40px;
+      border: 1px solid #00aa00;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      text-shadow: 0 0 5px #000;
+    }
+
+    .color-options {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 5px;
+      margin-top: 5px;
+    }
+
+    .color-option {
+      padding: 5px;
+      border: 1px solid #00aa00;
+      cursor: pointer;
+      text-align: center;
+      font-size: 0.85em;
+      transition: all 0.2s;
+    }
+
+    .color-option:hover {
+      border-color: #00ff00;
+      box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+    }
+
+    .color-option.selected {
+      background: #003300;
+      border-color: #00ff00;
+    }
+
+    .help-text {
+      font-size: 0.8em;
+      color: #00aa00;
+      margin-top: 5px;
+      font-style: italic;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #00aa00;
+      padding: 40px 20px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Crime Committer VI - Branches Designer</h1>
+
+    <div class="layout">
+      <!-- Left Panel: Branch List -->
+      <div class="panel">
+        <h2>Branches</h2>
+        <div class="button-group">
+          <button onclick="addNewBranch()">+ New Branch</button>
+          <button onclick="loadFromFile()">Load JSON</button>
+        </div>
+        <div id="branchList" class="branch-list"></div>
+      </div>
+
+      <!-- Middle Panel: Editor -->
+      <div class="panel">
+        <h2>Editor</h2>
+        <div id="editorContent"></div>
+      </div>
+
+      <!-- Right Panel: JSON Output -->
+      <div class="panel">
+        <h2>JSON Output</h2>
+        <div class="button-group">
+          <button onclick="copyToClipboard()">Copy JSON</button>
+          <button onclick="downloadJSON()">Download</button>
+          <button onclick="validateJSON()">Validate</button>
+        </div>
+        <pre id="jsonOutput"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Data store
+    let branches = [];
+    let selectedBranchIndex = null;
+
+    // Color constants matching the game
+    const COLORS = {
+      'TERMINAL_GREEN': '#00ff00',
+      'NEON_CYAN': '#00ffff',
+      'ELECTRIC_BLUE': '#0088ff',
+      'HOT_PINK': '#ff00ff',
+      'LAVA_RED': '#ff0044',
+      'GOLD': '#ffaa00',
+      'PURPLE': '#aa00ff',
+      'LIME': '#88ff00'
+    };
+
+    // Initialize with sample data from branches.json
+    function init() {
+      branches = [
+        {
+          id: "street",
+          name: "street",
+          description: "low stakes, high confidence",
+          order: 10,
+          hotkey: "s",
+          revealedByDefault: true,
+          ui: {
+            color: "TERMINAL_GREEN",
+            gradient: "street"
+          }
+        },
+        {
+          id: "commerce",
+          name: "commerce",
+          description: "business, but aggressive",
+          order: 20,
+          hotkey: "o",
+          revealedByDefault: true,
+          ui: {
+            color: "NEON_CYAN",
+            gradient: "commerce"
+          }
+        }
+      ];
+
+      renderBranchList();
+      updateJSONOutput();
+    }
+
+    function renderBranchList() {
+      const listEl = document.getElementById('branchList');
+
+      if (branches.length === 0) {
+        listEl.innerHTML = '<div class="empty-state">No branches yet. Click "+ New Branch" to start.</div>';
+        return;
+      }
+
+      listEl.innerHTML = branches.map((branch, idx) => `
+        <div class="branch-item ${selectedBranchIndex === idx ? 'selected' : ''}"
+             onclick="selectBranch(${idx})"
+             style="border-left: 3px solid ${COLORS[branch.ui?.color] || '#00aa00'}">
+          <div class="branch-item-name">${branch.name || 'Untitled'}</div>
+          <div class="branch-item-desc">${branch.description || 'No description'}</div>
+        </div>
+      `).join('');
+    }
+
+    function selectBranch(index) {
+      selectedBranchIndex = index;
+      renderBranchList();
+      renderEditor();
+    }
+
+    function renderEditor() {
+      const editorEl = document.getElementById('editorContent');
+
+      if (selectedBranchIndex === null) {
+        editorEl.innerHTML = '<div class="empty-state">Select a branch to edit</div>';
+        return;
+      }
+
+      const branch = branches[selectedBranchIndex];
+
+      editorEl.innerHTML = `
+        <div class="form-group">
+          <label>ID (snake_case)</label>
+          <input type="text" id="field-id" value="${branch.id || ''}"
+                 onchange="updateField('id', this.value)">
+          <div class="help-text">Unique identifier, use snake_case</div>
+        </div>
+
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="field-name" value="${branch.name || ''}"
+                 onchange="updateField('name', this.value)">
+          <div class="help-text">Display name for UI</div>
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="field-description" onchange="updateField('description', this.value)">${branch.description || ''}</textarea>
+          <div class="help-text">Brief description, shown in UI</div>
+        </div>
+
+        <div class="form-group">
+          <label>Order</label>
+          <input type="number" id="field-order" value="${branch.order || 10}"
+                 onchange="updateField('order', parseInt(this.value))">
+          <div class="help-text">Sort order (10, 20, 30...)</div>
+        </div>
+
+        <div class="form-group">
+          <label>Hotkey</label>
+          <input type="text" id="field-hotkey" value="${branch.hotkey || ''}"
+                 maxlength="1" onchange="updateField('hotkey', this.value)">
+          <div class="help-text">Single key shortcut</div>
+        </div>
+
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="field-revealed"
+                   ${branch.revealedByDefault ? 'checked' : ''}
+                   onchange="updateField('revealedByDefault', this.checked)">
+            Revealed by Default
+          </label>
+          <div class="help-text">Show from game start</div>
+        </div>
+
+        <div class="form-group">
+          <label>UI Color</label>
+          <div class="color-options">
+            ${Object.keys(COLORS).map(colorName => `
+              <div class="color-option ${branch.ui?.color === colorName ? 'selected' : ''}"
+                   style="background: ${COLORS[colorName]}20; color: ${COLORS[colorName]}; border-color: ${COLORS[colorName]};"
+                   onclick="updateUIField('color', '${colorName}')">
+                ${colorName}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Gradient ID</label>
+          <input type="text" id="field-gradient" value="${branch.ui?.gradient || ''}"
+                 onchange="updateUIField('gradient', this.value)">
+          <div class="help-text">References gradient definition</div>
+          <div class="gradient-preview"
+               style="background: linear-gradient(90deg, ${COLORS[branch.ui?.color] || '#00aa00'}33, ${COLORS[branch.ui?.color] || '#00aa00'}); color: ${COLORS[branch.ui?.color] || '#00aa00'}">
+            Preview
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button onclick="duplicateBranch()">Duplicate</button>
+          <button class="danger" onclick="deleteBranch()">Delete Branch</button>
+        </div>
+      `;
+    }
+
+    function updateField(field, value) {
+      if (selectedBranchIndex === null) return;
+      branches[selectedBranchIndex][field] = value;
+      renderBranchList();
+      updateJSONOutput();
+    }
+
+    function updateUIField(field, value) {
+      if (selectedBranchIndex === null) return;
+      if (!branches[selectedBranchIndex].ui) {
+        branches[selectedBranchIndex].ui = {};
+      }
+      branches[selectedBranchIndex].ui[field] = value;
+      renderEditor();
+      renderBranchList();
+      updateJSONOutput();
+    }
+
+    function addNewBranch() {
+      const newBranch = {
+        id: `branch_${Date.now()}`,
+        name: "New Branch",
+        description: "description here",
+        order: (branches.length + 1) * 10,
+        hotkey: "",
+        revealedByDefault: false,
+        ui: {
+          color: "TERMINAL_GREEN",
+          gradient: "new_branch"
+        }
+      };
+
+      branches.push(newBranch);
+      selectedBranchIndex = branches.length - 1;
+      renderBranchList();
+      renderEditor();
+      updateJSONOutput();
+    }
+
+    function duplicateBranch() {
+      if (selectedBranchIndex === null) return;
+
+      const original = branches[selectedBranchIndex];
+      const duplicate = JSON.parse(JSON.stringify(original));
+      duplicate.id = `${duplicate.id}_copy_${Date.now()}`;
+      duplicate.name = `${duplicate.name} (copy)`;
+
+      branches.push(duplicate);
+      selectedBranchIndex = branches.length - 1;
+      renderBranchList();
+      renderEditor();
+      updateJSONOutput();
+    }
+
+    function deleteBranch() {
+      if (selectedBranchIndex === null) return;
+
+      if (confirm('Delete this branch?')) {
+        branches.splice(selectedBranchIndex, 1);
+        selectedBranchIndex = branches.length > 0 ? 0 : null;
+        renderBranchList();
+        renderEditor();
+        updateJSONOutput();
+      }
+    }
+
+    function updateJSONOutput() {
+      const outputEl = document.getElementById('jsonOutput');
+      outputEl.textContent = JSON.stringify(branches, null, 2);
+    }
+
+    function copyToClipboard() {
+      const text = document.getElementById('jsonOutput').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('JSON copied to clipboard!');
+      });
+    }
+
+    function downloadJSON() {
+      const text = document.getElementById('jsonOutput').textContent;
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'branches.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function validateJSON() {
+      const errors = [];
+
+      branches.forEach((branch, idx) => {
+        if (!branch.id || !/^[a-z_]+$/.test(branch.id)) {
+          errors.push(`Branch ${idx + 1}: ID must be snake_case`);
+        }
+        if (!branch.name) {
+          errors.push(`Branch ${idx + 1}: Name is required`);
+        }
+        if (typeof branch.order !== 'number') {
+          errors.push(`Branch ${idx + 1}: Order must be a number`);
+        }
+        if (!branch.ui || !branch.ui.color) {
+          errors.push(`Branch ${idx + 1}: UI color is required`);
+        }
+      });
+
+      // Check for duplicate IDs
+      const ids = branches.map(b => b.id);
+      const duplicates = ids.filter((id, idx) => ids.indexOf(id) !== idx);
+      if (duplicates.length > 0) {
+        errors.push(`Duplicate IDs found: ${duplicates.join(', ')}`);
+      }
+
+      if (errors.length === 0) {
+        alert('✓ JSON is valid!');
+      } else {
+        alert('Validation errors:\n\n' + errors.join('\n'));
+      }
+    }
+
+    function loadFromFile() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const loaded = JSON.parse(event.target.result);
+            if (Array.isArray(loaded)) {
+              branches = loaded;
+              selectedBranchIndex = branches.length > 0 ? 0 : null;
+              renderBranchList();
+              renderEditor();
+              updateJSONOutput();
+              alert('JSON loaded successfully!');
+            } else {
+              alert('Invalid JSON: Expected an array of branches');
+            }
+          } catch (err) {
+            alert('Error parsing JSON: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    // Initialize on load
+    init();
+  </script>
+</body>
+</html>

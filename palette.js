@@ -37,6 +37,10 @@ export const Palette = {
   MID_GRAY: '#888888',
   DIM_GRAY: '#555555',
 
+  // Branch background colors (subtle tints)
+  DARK_GREEN: '#002200',   // Street branch background
+  DARK_CYAN: '#001122',    // Commerce branch background
+
   // Semantic aliases for common use cases
   get PRIMARY() { return this.NEON_CYAN; },
   get SECONDARY() { return this.TERMINAL_GREEN; },

@@ -603,4 +603,198 @@
         "cooldownMs": 0
       }]
     }
+
+    ,
+
+    {
+      "id": "bedtime_rebellion",
+      "branchId": "primordial",
+      "name": "bedtime rebellion",
+      "description": "stay up past lights-out to see what's next.",
+      "meta": { "tags": ["primordial", "starter"], "icon": "zzz" },
+      "visibleIf": [],
+      "unlockIf": [],
+      "reveals": { "onReveal": [], "onUnlock": [] },
+      "options": [{
+        "id": "bedtime_rebellion_blanket",
+        "name": "read under the blanket",
+        "description": "flashlight, comics, forbidden lore.",
+        "visibleIf": [],
+        "unlockIf": [],
+        "requirements": { "staff": [{ "roleId": "player", "count": 1, "starsMin": 0 }], "items": [], "buildings": [] },
+        "inputs": { "resources": {}, "items": {} },
+        "durationMs": 8000,
+        "xpRewards": { "onComplete": 1 },
+        "resolution": {
+          "type": "ranged_outputs",
+          "outputs": { "resources": { "cash": { "min": 0, "max": 2 }, "cred": { "min": 0, "max": 1 } }, "items": {} },
+          "heatDelta": 0,
+          "effects": []
+        },
+        "modifiers": [],
+        "cooldownMs": 0
+      }]
+    }
+
+    ,
+
+    {
+      "id": "pocket_pharmacy",
+      "branchId": "drugs",
+      "name": "pocket pharmacy",
+      "description": "sell loose pills to friends of friends.",
+      "meta": { "tags": ["drugs", "commerce"], "icon": "rx" },
+      "visibleIf": [],
+      "unlockIf": [],
+      "reveals": { "onReveal": [], "onUnlock": [] },
+      "options": [{
+        "id": "pocket_pharmacy_sample_pack",
+        "name": "sample pack",
+        "description": "small bag, smaller talk.",
+        "visibleIf": [],
+        "unlockIf": [],
+        "requirements": { "staff": [{ "roleId": "player", "count": 1, "starsMin": 0 }], "items": [], "buildings": [] },
+        "inputs": { "resources": { "cash": 30 }, "items": {} },
+        "durationMs": 22000,
+        "xpRewards": { "onComplete": 6 },
+        "resolution": {
+          "type": "weighted_outcomes",
+          "outcomes": [
+            { "id": "quick_sales", "weight": 70, "outputs": { "resources": { "cash": 90 }, "items": {} }, "heatDelta": 3, "effects": [] },
+            { "id": "nosy_neighbor", "weight": 30, "outputs": { "resources": { "cash": 40 }, "items": {} }, "heatDelta": 6, "effects": [] }
+          ]
+        },
+        "modifiers": [],
+        "cooldownMs": 0
+      }]
+    }
+
+    ,
+
+    {
+      "id": "fake_survey",
+      "branchId": "grift",
+      "name": "fake survey",
+      "description": "ask leading questions, sell the data twice.",
+      "meta": { "tags": ["grift", "starter"], "icon": "???" },
+      "visibleIf": [],
+      "unlockIf": [],
+      "reveals": { "onReveal": [], "onUnlock": [] },
+      "options": [{
+        "id": "fake_survey_street_corners",
+        "name": "street corners",
+        "description": "clipboard, lanyard, confidence.",
+        "visibleIf": [],
+        "unlockIf": [],
+        "requirements": { "staff": [{ "roleId": "player", "count": 1, "starsMin": 0 }], "items": [], "buildings": [] },
+        "inputs": { "resources": {}, "items": {} },
+        "durationMs": 18000,
+        "xpRewards": { "onComplete": 5 },
+        "resolution": {
+          "type": "deterministic",
+          "outputs": { "resources": { "cash": 75, "cred": 1 }, "items": {} },
+          "heatDelta": 2,
+          "effects": []
+        },
+        "modifiers": [],
+        "cooldownMs": 0
+      }]
+    }
+
+    ,
+
+    {
+      "id": "parking_favors",
+      "branchId": "corruption",
+      "name": "parking favors",
+      "description": "make tickets disappear for a price.",
+      "meta": { "tags": ["corruption", "starter"], "icon": "P" },
+      "visibleIf": [],
+      "unlockIf": [],
+      "reveals": { "onReveal": [], "onUnlock": [] },
+      "options": [{
+        "id": "parking_favors_wave_fee",
+        "name": "waive a fee",
+        "description": "handshake, envelope, no record.",
+        "visibleIf": [],
+        "unlockIf": [],
+        "requirements": { "staff": [{ "roleId": "player", "count": 1, "starsMin": 1 }], "items": [], "buildings": [] },
+        "inputs": { "resources": { "cash": 10 }, "items": {} },
+        "durationMs": 26000,
+        "xpRewards": { "onComplete": 7 },
+        "resolution": {
+          "type": "deterministic",
+          "outputs": { "resources": { "cash": 120, "cred": 1 }, "items": {} },
+          "heatDelta": 3,
+          "effects": []
+        },
+        "modifiers": [],
+        "cooldownMs": 0
+      }]
+    }
+
+    ,
+
+    {
+      "id": "wifi_squat",
+      "branchId": "tech",
+      "name": "wifi squat",
+      "description": "camp on unsecured networks for fun and profit.",
+      "meta": { "tags": ["tech", "starter"], "icon": "(((" },
+      "visibleIf": [],
+      "unlockIf": [],
+      "reveals": { "onReveal": [], "onUnlock": [] },
+      "options": [{
+        "id": "wifi_squat_packet_flip",
+        "name": "packet flip",
+        "description": "skim login pages for reuse.",
+        "visibleIf": [],
+        "unlockIf": [],
+        "requirements": { "staff": [{ "roleId": "player", "count": 1, "starsMin": 0 }], "items": [], "buildings": [] },
+        "inputs": { "resources": {}, "items": {} },
+        "durationMs": 12000,
+        "xpRewards": { "onComplete": 4 },
+        "resolution": {
+          "type": "weighted_outcomes",
+          "outcomes": [
+            { "id": "low_creds", "weight": 70, "outputs": { "resources": { "cash": 45 }, "items": {} }, "heatDelta": 1, "effects": [] },
+            { "id": "admin_hit", "weight": 30, "outputs": { "resources": { "cash": 110, "cred": 1 }, "items": {} }, "heatDelta": 3, "effects": [] }
+          ]
+        },
+        "modifiers": [],
+        "cooldownMs": 0
+      }]
+    }
+
+    ,
+
+    {
+      "id": "chalk_sigils",
+      "branchId": "forbidden",
+      "name": "chalk sigils",
+      "description": "leave marks that whisper to those who look.",
+      "meta": { "tags": ["forbidden", "weird"], "icon": "\u2020" },
+      "visibleIf": [],
+      "unlockIf": [],
+      "reveals": { "onReveal": [], "onUnlock": [] },
+      "options": [{
+        "id": "chalk_sigils_alley",
+        "name": "alley inscription",
+        "description": "chalk, brick wall, faint hum.",
+        "visibleIf": [],
+        "unlockIf": [],
+        "requirements": { "staff": [{ "roleId": "player", "count": 1, "starsMin": 0 }], "items": [], "buildings": [] },
+        "inputs": { "resources": {}, "items": {} },
+        "durationMs": 14000,
+        "xpRewards": { "onComplete": 5 },
+        "resolution": {
+          "type": "ranged_outputs",
+          "outputs": { "resources": { "cred": { "min": 0, "max": 2 } }, "items": {} },
+          "heatDelta": 1,
+          "effects": []
+        },
+        "modifiers": [],
+        "cooldownMs": 0
+      }]
+    }
   ]
