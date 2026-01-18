@@ -215,7 +215,8 @@ function handleJobsInput(e) {
       const activityRuns = engine.state.runs.filter(r => r.activityId === activity.id);
       if (activityRuns.length > 0) {
         ui.focus = 'runs';
-        ui.selectedRun = ui.selectedRun || 0;
+        const current = ui.selectedRun ?? 0;
+        ui.selectedRun = clamp(current, 0, activityRuns.length - 1);
       }
     }
 
@@ -223,8 +224,7 @@ function handleJobsInput(e) {
     const selectedOption = options[ui.optionIndex];
     if (selectedOption?.repeatable) {
       // Toggle repeat mode
-      if (key === 'g') ui.repeatMode = 'single';
-      if (key === 'm') ui.repeatMode = 'multi';
+      if (key === 'n') ui.repeatMode = 'multi';  // N for multi (Number of runs)
       if (key === 'i') ui.repeatMode = 'infinite';
 
       // Adjust multi count
@@ -233,13 +233,20 @@ function handleJobsInput(e) {
           ui.repeatCount = Math.min(999, (ui.repeatCount || 2) + 1);
         }
         if (e.key === '-' || e.key === '_') {
-          ui.repeatCount = Math.max(2, (ui.repeatCount || 2) - 1);
+          ui.repeatCount = Math.max(1, (ui.repeatCount || 2) - 1);  // Can go down to 1
         }
       }
     }
   } else if (ui.focus === 'runs') {
     // NEW FOCUS STATE for navigating runs
     const activityRuns = engine.state.runs.filter(r => r.activityId === activity.id);
+    if (activityRuns.length === 0) {
+      ui.focus = 'option';
+      ui.selectedRun = 0;
+      return;
+    }
+
+    if (ui.selectedRun === undefined) ui.selectedRun = 0;
 
     // LEFT arrow switches back to options
     if (e.key === 'ArrowLeft') {
@@ -328,31 +335,14 @@ function handleCrewInput(e) {
     const testMember = {
       id: `test_${Date.now()}`,
       name: generateUniqueCrewName(usedNames),
-      roleId: 'player',  // Fixed: use 'player' instead of 'muscle'
+      roleId: 'player',
       status: 'available',
       xp: 0,
       stars: 1
     };
     engine.state.crew.staff.push(testMember);
     engine.log('Added test crew member', 'info');
-    engine.saveState();  // Save state after adding crew
-  }
-
-  // Spawn 5 test crew members
-  if (e.key === 'a' || e.key === 'A') {
-    for (let i = 0; i < 5; i++) {
-      const testMember = {
-        id: `test_${Date.now()}_${i}`,
-        name: generateUniqueCrewName(usedNames),
-        roleId: 'player',  // Fixed: use 'player' instead of 'muscle'
-        status: 'available',
-        xp: 0,
-        stars: 1
-      };
-      engine.state.crew.staff.push(testMember);
-    }
-    engine.log('Added 5 test crew members', 'info');
-    engine.saveState();  // Save state after adding crew
+    engine.saveState();
   }
 
   if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';

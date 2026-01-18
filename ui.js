@@ -112,14 +112,7 @@ export class UI {
       x += width + 3; // Add spacing between tabs
     });
 
-    // Help text on right
-    this.buffer.writeTextRight(
-      Layout.WIDTH - 2,
-      y,
-      'ARROWS | ENTER | BACKSPACE | NUMS',
-      Palette.DIM_GRAY,
-      Palette.BLACK
-    );
+    // No navigation hint text (keep the bar clean)
   }
 
   renderJobsTab() {
@@ -152,7 +145,7 @@ export class UI {
     });
 
     // Determine layout based on focus
-    const showingOptions = this.ui.focus === 'option' && activity;
+    const showingOptions = (this.ui.focus === 'option' || this.ui.focus === 'runs') && activity;
 
     if (!showingOptions) {
       // ACTIVITY LIST VIEW (focused on activities, numbered 1-9)
@@ -233,7 +226,7 @@ export class UI {
 
         // Show validation error if can't start
         if (selected && !validation.ok) {
-          this.buffer.writeText(leftCol.x + 3, optY + 3, `⚠ ${validation.reason}`, Palette.HEAT_ORANGE, branchBgColor);
+          this.buffer.writeText(leftCol.x + 3, optY + 3, `! ${validation.reason}`, Palette.HEAT_ORANGE, branchBgColor);
         }
 
         // Repeat controls (only for selected option if repeatable and valid)
@@ -242,20 +235,19 @@ export class UI {
           const mode = this.ui.repeatMode || 'single';
 
           // Mode buttons
-          const singleColor = mode === 'single' ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
           const multiColor = mode === 'multi' ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
           const infColor = mode === 'infinite' ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
 
-          this.buffer.writeText(leftCol.x + 3, repeatRow, '[G]', singleColor, branchBgColor);
-          this.buffer.writeText(leftCol.x + 7, repeatRow, '[M]', multiColor, branchBgColor);
+          // N for multi (number of runs), I for infinite. Enter runs single.
+          this.buffer.writeText(leftCol.x + 3, repeatRow, '[N]', multiColor, branchBgColor);
 
           if (mode === 'multi') {
             const count = this.ui.repeatCount || 2;
-            this.buffer.writeText(leftCol.x + 10, repeatRow, `(${count})`, Palette.WHITE, branchBgColor);
-            this.buffer.writeText(leftCol.x + 14, repeatRow, '[+/-]', Palette.DIM_GRAY, branchBgColor);
+            this.buffer.writeText(leftCol.x + 7, repeatRow, `(${count})`, Palette.WHITE, branchBgColor);
+            this.buffer.writeText(leftCol.x + 11, repeatRow, '[+/-]', Palette.DIM_GRAY, branchBgColor);
           }
 
-          this.buffer.writeText(leftCol.x + 21, repeatRow, '[I]∞', infColor, branchBgColor);
+          this.buffer.writeText(leftCol.x + 18, repeatRow, '[I]INF', infColor, branchBgColor);
         }
 
         if (selected) {
@@ -268,41 +260,78 @@ export class UI {
 
       this.buffer.writeText(rightCol.x, optionsTop, 'ACTIVE RUNS', Palette.NEON_CYAN, branchBgColor);
 
-      if (activityRuns.length === 0) {
-        this.buffer.writeText(rightCol.x, optionsTop + 2, 'None active', Palette.DIM_GRAY, branchBgColor);
+      const runsTop = optionsTop + 2;
+      const runsBottom = Layout.HEIGHT - 2;
+      const runCardHeight = 4;
+      const availableHeight = runsBottom - runsTop + 1;
+      const visibleRuns = Math.max(0, Math.floor(availableHeight / runCardHeight));
+
+      if (activityRuns.length === 0 || visibleRuns === 0) {
+        this.buffer.writeText(rightCol.x, runsTop, 'None active', Palette.DIM_GRAY, branchBgColor);
       } else {
-        // Render compact 3-line run cards
-        activityRuns.forEach((run, idx) => {
-          const runY = optionsTop + 2 + (idx * 4);
-          if (runY + 3 > Layout.HEIGHT - 2) return; // Don't overflow
+        let selectedRun = this.ui.selectedRun ?? 0;
+        selectedRun = Math.max(0, Math.min(selectedRun, activityRuns.length - 1));
+        this.ui.selectedRun = selectedRun;
 
-          const selected = this.ui.focus === 'runs' && this.ui.selectedRun === idx;
+        let scrollOffset = this.clampScrollOffset('runs', activityRuns.length, visibleRuns);
+        if (this.ui.focus === 'runs') {
+          if (selectedRun < scrollOffset) scrollOffset = selectedRun;
+          if (selectedRun >= scrollOffset + visibleRuns) {
+            scrollOffset = selectedRun - visibleRuns + 1;
+          }
+          this.ui.scroll.runs = scrollOffset;
+        }
 
-          // Show selection prefix
+        const showScrollbar = activityRuns.length > visibleRuns;
+        const runCardWidth = showScrollbar ? rightCol.width - 1 : rightCol.width;
+        const visibleSlice = activityRuns.slice(scrollOffset, scrollOffset + visibleRuns);
+        visibleSlice.forEach((run, idx) => {
+          const runIndex = scrollOffset + idx;
+          const runY = runsTop + (idx * runCardHeight);
+          if (runY + 2 > runsBottom) return;
+
+          const selected = this.ui.focus === 'runs' && selectedRun === runIndex;
           if (selected) {
             this.buffer.writeText(rightCol.x - 1, runY, '>', Palette.SUCCESS_GREEN, branchBgColor);
           }
 
-          this.renderCompactRunCard(run, rightCol.x, runY, rightCol.width, branchBgColor, selected);
+          const indexWidth = String(activityRuns.length).length;
+          const indexLabel = `${String(runIndex + 1).padStart(indexWidth, '0')}.`;
+          this.renderCompactRunCard(run, rightCol.x, runY, runCardWidth, branchBgColor, selected, indexLabel);
         });
-      }
 
-      this.buffer.writeText(2, Layout.HEIGHT - 2, '[BACKSPACE] Back to jobs', Palette.DIM_GRAY, branchBgColor);
+        if (showScrollbar) {
+          this.renderScrollBar(
+            rightCol.x + rightCol.width - 1,
+            runsTop,
+            visibleRuns * runCardHeight,
+            activityRuns.length,
+            scrollOffset,
+            Palette.DIM_GRAY,
+            branchBgColor,
+            visibleRuns
+          );
+        }
+      }
     }
   }
 
   // Render compact 3-line run card for options view right column
-  renderCompactRunCard(run, x, y, maxWidth, bgColor = Palette.BLACK, selected = false) {
+  renderCompactRunCard(run, x, y, maxWidth, bgColor = Palette.BLACK, selected = false, indexLabel = '') {
     const activity = this.engine.data.activities.find((a) => a.id === run.activityId);
     const option = activity?.options.find((o) => o.id === run.optionId);
 
     // Line 1: Option name + repeat status
-    let line1 = (option?.name || '?').substring(0, maxWidth - 5);
+    const label = indexLabel ? `${indexLabel} ` : '';
+    let suffix = '';
     if (run.runsLeft === -1) {
-      line1 += ' ∞';
+      suffix = ' INF';
     } else if (run.runsLeft > 0) {
-      line1 += ` +${run.runsLeft}`;
+      suffix = ` +${run.runsLeft}`;
     }
+    const nameMax = Math.max(0, maxWidth - label.length - suffix.length);
+    const trimmedName = (option?.name || '?').substring(0, nameMax);
+    const line1 = `${label}${trimmedName}${suffix}`.substring(0, maxWidth);
     this.buffer.writeText(x, y, line1, Palette.NEON_TEAL, bgColor);
 
     // Line 2: Time remaining (compact)
@@ -315,13 +344,12 @@ export class UI {
     const pct = (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt);
     this.buffer.drawProgressBar(x, y + 2, barWidth, pct, Palette.NEON_CYAN, bgColor);
 
-    // Stop buttons - highlight when run is selected
-    const xColor = selected ? Palette.WHITE : Palette.HEAT_RED;
-    const zColor = selected ? Palette.WHITE : Palette.ELECTRIC_ORANGE;
-
-    this.buffer.writeText(x + barWidth + 1, y + 2, '[X]', xColor, bgColor);
-    if (run.runsLeft !== 0) {
-      this.buffer.writeText(x + barWidth + 4, y + 2, '[Z]', zColor, bgColor);
+    // Stop buttons - only show when the run is selected
+    if (selected) {
+      this.buffer.writeText(x + barWidth + 1, y + 2, '[X]', Palette.HEAT_RED, bgColor);
+      if (run.runsLeft !== 0) {
+        this.buffer.writeText(x + barWidth + 4, y + 2, '[Z]', Palette.ELECTRIC_ORANGE, bgColor);
+      }
     }
   }
 
@@ -382,11 +410,10 @@ export class UI {
     const crewCount = this.engine.state.crew.staff.length;
     this.buffer.writeText(2, top + 1, `Current crew: ${crewCount}`, Palette.MID_GRAY, Palette.BLACK);
 
-    // Test spawn buttons
+    // Test spawn button
     this.buffer.writeText(2, top + 3, '[SPACE] Add test crew member (+1 free)', Palette.NEON_CYAN, Palette.BLACK);
-    this.buffer.writeText(2, top + 4, '[A] Add 5 test crew members', Palette.NEON_CYAN, Palette.BLACK);
     if (crewCount > 0) {
-      this.buffer.writeText(2, top + 5, '[UP/DOWN] Scroll roster', Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.writeText(2, top + 4, '[UP/DOWN] Scroll roster', Palette.DIM_GRAY, Palette.BLACK);
     }
 
     // List crew roster
@@ -443,7 +470,7 @@ export class UI {
     this.buffer.writeText(4, sizeRow, '2. Font size', sizeSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
     this.buffer.writeText(18, sizeRow, `${zoom}%`, Palette.WHITE, Palette.DARKER_BLUE);
     if (sizeSelected) {
-      this.buffer.writeText(Layout.WIDTH - 25, sizeRow, '[?/?] or <ENTER>', Palette.SUCCESS_GREEN, Palette.BLACK);
+      this.buffer.writeText(Layout.WIDTH - 25, sizeRow, '[LEFT/RIGHT] or <ENTER>', Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
     // Gradients toggle
@@ -551,8 +578,8 @@ export class UI {
     return clamped;
   }
 
-  renderScrollBar(x, y, height, totalItems, scrollOffset, fg = Palette.DIM_GRAY, bg = Palette.BLACK) {
-    if (height <= 0 || totalItems <= height) return;
+  renderScrollBar(x, y, height, totalItems, scrollOffset, fg = Palette.DIM_GRAY, bg = Palette.BLACK, visibleItems = height) {
+    if (height <= 0 || totalItems <= visibleItems) return;
 
     // Draw track
     for (let i = 0; i < height; i++) {
@@ -560,7 +587,7 @@ export class UI {
     }
 
     // Draw thumb
-    const maxOffset = Math.max(1, totalItems - height);
+    const maxOffset = Math.max(1, totalItems - visibleItems);
     const thumbPos = Math.min(height - 1, Math.floor((scrollOffset / maxOffset) * (height - 1)));
     this.buffer.setCell(x, y + thumbPos, '*', Palette.WHITE, bg);
   }
