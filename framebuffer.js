@@ -157,16 +157,22 @@ export class FrameBuffer {
   }
 
   drawHLine(x, y, length, char, fg, bg) {
+    if (y < 0 || y >= this.height || length <= 0) return;
     const lineChar = char || '─';
-    for (let i = 0; i < length; i++) {
-      this.setCell(x + i, y, lineChar, fg, bg);
+    const startX = Math.max(0, x);
+    const endX = Math.min(this.width, x + length);
+    for (let i = startX; i < endX; i++) {
+      this.setCell(i, y, lineChar, fg, bg);
     }
   }
 
   drawVLine(x, y, length, char, fg, bg) {
+    if (x < 0 || x >= this.width || length <= 0) return;
     const lineChar = char || '│';
-    for (let i = 0; i < length; i++) {
-      this.setCell(x, y + i, lineChar, fg, bg);
+    const startY = Math.max(0, y);
+    const endY = Math.min(this.height, y + length);
+    for (let i = startY; i < endY; i++) {
+      this.setCell(x, i, lineChar, fg, bg);
     }
   }
 

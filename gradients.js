@@ -68,6 +68,7 @@ export const GRADIENTS = {
   commerce: ['#00ffff', '#44dddd', '#88bbbb'],
   fraud: ['#ff00ff', '#dd44dd', '#bb88bb'],
   smuggling: ['#ff6600', '#dd8844', '#bbaa88'],
+  new_branch: ['#ff3300', '#ff6600', '#ffaa00'],
 };
 
 /**

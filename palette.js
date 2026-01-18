@@ -31,6 +31,11 @@ export const Palette = {
   HEAT_RED: '#ff0000',
   SUCCESS_GREEN: '#00ff00',
 
+  // Branch UI colors
+  LAVA_RED: '#ff3300',
+  ELECTRIC_BLUE: '#0066ff',
+  GOLD: '#ffd700',
+
   // Text colors
   WHITE: '#ffffff',
   LIGHT_GRAY: '#cccccc',

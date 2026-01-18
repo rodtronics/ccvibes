@@ -64,11 +64,11 @@ async function main() {
 function loadSettings() {
   const defaults = {
     font: 'fira',
-    gradients: true,
-    hotkeyGlow: true,
+    gradients: false,    // Always off (removed from options)
+    hotkeyGlow: false,   // Always off (removed from options)
     bloom: false,
     funnyNames: false,
-    allCaps: false,
+    allCaps: true,       // Always on (removed from options)
     zoom: 100, // Font size zoom percentage (100, 150, 200, 250, etc.)
   };
 
@@ -395,16 +395,16 @@ function handleOptionsInput(e) {
   // Initialize selectedSetting if not set
   if (ui.selectedSetting === undefined) ui.selectedSetting = 0;
 
-  // Arrow navigation for settings list
+  // Arrow navigation for settings list (4 options: 0-3)
   if (e.key === 'ArrowUp') {
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.selectedSetting = Math.min(6, ui.selectedSetting + 1);
+    ui.selectedSetting = Math.min(3, ui.selectedSetting + 1);
   }
 
-  // Number key selection (1-7)
-  if (e.key >= '1' && e.key <= '7') {
+  // Number key selection (1-4)
+  if (e.key >= '1' && e.key <= '4') {
     ui.selectedSetting = parseInt(e.key) - 1;
   }
 
@@ -423,6 +423,7 @@ function handleOptionsInput(e) {
   }
 
   // Enter/space to toggle or cycle
+  // Options: 0=Font, 1=Font size, 2=Bloom, 3=Funny names
   if (e.key === 'Enter' || e.key === ' ') {
     if (ui.selectedSetting === 0) {
       cycleFontSetting();
@@ -433,20 +434,11 @@ function handleOptionsInput(e) {
       applyFont();
       saveSettings();
     } else if (ui.selectedSetting === 2) {
-      ui.settings.gradients = !ui.settings.gradients;
-      saveSettings();
-    } else if (ui.selectedSetting === 3) {
-      ui.settings.hotkeyGlow = !ui.settings.hotkeyGlow;
-      saveSettings();
-    } else if (ui.selectedSetting === 4) {
       ui.settings.bloom = !ui.settings.bloom;
       applyBloom();
       saveSettings();
-    } else if (ui.selectedSetting === 5) {
+    } else if (ui.selectedSetting === 3) {
       ui.settings.funnyNames = !ui.settings.funnyNames;
-      saveSettings();
-    } else if (ui.selectedSetting === 6) {
-      ui.settings.allCaps = !ui.settings.allCaps;
       saveSettings();
     }
   }
