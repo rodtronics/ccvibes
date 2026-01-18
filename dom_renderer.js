@@ -18,7 +18,7 @@ export class DOMRenderer {
     // Clear container and set up structure
     this.container.innerHTML = '';
     // Font family is controlled by CSS classes (font-vga-9x8, font-vga-8x16, font-scp)
-    this.container.style.lineHeight = '1';
+    // Let CSS control line-height so fonts can set their own vertical metrics
     this.container.style.whiteSpace = 'pre';
     this.container.style.overflow = 'hidden';
     this.container.style.backgroundColor = '#000000';

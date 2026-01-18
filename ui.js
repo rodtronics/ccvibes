@@ -385,16 +385,27 @@ export class UI {
     // Test spawn buttons
     this.buffer.writeText(2, top + 3, '[SPACE] Add test crew member (+1 free)', Palette.NEON_CYAN, Palette.BLACK);
     this.buffer.writeText(2, top + 4, '[A] Add 5 test crew members', Palette.NEON_CYAN, Palette.BLACK);
+    if (crewCount > 0) {
+      this.buffer.writeText(2, top + 5, '[UP/DOWN] Scroll roster', Palette.DIM_GRAY, Palette.BLACK);
+    }
 
     // List crew roster
     this.buffer.writeText(2, top + 6, 'CREW ROSTER:', Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.engine.state.crew.staff.forEach((member, idx) => {
-      const y = top + 7 + idx;
-      if (y > Layout.HEIGHT - 3) return;
+    const rosterTop = top + 7;
+    const rosterBottom = Layout.HEIGHT - 3;
+    const visibleRows = Math.max(0, rosterBottom - rosterTop + 1);
+    const scrollOffset = this.clampScrollOffset('crew', crewCount, visibleRows);
 
+    const visibleCrew = this.engine.state.crew.staff.slice(scrollOffset, scrollOffset + visibleRows);
+    visibleCrew.forEach((member, idx) => {
+      const y = rosterTop + idx;
       const statusColor = member.status === 'available' ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE;
-      this.buffer.writeText(2, y, `${idx + 1}. ${member.name} - ${member.roleId} (${member.status})`, statusColor, Palette.BLACK);
+      const rowNumber = scrollOffset + idx + 1;
+      this.buffer.writeText(2, y, `${rowNumber}. ${member.name} - ${member.roleId} (${member.status})`, statusColor, Palette.BLACK);
     });
+
+    // Simple ASCII scrollbar using '|' for track and '*' for thumb
+    this.renderScrollBar(Layout.WIDTH - 3, rosterTop, visibleRows, crewCount, scrollOffset, Palette.DIM_GRAY, Palette.BLACK);
   }
 
   renderOptionsTab() {
@@ -432,7 +443,7 @@ export class UI {
     this.buffer.writeText(4, sizeRow, '2. Font size', sizeSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
     this.buffer.writeText(18, sizeRow, `${zoom}%`, Palette.WHITE, Palette.DARKER_BLUE);
     if (sizeSelected) {
-      this.buffer.writeText(Layout.WIDTH - 26, sizeRow, '[←/→] +/- 50%', Palette.SUCCESS_GREEN, Palette.BLACK);
+      this.buffer.writeText(Layout.WIDTH - 25, sizeRow, '[?/?] or <ENTER>', Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
     // Gradients toggle
@@ -468,8 +479,19 @@ export class UI {
       this.buffer.writeText(Layout.WIDTH - 18, bloomRow, '<ENTER> TOGGLE', Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
+    // Funny names toggle
+    const funnyRow = top + 9;
+    const funnySelected = selectedSetting === 5;
+    const funnyOn = !!this.ui.settings.funnyNames;
+    this.buffer.writeText(3, funnyRow, funnySelected ? '>' : ' ', Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, funnyRow, '6. Funny names', funnySelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(18, funnyRow, funnyOn ? 'ENABLED' : 'DISABLED', funnyOn ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
+    if (funnySelected) {
+      this.buffer.writeText(Layout.WIDTH - 18, funnyRow, '<ENTER> TOGGLE', Palette.SUCCESS_GREEN, Palette.BLACK);
+    }
+
     // Help text
-    this.buffer.writeText(4, top + 10, 'Arrows to move | Enter toggles | ←/→ resize font', Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(4, top + 11, 'Arrows to move | 1-6 select | Enter toggles | LEFT/RIGHT resize font', Palette.DIM_GRAY, Palette.BLACK);
   }
 
   // Tab rendering helper - renders tab with colored hotkey letter and optional glow
@@ -520,6 +542,29 @@ export class UI {
   }
 
   // Helper methods
+  clampScrollOffset(key, totalItems, visibleRows) {
+    if (!this.ui.scroll) this.ui.scroll = {};
+    const maxOffset = Math.max(0, totalItems - visibleRows);
+    const current = this.ui.scroll[key] || 0;
+    const clamped = Math.max(0, Math.min(current, maxOffset));
+    this.ui.scroll[key] = clamped;
+    return clamped;
+  }
+
+  renderScrollBar(x, y, height, totalItems, scrollOffset, fg = Palette.DIM_GRAY, bg = Palette.BLACK) {
+    if (height <= 0 || totalItems <= height) return;
+
+    // Draw track
+    for (let i = 0; i < height; i++) {
+      this.buffer.setCell(x, y + i, '|', fg, bg);
+    }
+
+    // Draw thumb
+    const maxOffset = Math.max(1, totalItems - height);
+    const thumbPos = Math.min(height - 1, Math.floor((scrollOffset / maxOffset) * (height - 1)));
+    this.buffer.setCell(x, y + thumbPos, '*', Palette.WHITE, bg);
+  }
+
   getVisibleBranches() {
     return this.engine.data.branches
       .filter((b) => this.engine.state.reveals.branches[b.id])

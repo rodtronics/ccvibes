@@ -33,6 +33,9 @@ const ui = {
   optionIndex: 0,
   logOffset: 0,
   settings: loadSettings(),
+  scroll: {
+    crew: 0, // vertical scroll offset for crew roster
+  },
 };
 
 // Create UI layer
@@ -63,6 +66,7 @@ function loadSettings() {
     gradients: true,
     hotkeyGlow: true,
     bloom: false,
+    funnyNames: false,
     zoom: 100, // Font size zoom percentage (100, 150, 200, 250, etc.)
   };
 
@@ -282,7 +286,7 @@ function generateUniqueCrewName(usedNames = getUsedCrewNames()) {
   let attempts = 0;
 
   do {
-    candidate = NameGenerator.generate();
+    candidate = NameGenerator.generate(ui.settings?.funnyNames);
     attempts += 1;
   } while (usedNames.has(candidate.toLowerCase()) && attempts < 20);
 
@@ -297,6 +301,26 @@ function generateUniqueCrewName(usedNames = getUsedCrewNames()) {
 }
 
 function handleCrewInput(e) {
+  // Scrolling support (keep in sync with renderCrewTab layout)
+  const rosterTop = 5 + 7; // tab top (5) + roster header spacing (7)
+  const rosterBottom = Layout.HEIGHT - 3;
+  const visibleRows = Math.max(0, rosterBottom - rosterTop + 1);
+  const totalCrew = engine.state.crew.staff.length;
+  const pageStep = Math.max(1, visibleRows - 1);
+  const maxOffset = Math.max(0, totalCrew - visibleRows);
+
+  const setCrewScroll = (next) => {
+    if (!ui.scroll) ui.scroll = {};
+    ui.scroll.crew = Math.max(0, Math.min(maxOffset, next));
+  };
+
+  if (e.key === 'ArrowDown') setCrewScroll((ui.scroll?.crew || 0) + 1);
+  if (e.key === 'ArrowUp') setCrewScroll((ui.scroll?.crew || 0) - 1);
+  if (e.key === 'PageDown') setCrewScroll((ui.scroll?.crew || 0) + pageStep);
+  if (e.key === 'PageUp') setCrewScroll((ui.scroll?.crew || 0) - pageStep);
+  if (e.key === 'End') setCrewScroll(maxOffset);
+  if (e.key === 'Home') setCrewScroll(0);
+
   const usedNames = getUsedCrewNames();
 
   // Spawn single test crew member
@@ -343,11 +367,11 @@ function handleOptionsInput(e) {
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.selectedSetting = Math.min(4, ui.selectedSetting + 1);
+    ui.selectedSetting = Math.min(5, ui.selectedSetting + 1);
   }
 
-  // Number key selection (1-5)
-  if (e.key >= '1' && e.key <= '5') {
+  // Number key selection (1-6)
+  if (e.key >= '1' && e.key <= '6') {
     ui.selectedSetting = parseInt(e.key) - 1;
   }
 
@@ -384,6 +408,9 @@ function handleOptionsInput(e) {
     } else if (ui.selectedSetting === 4) {
       ui.settings.bloom = !ui.settings.bloom;
       applyBloom();
+      saveSettings();
+    } else if (ui.selectedSetting === 5) {
+      ui.settings.funnyNames = !ui.settings.funnyNames;
       saveSettings();
     }
   }

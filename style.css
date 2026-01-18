@@ -73,4 +73,10 @@ body {
   font-variant-ligatures: none;
   font-feature-settings: "liga" 0, "calt" 0, "clig" 0;
   letter-spacing: 0;
+  line-height: 1.1; /* Slightly taller to prevent descenders from clipping */
+}
+
+/* ID + class to override the base #game line-height when using Fira */
+#game.font-fira {
+  line-height: 1.1;
 }
