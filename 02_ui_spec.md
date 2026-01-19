@@ -420,3 +420,92 @@ The UI uses visual dimming to indicate focus and guide attention within multi-pa
 - Guides user attention to currently active navigation area
 - Maintains awareness of other panels without competing for attention
 - Aligns with terminal aesthetic of focused workspace
+
+## 17. Fullscreen Modal System
+
+The game uses a fullscreen modal overlay system for presenting important information, tutorials, story reveals, and unlock notifications without interrupting the core game loop.
+
+### Modal Display
+
+- **Fullscreen overlay**: 80×25 character grid covering entire display
+- **Double-line border**: Uses BoxStyles.DOUBLE border in NEON_CYAN for visual prominence
+- **Solid background**: BLACK background, no transparency
+- **Title bar**: Centered title text (row 1), separator line (row 2)
+- **Content area**: Rows 3-24 for scrollable text content
+- **Input priority**: Modals capture all input until dismissed
+
+### Content Formatting
+
+Modals support markdown-like formatting for rich text styling:
+
+- `**text**` → Bold/bright text (WHITE color)
+- `~~text~~` → Dimmed text (DIM_GRAY color)
+- `{{color}}text{{/}}` → Colored text using any Palette color name
+- `{{bg:color}}text{{/}}` → Background color using any Palette color name
+- Blank lines → Preserved as line breaks
+- Auto-wrapping → Text wraps to 76 characters (80 - 4 for borders/padding)
+
+**Example:**
+```
+**Welcome!** You've unlocked {{neon_cyan}}Commerce{{/}} operations.
+
+These jobs require {{success_green}}planning{{/}} and {{heat_orange}}careful execution{{/}}.
+
+~~Press any key to continue.~~
+```
+
+### Modal Types and Usage
+
+Modals are defined in `modal.js` with the following structure:
+
+```javascript
+{
+  id: 'unique_id',
+  title: 'MODAL TITLE',
+  content: `Formatted text content...`,
+  showOnce: true  // or false for replayable modals
+}
+```
+
+**Current modals:**
+- `intro`: Welcome screen shown on first launch
+- `first_job_complete`: Tutorial shown after completing first job
+- `commerce_unlocked`: Story/tutorial when Commerce branch unlocks
+
+### Modal Queue System
+
+- **Queue management**: ModalQueue class manages display order
+- **localStorage tracking**: Tracks which modals have been shown (for `showOnce` modals)
+- **Auto-queueing**: Game engine can queue modals based on progression events
+- **Sequential display**: Only one modal shown at a time; next modal appears after dismissal
+- **Force display**: Can override `showOnce` restriction with force parameter
+
+### Input Controls
+
+- **Scroll up**: ↑ Arrow key
+- **Scroll down**: ↓ Arrow key
+- **Dismiss**: SPACE, ENTER, or ESC key
+- **Auto-scroll tracking**: Scrollbar appears when content exceeds visible area
+
+### Visual Scrollbar
+
+When content height exceeds visible area (21 lines):
+- Scrollbar rendered on right edge (column 79)
+- Track character: `│` (vertical line)
+- Thumb character: `█` (solid block)
+- Thumb position calculated from scroll offset
+- Thumb color: NEON_CYAN
+
+### Implementation Files
+
+- `modal.js`: Content definitions, parser, ModalQueue class
+- `ui.js`: renderModal() method (Layer 3 overlay)
+- `main.js`: Input handling, showModal()/dismissModal() functions, queue integration
+
+### Design Philosophy
+
+- **Non-intrusive**: Quick dismiss with any common key (SPACE/ENTER/ESC)
+- **Scrollable**: Long content doesn't overwhelm; user controls reading pace
+- **Contextual**: Appears when relevant (first launch, unlocks, achievements)
+- **Story integration**: Primary channel for narrative progression and world-building
+- **Tutorial system**: Introduces new mechanics as they become available

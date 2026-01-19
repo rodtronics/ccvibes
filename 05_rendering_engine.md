@@ -320,7 +320,7 @@ The frame buffer uses a **painter's algorithm**: draw background layers first, t
 1. **Clear/Fill** - Reset buffer or fill with background
 2. **Draw all borders and boxes** - Layout structure (panels, dividers, containers)
 3. **Draw content** - Text, progress bars, data that overwrites borders where needed
-4. **Draw overlays** - Modals, tooltips, cursor/selection (if applicable)
+4. **Draw overlays** - Fullscreen modals, tooltips, cursor/selection (if applicable)
 
 **Example render sequence:**
 
@@ -339,8 +339,10 @@ function renderFrame(buffer) {
   buffer.writeText(10, 2, 'ACTIVE', Palette.DIM_GRAY, Palette.BLACK); // Inactive tab
   // ... more content
 
-  // Layer 3: Overlays (if any)
-  // Modal dialogs, tooltips, etc.
+  // Layer 3: Overlays (fullscreen modals)
+  if (ui.modal && ui.modal.active) {
+    renderModal(buffer, ui.modal);
+  }
 }
 ```
 
@@ -484,7 +486,122 @@ class UI {
 - Variable-width fonts (monospace only)
 - Anti-aliasing control (renderer/browser responsibility)
 
-## 12. Implementation Checklist
+## 12. Modal Overlay Rendering
+
+Fullscreen modals render as Layer 3 overlays that completely cover the 80×25 viewport with interactive content.
+
+### Modal Rendering Architecture
+
+Modals are rendered after all regular UI layers but before any cursor/input overlays:
+
+```javascript
+function render() {
+  // Layer 0: Background
+  buffer.clear();
+
+  // Layer 1: Structure (borders, panels)
+  renderStructure(buffer);
+
+  // Layer 2: Content (text, data, active runs)
+  renderContent(buffer);
+
+  // Layer 3: Modal overlay (if active)
+  if (ui.modal.active) {
+    renderModal(buffer, ui.modal);
+  }
+}
+```
+
+### Modal Composition
+
+Modal rendering follows the same layered approach within its 80×25 bounds:
+
+1. **Fill background**: Solid BLACK background (no transparency)
+2. **Draw border**: Double-line box (BoxStyles.DOUBLE) in NEON_CYAN
+3. **Render title**: Centered text on row 1
+4. **Draw separator**: Horizontal line on row 2
+5. **Render content**: Scrollable text area (rows 3-24) with formatted segments
+6. **Draw scrollbar**: Visual indicator when content exceeds visible area
+
+### Content Formatting
+
+Modal content uses `parseModalContent()` to convert markdown-like syntax into formatted segments:
+
+```javascript
+// Input: Raw content string with formatting
+const content = `**Bold text** and {{neon_cyan}}colored text{{/}}`;
+
+// Output: Array of line objects with segments
+[
+  {
+    segments: [
+      { text: 'Bold text', fg: Palette.WHITE, bg: Palette.BLACK },
+      { text: ' and ', fg: Palette.LIGHT_GRAY, bg: Palette.BLACK },
+      { text: 'colored text', fg: Palette.NEON_CYAN, bg: Palette.BLACK }
+    ]
+  }
+]
+```
+
+Each segment is rendered character-by-character using `writeText()` to preserve color boundaries.
+
+### Scrollable Content Area
+
+Content area spans rows 3 through 24 (22 visible lines total):
+
+- **Content width**: 76 characters (80 - 4 for borders and padding)
+- **Visible height**: 21 lines (rows 3-23, row 24 reserved for border)
+- **Scroll offset**: Tracked in `ui.modal.scroll`
+- **Render window**: `parsedLines.slice(scrollOffset, scrollOffset + 21)`
+
+### Scrollbar Rendering
+
+When content exceeds 21 visible lines, a scrollbar appears on the right edge:
+
+```javascript
+// Scrollbar positioned at x=79 (rightmost column)
+const scrollbarX = 79;
+const scrollbarY = 3;  // Start at content area top
+const scrollbarHeight = 21;  // Match content area height
+
+// Track uses vertical line character
+buffer.drawVLine(scrollbarX, scrollbarY, scrollbarHeight, '│', Palette.DIM_GRAY, Palette.BLACK);
+
+// Thumb position calculated from scroll percentage
+const scrollPct = scrollOffset / (totalLines - visibleLines);
+const thumbY = scrollbarY + Math.floor(scrollPct * (scrollbarHeight - 1));
+
+// Thumb uses solid block character
+buffer.setCell(scrollbarX, thumbY, '█', Palette.NEON_CYAN, Palette.BLACK);
+```
+
+### Input Handling Integration
+
+Modal rendering is tightly coupled with input handling:
+
+- **Input priority**: Modals capture all keyboard input when active
+- **Scroll controls**: Arrow keys modify `ui.modal.scroll` and trigger re-render
+- **Dismiss actions**: SPACE/ENTER/ESC set `ui.modal.active = false`
+- **Queue integration**: On dismiss, check `ModalQueue` for next modal
+
+### Performance Characteristics
+
+Modal rendering is intentionally simple and full-screen:
+
+- **Full buffer overwrite**: Modals redraw all 2000 cells (80×25)
+- **No dirty tracking**: Simplifies implementation since modals are transient
+- **Minimal state**: Only scroll offset persists between render frames
+- **Instant transitions**: No fade animations; modals appear/disappear immediately
+
+### Implementation Files
+
+Modal rendering spans three files with clear separation of concerns:
+
+- **modal.js**: Content parsing (`parseModalContent`), queue management (`ModalQueue`)
+- **ui.js**: Rendering logic (`renderModal` method in UI class)
+- **main.js**: State management (ui.modal object), input handling, lifecycle functions
+
+## 13. Implementation Checklist
 
 Phase 1: Core Buffer
 - [ ] Implement FrameBuffer class with cell storage

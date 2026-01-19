@@ -1,0 +1,51 @@
+{
+  "types": {
+    "default": {
+      "borderStyle": "DOUBLE",
+      "borderColor": "NEON_CYAN",
+      "backgroundColor": "BLACK"
+    },
+    "intro": {
+      "borderStyle": "DOUBLE",
+      "borderColor": "ELECTRIC_BLUE",
+      "backgroundColor": "BLACK"
+    },
+    "story": {
+      "borderStyle": "DOUBLE",
+      "borderColor": "HOT_PINK",
+      "backgroundColor": "BLACK"
+    },
+    "tutorial": {
+      "borderStyle": "DOUBLE",
+      "borderColor": "SUCCESS_GREEN",
+      "backgroundColor": "BLACK"
+    },
+    "warning": {
+      "borderStyle": "DOUBLE",
+      "borderColor": "HEAT_ORANGE",
+      "backgroundColor": "BLACK"
+    },
+    "unlock": {
+      "borderStyle": "DOUBLE",
+      "borderColor": "BRIGHT_YELLOW",
+      "backgroundColor": "BLACK"
+    }
+  },
+  "modals": {
+    "intro": {
+      "type": "intro",
+      "showOnce": false,
+      "content": "{{electric_blue}}CRIME COMMITTER VI{{/}}\n\nYou're a small-time hustler looking to make it big in the criminal underworld.\n\n**Controls:**\nNavigate with {{neon_cyan}}arrow keys{{/}} and {{neon_cyan}}number keys{{/}}.\nPress {{neon_cyan}}J{{/}} for jobs, {{neon_cyan}}A{{/}} for active runs, {{neon_cyan}}C{{/}} for crew.\n\n**Getting Started:**\nStart with simple street crimes to build up cash and cred.\nAs you progress, you'll unlock new branches and more lucrative operations.\nRecruit crew members to handle multiple jobs at once.\n\n**The Game:**\nEach crime takes time to complete. Higher risk = higher reward.\nWatch your heat level - too much attention brings trouble.\nBuild street cred to unlock advanced jobs and opportunities.\n\n~~Press any key to begin.~~"
+    },
+    "first_job_complete": {
+      "type": "tutorial",
+      "showOnce": true,
+      "content": "**FIRST JOB COMPLETE**\n\nNice work. You've completed your first job and earned some cash.\n\nThe city has more to offer. Keep grinding street jobs to build your reputation, or explore other branches when they unlock.\n\n{{success_green}}Cash{{/}} lets you invest in better equipment and crew.\n{{terminal_green}}Cred{{/}} unlocks access to higher-tier operations.\n{{heat_orange}}Heat{{/}} attracts unwanted attention - let it cool down."
+    },
+    "commerce_unlocked": {
+      "type": "unlock",
+      "showOnce": false,
+      "content": "**NEW BRANCH: COMMERCE**\n\nYou've gained enough reputation to access the {{neon_cyan}}Commerce{{/}} branch.\n\nThese operations focus on {{neon_cyan}}theft and burglary{{/}} - riskier than street crimes, but the payouts are worth it.\n\nBreaking into stores and warehouses requires more planning. Some jobs may need specialized crew or tools.\n\nTime to expand your criminal portfolio."
+    }
+  }
+}

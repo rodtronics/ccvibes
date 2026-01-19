@@ -4,6 +4,7 @@
 
 import { Palette, BoxStyles } from "./palette.js";
 import { interpolateColor, getGradientColors } from "./gradients.js";
+import { parseModalContent } from "./modal.js";
 
 // Layout constants for 80x25 viewport
 export const Layout = {
@@ -45,6 +46,11 @@ export class UI {
     if (this.ui.tab === "stats") this.renderStatsTab();
     if (this.ui.tab === "log") this.renderLogTab();
     if (this.ui.tab === "options") this.renderOptionsTab();
+
+    // Layer 3: Modal overlay (if active)
+    if (this.ui.modal && this.ui.modal.active) {
+      this.renderModal();
+    }
   }
 
   renderStructure() {
@@ -69,12 +75,10 @@ export class UI {
     const cash = this.fmtNum(this.engine.state.resources.cash);
     const heat = Math.floor(this.engine.state.resources.heat);
     const cred = Math.floor(this.engine.state.resources.cred);
-    const runCount = this.engine.state.runs.length;
 
     this.buffer.writeText(22, y, `CASH $${cash}`, Palette.SUCCESS_GREEN, Palette.BLACK);
     this.buffer.writeText(38, y, `HEAT ${heat}`, heat > 50 ? Palette.HEAT_RED : Palette.BRIGHT_YELLOW, Palette.BLACK);
     this.buffer.writeText(52, y, `CRED ${cred}`, Palette.TERMINAL_GREEN, Palette.BLACK);
-    this.buffer.writeText(66, y, `RUNS ${runCount}`, Palette.NEON_CYAN, Palette.BLACK);
 
     // Clock
     const clock = new Date(this.engine.state.now).toLocaleTimeString();
@@ -474,7 +478,7 @@ export class UI {
 
     this.buffer.writeText(2, top - 2, "OPTIONS", Palette.SUCCESS_GREEN, Palette.BLACK);
 
-    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 9, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 10, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
     this.buffer.writeText(4, top, " DISPLAY ", Palette.NEON_CYAN, Palette.BLACK);
 
     // 1. Font family
@@ -529,8 +533,19 @@ export class UI {
       this.buffer.writeText(Layout.WIDTH - 18, funnyRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
+    // 5. Show intro toggle
+    const introRow = top + 6;
+    const introSelected = selectedSetting === 4;
+    const introOn = !!this.ui.settings.showIntro;
+    this.buffer.writeText(3, introRow, introSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, introRow, "5. Show intro", introSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(valueCol, introRow, introOn ? "ENABLED" : "DISABLED", introOn ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
+    if (introSelected) {
+      this.buffer.writeText(Layout.WIDTH - 18, introRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
+    }
+
     // Help text
-    this.buffer.writeText(4, top + 7, "Arrows to move | 1-4 select | Enter toggles | LEFT/RIGHT resize font", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(4, top + 8, "Arrows to move | 1-5 select | Enter toggles | LEFT/RIGHT resize font", Palette.DIM_GRAY, Palette.BLACK);
   }
 
   // Tab rendering helper - renders tab with colored hotkey letter and optional glow
@@ -659,5 +674,56 @@ export class UI {
 
   fmtNum(num) {
     return Math.round(num).toLocaleString();
+  }
+
+  // Render fullscreen modal overlay
+  renderModal() {
+    const modal = this.ui.modal;
+    if (!modal || !modal.active) return;
+
+    const { content, borderStyle, borderColor, backgroundColor } = modal;
+
+    // Parse content into formatted lines
+    const contentWidth = Layout.WIDTH - 4; // Leave 2 chars padding on each side
+    const parsedLines = parseModalContent(content, contentWidth);
+
+    // Calculate content area dimensions
+    const contentHeight = Layout.HEIGHT - 2; // Top border (1) + bottom border (1)
+    const scrollOffset = modal.scroll || 0;
+
+    // Fill entire screen with solid background first
+    this.buffer.fill(' ', Palette.LIGHT_GRAY, backgroundColor);
+
+    // Draw fullscreen box with border
+    this.buffer.drawBox(0, 0, Layout.WIDTH, Layout.HEIGHT, borderStyle, borderColor, backgroundColor);
+
+    // Draw content area (scrollable) - starts at row 1
+    const contentStartY = 1;
+    const visibleLines = parsedLines.slice(scrollOffset, scrollOffset + contentHeight);
+
+    visibleLines.forEach((line, idx) => {
+      const y = contentStartY + idx;
+      let x = 2; // Left padding
+
+      // Render each segment in the line
+      line.segments.forEach(segment => {
+        this.buffer.writeText(x, y, segment.text, segment.fg, segment.bg);
+        x += segment.text.length;
+      });
+    });
+
+    // Draw scrollbar if content exceeds visible area
+    if (parsedLines.length > contentHeight) {
+      this.renderScrollBar(
+        Layout.WIDTH - 2,
+        contentStartY,
+        contentHeight,
+        parsedLines.length,
+        scrollOffset,
+        borderColor,
+        backgroundColor,
+        contentHeight
+      );
+    }
   }
 }

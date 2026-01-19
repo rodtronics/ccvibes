@@ -6,6 +6,7 @@ import { FrameBuffer } from './framebuffer.js';
 import { DOMRenderer } from './dom_renderer.js';
 import { UI, Layout } from './ui.js';
 import { NameGenerator } from './names.js';
+import { ModalQueue, loadModalData, getModal } from './modal.js';
 
 // Initialize the rendering stack
 const buffer = new FrameBuffer(Layout.WIDTH, Layout.HEIGHT);
@@ -37,10 +38,22 @@ const ui = {
   scroll: {
     crew: 0, // vertical scroll offset for crew roster
   },
+  modal: {
+    active: false,
+    id: null,
+    content: '',
+    borderStyle: null,
+    borderColor: null,
+    backgroundColor: null,
+    scroll: 0,
+  },
 };
 
 // Create UI layer
 const uiLayer = new UI(buffer, engine, ui);
+
+// Modal queue
+const modalQueue = new ModalQueue();
 
 // Input handling
 document.addEventListener('keydown', handleInput);
@@ -49,9 +62,19 @@ window.addEventListener('beforeunload', saveSettings);
 // Main entry point
 async function main() {
   await engine.init();
+  await loadModalData(); // Load modal definitions from JSON
   applyFont();
   saveSettings(); // Persist any new default fields (zoom/bloom) immediately
   render();
+
+  // Show intro modal on launch (if enabled in settings)
+  if (ui.settings.showIntro) {
+    modalQueue.enqueue('intro');
+    if (modalQueue.hasNext()) {
+      const nextId = modalQueue.dequeue();
+      showModal(nextId);
+    }
+  }
 
   // Game loop: tick engine and render at 5fps (200ms)
   setInterval(() => {
@@ -70,6 +93,7 @@ function loadSettings() {
     funnyNames: false,
     allCaps: true,       // Always on (removed from options)
     zoom: 100, // Font size zoom percentage (100, 150, 200, 250, etc.)
+    showIntro: true,     // Show intro modal on launch
   };
 
   try {
@@ -134,6 +158,12 @@ function cycleFontSetting() {
 
 // Input handling by tab
 function handleInput(e) {
+  // Modal takes priority over all other input
+  if (ui.modal.active) {
+    handleModalInput(e);
+    return;
+  }
+
   // Tab switching (J, A, C, O)
   if (e.key === 'j' || e.key === 'J') {
     ui.tab = 'jobs';
@@ -395,16 +425,16 @@ function handleOptionsInput(e) {
   // Initialize selectedSetting if not set
   if (ui.selectedSetting === undefined) ui.selectedSetting = 0;
 
-  // Arrow navigation for settings list (4 options: 0-3)
+  // Arrow navigation for settings list (5 options: 0-4)
   if (e.key === 'ArrowUp') {
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.selectedSetting = Math.min(3, ui.selectedSetting + 1);
+    ui.selectedSetting = Math.min(4, ui.selectedSetting + 1);
   }
 
-  // Number key selection (1-4)
-  if (e.key >= '1' && e.key <= '4') {
+  // Number key selection (1-5)
+  if (e.key >= '1' && e.key <= '5') {
     ui.selectedSetting = parseInt(e.key) - 1;
   }
 
@@ -423,7 +453,7 @@ function handleOptionsInput(e) {
   }
 
   // Enter/space to toggle or cycle
-  // Options: 0=Font, 1=Font size, 2=Bloom, 3=Funny names
+  // Options: 0=Font, 1=Font size, 2=Bloom, 3=Funny names, 4=Show intro
   if (e.key === 'Enter' || e.key === ' ') {
     if (ui.selectedSetting === 0) {
       cycleFontSetting();
@@ -439,6 +469,9 @@ function handleOptionsInput(e) {
       saveSettings();
     } else if (ui.selectedSetting === 3) {
       ui.settings.funnyNames = !ui.settings.funnyNames;
+      saveSettings();
+    } else if (ui.selectedSetting === 4) {
+      ui.settings.showIntro = !ui.settings.showIntro;
       saveSettings();
     }
   }
@@ -459,6 +492,79 @@ function applyBloom() {
   })();
 
   overlay.style.display = 'block';
+}
+
+// Modal input handler
+function handleModalInput(e) {
+  if (!ui.modal.active) return;
+
+  const modal = getModal(ui.modal.id);
+  if (!modal) return;
+
+  const contentHeight = 25 - 4; // Layout.HEIGHT - 4
+  const parsedLines = modal.content.split('\n').length; // Rough estimate for max scroll
+
+  // Scroll with arrow keys
+  if (e.key === 'ArrowDown') {
+    ui.modal.scroll = Math.min(ui.modal.scroll + 1, Math.max(0, parsedLines - contentHeight));
+    e.preventDefault();
+  }
+  if (e.key === 'ArrowUp') {
+    ui.modal.scroll = Math.max(0, ui.modal.scroll - 1);
+    e.preventDefault();
+  }
+
+  // Dismiss with SPACE, ENTER, or ESC
+  if (e.key === ' ' || e.key === 'Enter' || e.key === 'Escape') {
+    dismissModal();
+    e.preventDefault();
+  }
+}
+
+// Show a modal
+function showModal(modalId) {
+  const modal = getModal(modalId);
+  if (!modal) {
+    console.warn(`Modal not found: ${modalId}`);
+    return;
+  }
+
+  ui.modal.active = true;
+  ui.modal.id = modalId;
+  ui.modal.content = modal.content;
+  ui.modal.borderStyle = modal.borderStyle;
+  ui.modal.borderColor = modal.borderColor;
+  ui.modal.backgroundColor = modal.backgroundColor;
+  ui.modal.scroll = 0;
+
+  console.log(`Showing modal: ${modalId}`);
+}
+
+// Dismiss current modal and check queue for next
+function dismissModal() {
+  if (!ui.modal.active) return;
+
+  const modalId = ui.modal.id;
+  ui.modal.active = false;
+  ui.modal.id = null;
+  ui.modal.content = '';
+  ui.modal.borderStyle = null;
+  ui.modal.borderColor = null;
+  ui.modal.backgroundColor = null;
+  ui.modal.scroll = 0;
+
+  // Mark as seen
+  if (modalId) {
+    modalQueue.markSeen(modalId);
+  }
+
+  console.log(`Dismissed modal: ${modalId}`);
+
+  // Check queue for next modal
+  if (modalQueue.hasNext()) {
+    const nextId = modalQueue.dequeue();
+    showModal(nextId);
+  }
 }
 
 function startSelectedRun(activity, option) {
