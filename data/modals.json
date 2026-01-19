@@ -7,7 +7,7 @@
     },
     "intro": {
       "borderStyle": "DOUBLE",
-      "borderColor": "ELECTRIC_BLUE",
+      "borderColor": "DIM_GRAY",
       "backgroundColor": "BLACK"
     },
     "story": {
@@ -35,7 +35,7 @@
     "intro": {
       "type": "intro",
       "showOnce": false,
-      "content": "{{electric_blue}}CRIME COMMITTER VI{{/}}\n\nYou're a small-time hustler looking to make it big in the criminal underworld.\n\n**Controls:**\nNavigate with {{neon_cyan}}arrow keys{{/}} and {{neon_cyan}}number keys{{/}}.\nPress {{neon_cyan}}J{{/}} for jobs, {{neon_cyan}}A{{/}} for active runs, {{neon_cyan}}C{{/}} for crew.\n\n**Getting Started:**\nStart with simple street crimes to build up cash and cred.\nAs you progress, you'll unlock new branches and more lucrative operations.\nRecruit crew members to handle multiple jobs at once.\n\n**The Game:**\nEach crime takes time to complete. Higher risk = higher reward.\nWatch your heat level - too much attention brings trouble.\nBuild street cred to unlock advanced jobs and opportunities.\n\n~~Press any key to begin.~~"
+      "content": "\n {{lava_red}}██████╗██████╗ ██╗███╗   ███╗███████╗                                      {{/}}\n{{lava_red}}██╔════╝██╔══██╗██║████╗ ████║██╔════╝                                      {{/}}\n{{lava_red}}██║     ██████╔╝██║██╔████╔██║█████╗                                        {{/}}\n{{lava_red}}██║     ██╔══██╗██║██║╚██╔╝██║██╔══╝                                        {{/}}\n{{lava_red}}╚██████╗██║  ██║██║██║ ╚═╝ ██║███████╗                                      {{/}}\n{{lava_red}} ╚═════╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚══════╝                                      {{/}}\n{{lava_red}} ██████╗ ██████╗ ███╗   ███╗███╗   ███╗██╗████████╗████████╗███████╗██████╗ {{/}}\n{{lava_red}}██╔════╝██╔═══██╗████╗ ████║████╗ ████║██║╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗{{/}}\n{{lava_red}}██║     ██║   ██║██╔████╔██║██╔████╔██║██║   ██║      ██║   █████╗  ██████╔╝{{/}}\n{{lava_red}}██║     ██║   ██║██║╚██╔╝██║██║╚██╔╝██║██║   ██║      ██║   ██╔══╝  ██╔══██╗{{/}}\n{{lava_red}}╚██████╗╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║   ██║      ██║   ███████╗██║  ██║{{/}}\n{{lava_red}} ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝{{/}}\n{{lava_red}}██╗   ██╗██╗                                                                {{/}}\n{{lava_red}}██║   ██║██║                                                                {{/}}\n{{lava_red}}██║   ██║██║                                                                {{/}}\n{{lava_red}}╚██╗ ██╔╝██║                                                                {{/}}\n{{lava_red}} ╚████╔╝ ██║                                                                {{/}}\n{{lava_red}}  ╚═══╝  ╚═╝                                                                {{/}}\n\n\n\n                                                         {{electric_blue}}©2026 WFPRODUCTIONS{{/}}"
     },
     "first_job_complete": {
       "type": "tutorial",

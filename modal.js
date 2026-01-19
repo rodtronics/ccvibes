@@ -11,7 +11,7 @@ let MODAL_DATA = null;
  * Supports:
  * - **text** → Bold/bright (WHITE)
  * - ~~text~~ → Dim (DIM_GRAY)
- * - {{color}}text{{/}} → Colored text (any Palette color name)
+ * - {{color}}text{{/}} → Colored text (any Palette color name, spans multiple lines)
  * - {{bg:color}}text{{/}} → Background color
  * - Blank lines → Line breaks
  * - Auto-wrapping to specified width
@@ -21,8 +21,11 @@ let MODAL_DATA = null;
  * @returns {Array} Array of line objects: { segments: [{text, fg, bg}] }
  */
 export function parseModalContent(content, width = 76) {
+  // First, process multi-line color tags by joining lines until tags are closed
+  const processedContent = processMultilineColorTags(content);
+
   const lines = [];
-  const rawLines = content.split('\n');
+  const rawLines = processedContent.split('\n');
 
   for (const rawLine of rawLines) {
     // Empty lines become blank lines
@@ -40,6 +43,42 @@ export function parseModalContent(content, width = 76) {
   }
 
   return lines;
+}
+
+/**
+ * Process multi-line color tags by joining lines within tags
+ * Converts: {{color}}\ntext\n{{/}} → {{color}}text{{/}}
+ */
+function processMultilineColorTags(content) {
+  let result = '';
+  let inTag = false;
+  let tagOpen = '';
+
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+
+    // Check for opening tag
+    if (!inTag && content.substr(i, 2) === '{{' && content.substr(i, 5) !== '{{/}}') {
+      inTag = true;
+      tagOpen = '{{';
+      result += char;
+    }
+    // Check for closing tag
+    else if (inTag && content.substr(i, 5) === '{{/}}') {
+      inTag = false;
+      result += content.substr(i, 5);
+      i += 4; // Skip the rest of {{/}}
+    }
+    // Replace newlines inside tags with spaces
+    else if (inTag && char === '\n') {
+      result += ' ';
+    }
+    else {
+      result += char;
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -133,6 +172,7 @@ function findNextSpecial(line, start) {
 
 /**
  * Wrap segments to specified width, breaking on word boundaries
+ * Preserves multiple spaces for ASCII art alignment
  */
 function wrapSegments(segments, width) {
   const lines = [];
@@ -140,27 +180,34 @@ function wrapSegments(segments, width) {
   let currentLength = 0;
 
   for (const segment of segments) {
-    const words = segment.text.split(' ');
+    // Split preserving multiple spaces by using regex
+    const parts = segment.text.split(/( +)/);
 
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      const wordLen = word.length;
-      const spaceLen = i > 0 || currentLine.length > 0 ? 1 : 0;
-      const totalLen = wordLen + spaceLen;
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (!part) continue; // Skip empty strings from split
 
-      // Check if adding this word would exceed width
-      if (currentLength + totalLen > width && currentLine.length > 0) {
-        // Finish current line
-        lines.push({ segments: currentLine });
-        currentLine = [];
-        currentLength = 0;
-      }
+      const isSpace = /^ +$/.test(part);
+      const partLen = part.length;
 
-      // Add word to current line
-      if (word) {
-        const text = (currentLength > 0 ? ' ' : '') + word;
-        currentLine.push({ text, fg: segment.fg, bg: segment.bg });
-        currentLength += text.length;
+      if (isSpace) {
+        // Handle spaces: add them if they fit, otherwise wrap
+        if (currentLength + partLen > width && currentLine.length > 0) {
+          lines.push({ segments: currentLine });
+          currentLine = [];
+          currentLength = 0;
+        }
+        currentLine.push({ text: part, fg: segment.fg, bg: segment.bg });
+        currentLength += partLen;
+      } else {
+        // Handle words: check if they fit
+        if (currentLength + partLen > width && currentLine.length > 0) {
+          lines.push({ segments: currentLine });
+          currentLine = [];
+          currentLength = 0;
+        }
+        currentLine.push({ text: part, fg: segment.fg, bg: segment.bg });
+        currentLength += partLen;
       }
     }
   }

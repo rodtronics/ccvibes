@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASCII to JSON Modal Converter</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #1a1a1a;
+      color: #cccccc;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #00ff00;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .panel {
+      border: 2px solid #00ff00;
+      padding: 15px;
+      background: #0a0a0a;
+    }
+
+    .panel h2 {
+      color: #00ff00;
+      font-size: 16px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    textarea {
+      width: 100%;
+      height: 300px;
+      background: #1a1a1a;
+      color: #00ff00;
+      border: 1px solid #00ff00;
+      padding: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      resize: vertical;
+    }
+
+    textarea::placeholder {
+      color: #555555;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      flex: 1;
+      padding: 10px;
+      background: #00ff00;
+      color: #000;
+      border: none;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: #00cc00;
+      transform: scale(1.02);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .info {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #555555;
+      background: #0a0a0a;
+      color: #888888;
+      font-size: 12px;
+    }
+
+    .info h3 {
+      color: #00ff00;
+      margin-bottom: 10px;
+    }
+
+    .info ul {
+      margin-left: 20px;
+      margin-bottom: 10px;
+    }
+
+    .info li {
+      margin-bottom: 5px;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      border-left: 3px solid #00ff00;
+      background: #1a1a1a;
+      color: #00ff00;
+      font-weight: bold;
+      display: none;
+    }
+
+    .status.show {
+      display: block;
+    }
+
+    .status.error {
+      border-left-color: #ff0000;
+      color: #ff0000;
+    }
+
+    .status.success {
+      border-left-color: #00ff00;
+      color: #00ff00;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ASCII → JSON Modal Converter</h1>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>1. ASCII Input</h2>
+        <textarea id="asciiInput" placeholder="Paste your ASCII art here..."></textarea>
+        <div class="controls">
+          <button onclick="convertASCII()">Convert to JSON</button>
+          <button onclick="clearInputs()">Clear All</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>2. JSON Output</h2>
+        <textarea id="jsonOutput" readonly placeholder="JSON output appears here..."></textarea>
+        <div class="controls">
+          <button onclick="copyJSON()">Copy to Clipboard</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="info">
+      <h3>How to Use</h3>
+      <ul>
+        <li>Paste your ASCII art into the left panel</li>
+        <li>Click "Convert to JSON" to generate the JSON string</li>
+        <li>The output escapes newlines and quotes properly for JSON</li>
+        <li>Click "Copy to Clipboard" to copy the JSON string</li>
+        <li>Paste the string into your modal content field in modals.json</li>
+      </ul>
+
+      <h3>Markup Support</h3>
+      <ul>
+        <li><strong>Bold:</strong> <code>**text**</code></li>
+        <li><strong>Dim:</strong> <code>~~text~~</code></li>
+        <li><strong>Colored text:</strong> <code>{{color}}text{{/}}</code></li>
+        <li><strong>Background:</strong> <code>{{bg:color}}text{{/}}</code></li>
+        <li><strong>Line breaks:</strong> Use actual line breaks in your ASCII</li>
+      </ul>
+
+      <h3>Example Color Names</h3>
+      <ul>
+        <li><code>neon_cyan</code>, <code>electric_blue</code>, <code>hot_pink</code>, <code>success_green</code></li>
+        <li><code>heat_orange</code>, <code>bright_yellow</code>, <code>white</code>, <code>light_gray</code></li>
+        <li>See palette.js for complete list</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    function convertASCII() {
+      const ascii = document.getElementById('asciiInput').value;
+      if (!ascii.trim()) {
+        showStatus('Please paste some ASCII art first', 'error');
+        return;
+      }
+
+      // Escape special JSON characters and convert newlines
+      const escaped = ascii
+        .replace(/\u00a0/g, ' ')  // Convert non-breaking spaces to regular spaces
+        .replace(/\\/g, '\\\\')   // Backslash first!
+        .replace(/"/g, '\\"')     // Then quotes
+        .replace(/\n/g, '\\n')    // Then newlines
+        .replace(/\t/g, '\\t');   // Then tabs
+
+      const json = `"${escaped}"`;
+
+      document.getElementById('jsonOutput').value = json;
+      showStatus('Converted successfully! Ready to copy.', 'success');
+    }
+
+    function copyJSON() {
+      const json = document.getElementById('jsonOutput').value;
+      if (!json) {
+        showStatus('Nothing to copy. Convert ASCII first.', 'error');
+        return;
+      }
+
+      navigator.clipboard.writeText(json).then(() => {
+        showStatus('Copied to clipboard!', 'success');
+      }).catch(() => {
+        showStatus('Copy failed. Try selecting and copying manually.', 'error');
+      });
+    }
+
+    function clearInputs() {
+      document.getElementById('asciiInput').value = '';
+      document.getElementById('jsonOutput').value = '';
+      document.getElementById('status').classList.remove('show');
+    }
+
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = `status show ${type}`;
+      setTimeout(() => {
+        status.classList.remove('show');
+      }, 4000);
+    }
+
+    // Auto-convert on input (after 500ms delay)
+    let timeout;
+    document.getElementById('asciiInput').addEventListener('input', () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        if (document.getElementById('asciiInput').value.trim()) {
+          convertASCII();
+        }
+      }, 500);
+    });
+  </script>
+</body>
+</html>
