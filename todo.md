@@ -18,6 +18,8 @@ a RPG system to an extent. I want to be able to manage crew more, crew can earn 
 
 a fullscreen info modal or something simular. this will provide functional for an intro screen, and also when something hapepns for the first time, it'll tell the player, like a tutorial. also a STORY, this screen will probably come up when something is unlocked, which is an opportunity to follow more of the story. this window will have scrolling functionality and also a quick button for it to go away so it doesnt annoy anyone
 
+small quality of life - when the game first loads, it seems the main screen is displayed, the font size change is made, then the intro modal, all in that order. its quick, but you still see if happen.
+
 future ideas: - menu items to stop all jobs or something
 future ideas: on the crew menu, if you select a crew member who is doing a job, it'll take you to that job
 future ideas: can sort crew

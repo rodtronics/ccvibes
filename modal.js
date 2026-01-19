@@ -2,6 +2,7 @@
 // Fullscreen info modals for intro, tutorials, story reveals, and unlock notifications
 
 import { Palette, BoxStyles } from './palette.js';
+import { interpolateColor } from './gradients.js';
 
 // Modal data - loaded from JSON
 let MODAL_DATA = null;
@@ -20,7 +21,7 @@ let MODAL_DATA = null;
  * @param {number} width - Width to wrap text to
  * @returns {Array} Array of line objects: { segments: [{text, fg, bg}] }
  */
-export function parseModalContent(content, width = 76) {
+export function parseModalContent(content, width = 76, bgColor = Palette.BLACK) {
   // First, process multi-line color tags by joining lines until tags are closed
   const processedContent = processMultilineColorTags(content);
 
@@ -30,12 +31,12 @@ export function parseModalContent(content, width = 76) {
   for (const rawLine of rawLines) {
     // Empty lines become blank lines
     if (rawLine.trim() === '') {
-      lines.push({ segments: [{ text: '', fg: Palette.LIGHT_GRAY, bg: Palette.BLACK }] });
+      lines.push({ segments: [{ text: '', fg: Palette.LIGHT_GRAY, bg: bgColor }] });
       continue;
     }
 
     // Parse line into segments with formatting
-    const segments = parseLineSegments(rawLine);
+    const segments = parseLineSegments(rawLine, bgColor);
 
     // Wrap segments to width
     const wrappedLines = wrapSegments(segments, width);
@@ -84,11 +85,11 @@ function processMultilineColorTags(content) {
 /**
  * Parse a single line into formatted segments
  */
-function parseLineSegments(line) {
+function parseLineSegments(line, bgColor = Palette.BLACK) {
   const segments = [];
   let currentPos = 0;
   let currentFg = Palette.LIGHT_GRAY;
-  let currentBg = Palette.BLACK;
+  let currentBg = bgColor;
 
   while (currentPos < line.length) {
     // Check for **bold**
@@ -113,7 +114,7 @@ function parseLineSegments(line) {
       }
     }
 
-    // Check for {{color}} or {{bg:color}}
+    // Check for {{color}}, {{bg:color}}, or {{gradient:colorA:colorB:X}}
     if (line.substr(currentPos, 2) === '{{') {
       const endTagPos = line.indexOf('}}', currentPos + 2);
       if (endTagPos !== -1) {
@@ -123,8 +124,28 @@ function parseLineSegments(line) {
         if (contentEndPos !== -1) {
           const text = line.substring(endTagPos + 2, contentEndPos);
 
+          // Check if it's a gradient tag
+          if (tag.startsWith('gradient:')) {
+            const parts = tag.split(':');
+            if (parts.length === 4) {
+              const colorAName = parts[1].toUpperCase();
+              const colorBName = parts[2].toUpperCase();
+              const t = parseFloat(parts[3]);
+
+              const colorA = Palette[colorAName];
+              const colorB = Palette[colorBName];
+
+              if (colorA && colorB && !isNaN(t) && t >= 0 && t <= 1) {
+                const interpolatedColor = interpolateColor(colorA, colorB, t);
+                segments.push({ text, fg: interpolatedColor, bg: currentBg });
+                currentPos = contentEndPos + 5; // Skip {{/}}
+                continue;
+              }
+            }
+            // If gradient parsing fails, fall through to treat as normal text
+          }
           // Check if it's a background color tag
-          if (tag.startsWith('bg:')) {
+          else if (tag.startsWith('bg:')) {
             const colorName = tag.substring(3).toUpperCase();
             const bgColor = Palette[colorName] || currentBg;
             segments.push({ text, fg: currentFg, bg: bgColor });

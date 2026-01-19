@@ -685,7 +685,7 @@ export class UI {
 
     // Parse content into formatted lines
     const contentWidth = Layout.WIDTH - 4; // Leave 2 chars padding on each side
-    const parsedLines = parseModalContent(content, contentWidth);
+    const parsedLines = parseModalContent(content, contentWidth, backgroundColor);
 
     // Calculate content area dimensions
     const contentHeight = Layout.HEIGHT - 2; // Top border (1) + bottom border (1)
