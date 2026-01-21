@@ -18,7 +18,9 @@
 
 @font-face {
   font-family: "JetBrains_Mono_ExtraBold";
-  src: url("fonts/JetBrainsMono-ExtraBold.ttf") format("truetype");
+  src:
+    url("fonts/JetBrainsMono-ExtraBold-subset.woff2") format("woff2"),
+    url("fonts/JetBrainsMono-ExtraBold.ttf") format("truetype");
   font-display: swap;
 }
 

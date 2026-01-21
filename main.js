@@ -5,8 +5,19 @@ import { Engine } from './engine.js';
 import { FrameBuffer } from './framebuffer.js';
 import { DOMRenderer } from './dom_renderer.js';
 import { UI, Layout } from './ui.js';
-import { NameGenerator } from './names.js';
 import { ModalQueue, loadModalData, getModal } from './modal.js';
+import { getUsedCrewNames, generateUniqueCrewName, initCrewSystem } from './crew.js';
+import {
+  loadSettings,
+  saveSettings,
+  applyFont,
+  applyBloom,
+  cycleFontSetting,
+  switchFontCategory,
+  MIN_ZOOM,
+  MAX_ZOOM,
+  ZOOM_STEP
+} from './settings.js';
 
 // Initialize the rendering stack
 const buffer = new FrameBuffer(Layout.WIDTH, Layout.HEIGHT);
@@ -19,31 +30,6 @@ const bloomRenderer = bloomLayer ? new DOMRenderer(buffer, BLOOM_OVERLAY_ID) : n
 if (bloomLayer) {
   bloomLayer.style.backgroundColor = 'transparent';
 }
-
-// Settings constants (must be defined before loadSettings)
-const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono', 'ibm-bios', 'scp'];
-const FONT_CATEGORIES = {
-  modern: ['fira', 'jetbrains-mono', 'scp'],
-  retro: ['vga-9x8', 'vga-8x16', 'ibm-bios']
-};
-
-const FONT_NAMES = {
-  'fira': 'Fira Mono (bold)',
-  'vga-9x8': 'VGA 9x8 (compact)',
-  'vga-8x16': 'VGA 8x16 (classic)',
-  'jetbrains-mono': 'JetBrains Mono (bold)',
-  'ibm-bios': 'IBM BIOS (retro)',
-  'scp': 'Source Code Pro (bold)'
-};
-
-function getFontCategory(fontId) {
-  if (FONT_CATEGORIES.modern.includes(fontId)) return 'modern';
-  return 'retro';
-}
-
-const MIN_ZOOM = 100; // %
-const MAX_ZOOM = 300; // %
-const ZOOM_STEP = 50; // %
 
 // UI state (navigation, selections, options)
 const ui = {
@@ -86,7 +72,7 @@ const modalQueue = new ModalQueue();
 
 // Input handling
 document.addEventListener('keydown', handleInput);
-window.addEventListener('beforeunload', saveSettings);
+window.addEventListener('beforeunload', () => saveSettings(ui.settings));
 
 // Main entry point
 async function main() {
@@ -96,8 +82,9 @@ async function main() {
 
   await engine.init();
   await loadModalData(); // Load modal definitions from JSON
-  applyFont();
-  saveSettings(); // Persist any new default fields (zoom/bloom) immediately
+  await initCrewSystem(); // Load name data for crew generation
+  applyFont(ui.settings);
+  saveSettings(ui.settings); // Persist any new default fields (zoom/bloom) immediately
   render();
 
   // Show intro modal on launch (if enabled in settings)
@@ -118,102 +105,6 @@ async function main() {
     render();
   }, 200);
 }
-
-// Settings persistence
-function loadSettings() {
-  const defaults = {
-    font: 'fira',
-    gradients: false,    // Always off (removed from options)
-    hotkeyGlow: false,   // Always off (removed from options)
-    bloom: false,
-    funnyNames: false,
-    allCaps: true,       // Always on (removed from options)
-    zoom: 150, // Font size zoom percentage (100, 150, 200, 250, etc.)
-    showIntro: true,     // Show intro modal on launch
-  };
-
-  try {
-    const raw = localStorage.getItem('ccv_tui_settings');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      // Migrate old font settings
-      if (parsed.font === 'vga') parsed.font = 'vga-9x8';
-      if (parsed.font === 'scp') parsed.font = 'fira';
-      if (parsed.fontScale && !parsed.zoom) parsed.zoom = Math.round(parsed.fontScale * 100);
-      if (parsed.zoom && parsed.zoom < MIN_ZOOM) parsed.zoom = MIN_ZOOM;
-
-      // Merge with defaults to ensure new settings exist
-      const loaded = { ...defaults, ...parsed };
-      console.log('Settings loaded:', loaded);
-      return loaded;
-    }
-  } catch (err) {
-    console.warn('Settings load failed', err);
-  }
-  console.log('Using default settings:', defaults);
-  return defaults;
-}
-
-function saveSettings() {
-  try {
-    localStorage.setItem('ccv_tui_settings', JSON.stringify(ui.settings));
-    console.log('Settings saved:', ui.settings);
-  } catch (err) {
-    console.warn('Settings save failed', err);
-  }
-}
-
-function applyFont() {
-  const container = document.getElementById('game');
-  if (!container) return;
-  const overlay = document.getElementById(BLOOM_OVERLAY_ID);
-  const targets = overlay ? [container, overlay] : [container];
-
-  // Remove all font classes
-  const nextFont = FONTS.includes(ui.settings.font) ? ui.settings.font : 'fira';
-  ui.settings.font = nextFont;
-
-  // Scale the font size via CSS
-  const zoom = clamp(ui.settings.zoom || MIN_ZOOM, MIN_ZOOM, MAX_ZOOM);
-  ui.settings.zoom = zoom;
-  targets.forEach((target) => {
-    FONTS.forEach(font => target.classList.remove(`font-${font}`));
-    target.classList.add(`font-${nextFont}`);
-    target.style.fontSize = `${zoom}%`;
-  });
-
-  // Bloom-style overlay (separate element)
-  applyBloom();
-}
-
-function cycleFontSetting(direction = 1) {
-  const currentFont = ui.settings.font;
-  const category = getFontCategory(currentFont);
-  const fonts = FONT_CATEGORIES[category];
-  
-  const currentIndex = fonts.indexOf(currentFont);
-  // Calculate next index with wrap-around
-  let nextIndex = (currentIndex + direction) % fonts.length;
-  if (nextIndex < 0) nextIndex = fonts.length - 1;
-  
-  ui.settings.font = fonts[nextIndex];
-  console.log(`Font cycled to: ${ui.settings.font} (Category: ${category})`);
-  applyFont();
-  saveSettings();
-}
-
-function switchFontCategory() {
-  const currentFont = ui.settings.font;
-  const currentCategory = getFontCategory(currentFont);
-  const nextCategory = currentCategory === 'modern' ? 'retro' : 'modern';
-  
-  // Pick the first font of the new category
-  ui.settings.font = FONT_CATEGORIES[nextCategory][0];
-  console.log(`Font category switched to: ${nextCategory}, Font: ${ui.settings.font}`);
-  applyFont();
-  saveSettings();
-}
-
 
 // Input handling by tab
 function handleInput(e) {
@@ -364,7 +255,7 @@ function handleJobsInput(e) {
       if (activityRuns.length > 0) {
         ui.focus = 'runs';
         const current = ui.selectedRun ?? 0;
-        ui.selectedRun = clamp(current, 0, activityRuns.length - 1);
+        ui.selectedRun = Math.max(0, Math.min(activityRuns.length - 1, current));
       }
     }
 
@@ -652,30 +543,6 @@ function handleLogInput(e) {
   if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
 }
 
-function getUsedCrewNames() {
-  return new Set(
-    engine.state.crew.staff.map((member) => (member.name || '').toLowerCase())
-  );
-}
-
-function generateUniqueCrewName(usedNames = getUsedCrewNames()) {
-  let candidate = '';
-  let attempts = 0;
-
-  do {
-    candidate = NameGenerator.generate(ui.settings?.funnyNames);
-    attempts += 1;
-  } while (usedNames.has(candidate.toLowerCase()) && attempts < 20);
-
-  // Fallback to suffixing if we somehow hit too many duplicates
-  if (usedNames.has(candidate.toLowerCase())) {
-    const suffix = Math.floor(Math.random() * 9000) + 1000;
-    candidate = `${candidate} ${suffix}`;
-  }
-
-  usedNames.add(candidate.toLowerCase());
-  return candidate;
-}
 
 function handleCrewInput(e) {
   // Scrolling support (keep in sync with renderCrewTab layout)
@@ -698,13 +565,12 @@ function handleCrewInput(e) {
   if (e.key === 'End') setCrewScroll(maxOffset);
   if (e.key === 'Home') setCrewScroll(0);
 
-  const usedNames = getUsedCrewNames();
-
   // Spawn single test crew member
   if (e.key === ' ') {
+    const usedNames = getUsedCrewNames(engine.state.crew.staff);
     const testMember = {
       id: `test_${Date.now()}`,
-      name: generateUniqueCrewName(usedNames),
+      name: generateUniqueCrewName(usedNames, ui.settings?.funnyNames),
       roleId: 'player',
       status: 'available',
       xp: 0,
@@ -749,14 +615,14 @@ function handleOptionsInput(e) {
       ui.fontSubMenuIndex = 0;
     } else if (ui.selectedSetting === 1) {
       ui.settings.bloom = !ui.settings.bloom;
-      applyBloom();
-      saveSettings();
+      applyBloom(ui.settings);
+      saveSettings(ui.settings);
     } else if (ui.selectedSetting === 2) {
       ui.settings.funnyNames = !ui.settings.funnyNames;
-      saveSettings();
+      saveSettings(ui.settings);
     } else if (ui.selectedSetting === 3) {
       ui.settings.showIntro = !ui.settings.showIntro;
-      saveSettings();
+      saveSettings(ui.settings);
     } else if (ui.selectedSetting === 4) {
       showModal('about');
     }
@@ -783,38 +649,32 @@ function handleFontSubMenuInput(e) {
   // 0: Generation (Toggle)
   if (ui.fontSubMenuIndex === 0) {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
-      switchFontCategory();
+      switchFontCategory(ui.settings);
     }
   }
-  
+
   // 1: Face (Cycle)
   if (ui.fontSubMenuIndex === 1) {
     if (e.key === 'ArrowLeft') {
-      cycleFontSetting(-1);
+      cycleFontSetting(ui.settings, -1);
     } else if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
-      cycleFontSetting(1);
+      cycleFontSetting(ui.settings, 1);
     }
   }
 
   // 2: Size (Resize)
   if (ui.fontSubMenuIndex === 2) {
     if (e.key === 'ArrowLeft') {
-      ui.settings.zoom = clamp((ui.settings.zoom || MIN_ZOOM) - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM);
-      applyFont();
-      saveSettings();
+      ui.settings.zoom = Math.max(MIN_ZOOM, (ui.settings.zoom || MIN_ZOOM) - ZOOM_STEP);
+      applyFont(ui.settings);
+      saveSettings(ui.settings);
     }
     if (e.key === 'ArrowRight') {
-      ui.settings.zoom = clamp((ui.settings.zoom || MIN_ZOOM) + ZOOM_STEP, MIN_ZOOM, MAX_ZOOM);
-      applyFont();
-      saveSettings();
+      ui.settings.zoom = Math.min(MAX_ZOOM, (ui.settings.zoom || MIN_ZOOM) + ZOOM_STEP);
+      applyFont(ui.settings);
+      saveSettings(ui.settings);
     }
   }
-}
-
-function applyBloom() {
-  const overlay = document.getElementById(BLOOM_OVERLAY_ID);
-  if (!overlay) return;
-  overlay.style.display = ui.settings.bloom ? 'block' : 'none';
 }
 
 // Modal input handler
@@ -935,7 +795,7 @@ function syncSelection() {
     return;
   }
 
-  ui.branchIndex = clamp(ui.branchIndex, 0, branches.length - 1);
+  ui.branchIndex = Math.max(0, Math.min(branches.length - 1, ui.branchIndex));
 
   const branch = branches[ui.branchIndex];
   const activities = uiLayer.getVisibleActivities(branch?.id);
@@ -945,7 +805,7 @@ function syncSelection() {
     return;
   }
 
-  ui.activityIndex = clamp(ui.activityIndex, 0, activities.length - 1);
+  ui.activityIndex = Math.max(0, Math.min(activities.length - 1, ui.activityIndex));
 
   const options = uiLayer.getVisibleOptions(activities[ui.activityIndex]);
   if (options.length === 0) {
@@ -953,12 +813,7 @@ function syncSelection() {
     return;
   }
 
-  ui.optionIndex = clamp(ui.optionIndex, 0, options.length - 1);
-}
-
-function clamp(value, min, max) {
-  if (max < min) return min;
-  return Math.min(max, Math.max(min, value));
+  ui.optionIndex = Math.max(0, Math.min(options.length - 1, ui.optionIndex));
 }
 
 // Start the application

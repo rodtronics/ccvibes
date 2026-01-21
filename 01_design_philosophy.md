@@ -81,6 +81,12 @@ Purpose: single source for mechanics philosophy and intent. Pair with `02_ui_spe
 - **Smooth updates**: 50ms tick interval (20 updates/sec) for fluid countdown timers and progress bars.
 - **Efficient rendering**: Partial UI updates on tick events; full renders only on state changes.
 - **Backward compatibility**: State migration handles legacy save formats gracefully.
+- **Modular organization**: Core systems separated into focused modules:
+  - `settings.js`: User preferences, font management, localStorage persistence
+  - `crew.js`: Crew operations, name generation, uniqueness checking
+  - `data/names.json`: Name data (1528 entries) separate from logic
+  - `gradients.js`: Color interpolation and gradient definitions
+  - Target: main.js reduced from 942 to ~820 lines through extraction
 
 ## 16. Visual Aesthetic Philosophy
 

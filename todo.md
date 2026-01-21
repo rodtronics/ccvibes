@@ -26,3 +26,9 @@ bold idea - a rolling graph implement in text to show some statistics
 idea : the number of players on the crew increases heat just be virtue of existing, encouraging perhaps a smaller group of more skilled crew members. when heat reaches an internal threshold (which the player doesnt know, it'll just be a gradient), someone randomly goes to jail and heat comes down a bit
 
 add a "once off" modal to explain some very basics to the player before they get started.
+
+funny names isnt always funny names, they just get added to the pool
+
+upgrade the crew section to allow for selection of individual members, up and down to scroll through them, and enter will "go into" them, which will show information related to experience, and this is where you can upgrade players. the crew screen will indicate that a player can be upgraded. we will try and keep some stats on the players. and importantyl this is where we can retire players
+
+a function in crew.js to re-roll a name if the total length is too long

@@ -384,6 +384,49 @@ Future JSON schema could add color/gradient support:
 }
 ```
 
+### Gradient Text Rendering
+
+Gradients apply smooth color transitions across text for visual interest:
+
+**Implementation:**
+- `gradients.js` defines named gradients (cyber, cool, warm, heat, neon, toxic, street, commerce, etc.)
+- Each gradient is an array of hex color values
+- Colors interpolate linearly across text length
+- `FrameBuffer.drawGradientText(x, y, text, gradientName, bgColor, alignment)` renders gradient text
+- Falls back to solid color if gradient doesn't exist
+
+**Example:**
+```
+STREET → S(#00ff00) T(#44ff22) R(#66ff33) E(#88ff44) E(#aaff55) T(#ccff88)
+```
+
+**Usage:**
+- Branch tabs can specify `ui.gradient` in data/branches.json
+- Enabled/disabled via user settings (gradients toggle)
+- Used for visual hierarchy and branch identity
+
+### Hotkey Glow Effect
+
+Inactive tabs display a subtle "glow" effect around hotkey letters:
+
+**Behavior:**
+- Hotkey letter: bright cyan (NEON_CYAN)
+- Adjacent characters (±1 position): 67% interpolation between cyan and grey
+- Only visible on inactive tabs (disabled when tab is selected)
+- Works alongside existing hotkey highlighting
+
+**Example with hotkey 'R' in "STREET":**
+```
+S(dim) T(dim) R(CYAN) E(glow) E(glow) T(dim)
+        ↑       ↑        ↑
+      normal  hotkey  glow effect
+```
+
+**Implementation:**
+- Color interpolation: `lerpColor(NEON_CYAN, DIM_GRAY, 0.67)`
+- Applied in `ui.js` renderTab() function
+- Enabled/disabled via user settings (hotkeyGlow toggle)
+
 ## 16. Visual Focus and Dimming
 
 The UI uses visual dimming to indicate focus and guide attention within multi-panel layouts.

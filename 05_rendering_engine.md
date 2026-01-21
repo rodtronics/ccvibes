@@ -91,6 +91,48 @@ Colors can be specified as:
 - Direct hex strings: `'#00ff00'`
 - Palette references: `Palette.TERMINAL_GREEN`
 
+### Gradient System
+
+Gradients enable smooth color transitions across text for enhanced visual appeal:
+
+**Color Interpolation:**
+```javascript
+function lerpColor(color1, color2, t) {
+  // Linear interpolation between two hex colors
+  // t = 0.0 returns color1, t = 1.0 returns color2
+  // Returns interpolated hex color string
+}
+```
+
+**Gradient Definitions (gradients.js):**
+```javascript
+const GRADIENTS = {
+  street: ['#00ff00', '#44ff22', '#66ff33', '#88ff44', '#aaff55', '#ccff88'],
+  commerce: ['#00ffff', '#40e0d0', '#5ff5f5', '#80ffff'],
+  cyber: ['#ff00ff', '#00ffff', '#ff00ff'],
+  heat: ['#ff4500', '#ff6600', '#ff8800', '#ffaa00'],
+  // ... more gradients
+};
+```
+
+**Gradient Text Rendering:**
+- `drawGradientText(x, y, text, gradientName, bgColor, alignment)` method in FrameBuffer
+- Automatically interpolates colors across text length
+- Supports 'left', 'center', and 'right' alignment
+- Falls back to solid color if gradient name doesn't exist
+- Each character receives its own interpolated color
+
+**Implementation:**
+```javascript
+// Generate gradient colors for text length
+const colors = getGradientColors(text, gradientName);
+
+// Render each character with its color
+for (let i = 0; i < text.length; i++) {
+  buffer.setCell(x + i, y, text[i], colors[i], bgColor);
+}
+```
+
 ## 4. Frame Buffer API
 
 ### Core Operations
@@ -118,6 +160,9 @@ class FrameBuffer {
   drawBox(x, y, width, height, style, fg, bg)  // Draw box with border chars
   drawHLine(x, y, length, char, fg, bg)        // Horizontal line
   drawVLine(x, y, length, char, fg, bg)        // Vertical line
+
+  // Gradient text rendering
+  drawGradientText(x, y, text, gradientName, bg, alignment)  // Gradient text with color interpolation
 
   // Dirty tracking
   markDirty(x, y)                   // Mark cell as dirty
@@ -470,6 +515,7 @@ class UI {
 
 ### Possible Enhancements (Not Immediate)
 
+- **Data-driven layouts**: JSON-defined UI layouts with template variables (LayoutRenderer system for visual design tools)
 - **Layering system**: Multiple buffers composited together (background, content, overlay)
 - **Scrollback buffer**: Maintain history beyond visible viewport
 - **Character attributes**: Bold, dim, underline, blink flags per cell

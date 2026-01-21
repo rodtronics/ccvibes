@@ -1,12 +1,5 @@
-/**
- * NameGenerator
- * Generates random names with variations in format (titles, middle names, initials).
- *
- * Usage: NameGenerator.generate(funnyMode) -> "Dr. John A. Smith" or "Grand Poobah Boaty McPants"
- */
-export const NameGenerator = (function () {
-  // Data Pools
-  const titles = [
+{
+  "titles": [
     "Mr.",
     "Mrs.",
     "Ms.",
@@ -44,10 +37,9 @@ export const NameGenerator = (function () {
     "Maj.",
     "Cpl.",
     "Chief",
-    "Sheriff",
-  ];
-
-  const firstNames = [
+    "Sheriff"
+  ],
+  "firstNames": [
     "James",
     "Mary",
     "John",
@@ -268,7 +260,6 @@ export const NameGenerator = (function () {
     "Newton",
     "Holly",
     "Trevor",
-    // International Additions (Asia, Europe, Africa, S.America)
     "Wei",
     "Li",
     "Yan",
@@ -374,10 +365,9 @@ export const NameGenerator = (function () {
     "Oliver",
     "Ava",
     "Amelia",
-    "Harper",
-  ];
-
-  const lastNames = [
+    "Harper"
+  ],
+  "lastNames": [
     "Smith",
     "Johnson",
     "Williams",
@@ -586,7 +576,6 @@ export const NameGenerator = (function () {
     "Little",
     "Welch",
     "Larson",
-    // International Additions (Asia, Europe, Africa, S.America)
     "Wang",
     "Zhang",
     "Liu",
@@ -667,11 +656,9 @@ export const NameGenerator = (function () {
     "Demir",
     "Sahin",
     "Celik",
-    "Yildiz",
-  ];
-
-  // Funny / Nonsensical Lists
-  const funnyTitles = [
+    "Yildiz"
+  ],
+  "funnyTitles": [
     "Grand Poobah",
     "Supreme Overlord",
     "Captain Pants",
@@ -784,10 +771,9 @@ export const NameGenerator = (function () {
     "Astronaut",
     "Chef",
     "Baker",
-    "Candlestick Maker",
-  ];
-
-  const funnyFirstNames = [
+    "Candlestick Maker"
+  ],
+  "funnyFirstNames": [
     "Boaty",
     "Shoe",
     "Bucket",
@@ -974,10 +960,9 @@ export const NameGenerator = (function () {
     "Bonkers",
     "Bananas",
     "Cuckoo",
-    "Loco",
-  ];
-
-  const funnyLastNames = [
+    "Loco"
+  ],
+  "funnyLastNames": [
     "McPants",
     "Bottom",
     "Sniffer",
@@ -1494,75 +1479,6 @@ export const NameGenerator = (function () {
     "Qof",
     "Resh",
     "Shin",
-    "Tav",
-  ];
-
-  // Helper to get random item from array
-  function getRandom(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-
-  /**
-   * Generates a random name string.
-   *
-   * Variations:
-   * - Title (10% chance)
-   * - First Last (50%)
-   * - First Middle Last (20%)
-   * - First M. Last (15%)
-   * - First M. N. Last (10%)
-   * - F. Middle Last (5%)
-   */
-  function generate(funnyMode = false) {
-    let nameParts = [];
-
-    // 1. Title (10% chance normally, 30% if funny)
-    if (Math.random() < (funnyMode ? 0.3 : 0.1)) {
-      if (funnyMode && Math.random() < 0.6) {
-        nameParts.push(getRandom(funnyTitles));
-      } else {
-        nameParts.push(getRandom(titles));
-      }
-    }
-
-    let first = getRandom(firstNames);
-    let last = getRandom(lastNames);
-
-    if (funnyMode) {
-      if (Math.random() < 0.5) first = getRandom(funnyFirstNames);
-      if (Math.random() < 0.5) last = getRandom(funnyLastNames);
-    }
-
-    const middle = getRandom(firstNames); // Reuse first names for middle
-    const middle2 = getRandom(firstNames);
-
-    // Determine pattern
-    const patternRoll = Math.random();
-    let mainName = "";
-
-    if (patternRoll < 0.5) {
-      // First Last
-      mainName = `${first} ${last}`;
-    } else if (patternRoll < 0.7) {
-      // First Middle Last
-      mainName = `${first} ${middle} ${last}`;
-    } else if (patternRoll < 0.85) {
-      // First M. Last
-      mainName = `${first} ${middle[0]}. ${last}`;
-    } else if (patternRoll < 0.95) {
-      // First M. N. Last (Two middle initials)
-      mainName = `${first} ${middle[0]}. ${middle2[0]}. ${last}`;
-    } else {
-      // F. Middle Last (First initial, full middle)
-      mainName = `${first[0]}. ${middle} ${last}`;
-    }
-
-    nameParts.push(mainName);
-    return nameParts.join(" ");
-  }
-
-  // Public API
-  return {
-    generate: generate,
-  };
-})();
+    "Tav"
+  ]
+}
