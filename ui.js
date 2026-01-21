@@ -47,7 +47,12 @@ export class UI {
     if (this.ui.tab === "log") this.renderLogTab();
     if (this.ui.tab === "options") this.renderOptionsTab();
 
-    // Layer 3: Modal overlay (if active)
+    // Layer 3: Crime detail overlay (if active)
+    if (this.ui.crimeDetail && this.ui.crimeDetail.active) {
+      this.renderCrimeDetail();
+    }
+
+    // Layer 4: Modal overlay (if active, highest priority)
     if (this.ui.modal && this.ui.modal.active) {
       this.renderModal();
     }
@@ -233,7 +238,7 @@ export class UI {
         }
 
         if (selected) {
-          this.buffer.writeText(leftCol.x + 3, optY + 4, "[ENTER] START", Palette.SUCCESS_GREEN, branchBgColor);
+          this.buffer.writeText(leftCol.x + 3, optY + 4, "[Q] Quick | [ENTER] Details", Palette.SUCCESS_GREEN, branchBgColor);
         }
       });
 
@@ -474,78 +479,114 @@ export class UI {
   renderOptionsTab() {
     const top = 5;
     const selectedSetting = this.ui.selectedSetting ?? 0;
-    const valueCol = 22; // Column for values (moved right for spacing)
+    const valueCol = 22; // Column for values
+
+    // Check if in font submenu
+    if (this.ui.inFontSubMenu) {
+      this.renderFontSubMenu();
+      return;
+    }
 
     this.buffer.writeText(2, top - 2, "OPTIONS", Palette.SUCCESS_GREEN, Palette.BLACK);
-
-    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 10, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 11, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
     this.buffer.writeText(4, top, " DISPLAY ", Palette.NEON_CYAN, Palette.BLACK);
 
-    // 1. Font family
+    // 1. Font (Submenu)
     const fontRow = top + 2;
     const fontSelected = selectedSetting === 0;
     this.buffer.writeText(3, fontRow, fontSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, fontRow, "1. Font", fontSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
-
-    const fontNames = {
-      fira: "Fira Code (modern)",
-      "vga-9x8": "VGA 9x8 (compact)",
-      "vga-8x16": "VGA 8x16 (classic)",
-      "jetbrains-mono": "JetBrains Mono (bold)",
-    };
-
-    const fontText = fontNames[this.ui.settings.font] || this.ui.settings.font;
-    this.buffer.writeText(valueCol, fontRow, fontText, Palette.WHITE, Palette.BLACK);
+    this.buffer.writeText(4, fontRow, "1. Font...", fontSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
     if (fontSelected) {
-      this.buffer.writeText(Layout.WIDTH - 18, fontRow, "<ENTER> CYCLE", Palette.SUCCESS_GREEN, Palette.BLACK);
+      this.buffer.writeText(Layout.WIDTH - 25, fontRow, "<ENTER> CONFIGURE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 2. Font size / zoom
-    const sizeRow = top + 3;
-    const sizeSelected = selectedSetting === 1;
-    const zoom = this.ui.settings.zoom || 100;
-    this.buffer.writeText(3, sizeRow, sizeSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, sizeRow, "2. Font size", sizeSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
-    this.buffer.writeText(valueCol, sizeRow, `${zoom}%`, Palette.WHITE, Palette.BLACK);
-    if (sizeSelected) {
-      this.buffer.writeText(Layout.WIDTH - 25, sizeRow, "[LEFT/RIGHT] or <ENTER>", Palette.SUCCESS_GREEN, Palette.BLACK);
-    }
-
-    // 3. Bloom toggle
-    const bloomRow = top + 4;
-    const bloomSelected = selectedSetting === 2;
+    // 2. Bloom toggle
+    const bloomRow = top + 3;
+    const bloomSelected = selectedSetting === 1;
     const bloomOn = !!this.ui.settings.bloom;
     this.buffer.writeText(3, bloomRow, bloomSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, bloomRow, "3. Bloom filter", bloomSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(4, bloomRow, "2. Bloom filter", bloomSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
     this.buffer.writeText(valueCol, bloomRow, bloomOn ? "ENABLED" : "DISABLED", bloomOn ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
     if (bloomSelected) {
       this.buffer.writeText(Layout.WIDTH - 18, bloomRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 4. Funny names toggle
-    const funnyRow = top + 5;
-    const funnySelected = selectedSetting === 3;
+    // 3. Funny names toggle
+    const funnyRow = top + 4;
+    const funnySelected = selectedSetting === 2;
     const funnyOn = !!this.ui.settings.funnyNames;
     this.buffer.writeText(3, funnyRow, funnySelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, funnyRow, "4. Funny names", funnySelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(4, funnyRow, "3. Funny names", funnySelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
     this.buffer.writeText(valueCol, funnyRow, funnyOn ? "ENABLED" : "DISABLED", funnyOn ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
     if (funnySelected) {
       this.buffer.writeText(Layout.WIDTH - 18, funnyRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 5. Show intro toggle
-    const introRow = top + 6;
-    const introSelected = selectedSetting === 4;
+    // 4. Show intro toggle
+    const introRow = top + 5;
+    const introSelected = selectedSetting === 3;
     const introOn = !!this.ui.settings.showIntro;
     this.buffer.writeText(3, introRow, introSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, introRow, "5. Show intro", introSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(4, introRow, "4. Show intro", introSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
     this.buffer.writeText(valueCol, introRow, introOn ? "ENABLED" : "DISABLED", introOn ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
     if (introSelected) {
       this.buffer.writeText(Layout.WIDTH - 18, introRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
     // Help text
-    this.buffer.writeText(4, top + 8, "Arrows to move | 1-5 select | Enter toggles | LEFT/RIGHT resize font", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(4, top + 9, "Arrows to move | 1-4 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
+  }
+
+  renderFontSubMenu() {
+    const top = 5;
+    const selected = this.ui.fontSubMenuIndex ?? 0;
+    const valueCol = 22;
+
+    this.buffer.writeText(2, top - 2, "OPTIONS > FONT", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 11, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(4, top, " CONFIGURATION ", Palette.NEON_CYAN, Palette.BLACK);
+
+    const fontNames = {
+      fira: "Fira Mono (bold)",
+      "vga-9x8": "VGA 9x8 (compact)",
+      "vga-8x16": "VGA 8x16 (classic)",
+      "jetbrains-mono": "JetBrains Mono (bold)",
+      "ibm-bios": "IBM BIOS (retro)",
+      "scp": "Source Code Pro (bold)",
+    };
+
+    // Determine category
+    const fontId = this.ui.settings.font;
+    const isRetro = ["vga-9x8", "vga-8x16", "ibm-bios"].includes(fontId);
+    const categoryLabel = isRetro ? "RETRO" : "MODERN";
+
+    // 1. Generation
+    const catRow = top + 2;
+    const catSelected = selected === 0;
+    this.buffer.writeText(3, catRow, catSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, catRow, "1. Generation", catSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(valueCol, catRow, categoryLabel, Palette.WHITE, Palette.BLACK);
+    if (catSelected) this.buffer.writeText(Layout.WIDTH - 25, catRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
+
+    // 2. Face
+    const faceRow = top + 3;
+    const faceSelected = selected === 1;
+    const fontText = fontNames[this.ui.settings.font] || this.ui.settings.font;
+    this.buffer.writeText(3, faceRow, faceSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, faceRow, "2. Font Face", faceSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(valueCol, faceRow, fontText, Palette.WHITE, Palette.BLACK);
+    if (faceSelected) this.buffer.writeText(Layout.WIDTH - 25, faceRow, "[ARROWS] CYCLE", Palette.SUCCESS_GREEN, Palette.BLACK);
+
+    // 3. Size
+    const sizeRow = top + 4;
+    const sizeSelected = selected === 2;
+    const zoom = this.ui.settings.zoom || 100;
+    this.buffer.writeText(3, sizeRow, sizeSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, sizeRow, "3. Font size", sizeSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(valueCol, sizeRow, `${zoom}%`, Palette.WHITE, Palette.BLACK);
+    if (sizeSelected) this.buffer.writeText(Layout.WIDTH - 25, sizeRow, "[ARROWS] RESIZE", Palette.SUCCESS_GREEN, Palette.BLACK);
+
+    this.buffer.writeText(4, top + 9, "<ESC/BACKSPACE> BACK", Palette.DIM_GRAY, Palette.BLACK);
   }
 
   // Tab rendering helper - renders tab with colored hotkey letter and optional glow
@@ -676,6 +717,216 @@ export class UI {
     return Math.round(num).toLocaleString();
   }
 
+  // Render crime detail window (fullscreen overlay)
+  renderCrimeDetail() {
+    const detail = this.ui.crimeDetail;
+    if (!detail || !detail.active) return;
+
+    const activity = this.engine.data.activities.find(a => a.id === detail.activityId);
+    const option = activity?.options.find(o => o.id === detail.optionId);
+
+    if (!activity || !option) return;
+
+    const bgColor = Palette.BLACK;
+    const borderColor = Palette.NEON_CYAN;
+
+    // Start from row 3 to leave top 2 rows visible
+    const startY = 3;
+    const height = Layout.HEIGHT - startY;
+
+    // Fill overlay area with solid background (start from row 3)
+    for (let row = startY; row < Layout.HEIGHT; row++) {
+      for (let col = 0; col < Layout.WIDTH; col++) {
+        this.buffer.setCell(col, row, " ", Palette.LIGHT_GRAY, bgColor);
+      }
+    }
+
+    // Draw box with border (start from row 3)
+    this.buffer.drawBox(0, startY, Layout.WIDTH, height, BoxStyles.DOUBLE, borderColor, bgColor);
+
+    // Title and Description (compact header)
+    const title = `${activity.name.toUpperCase()} - ${option.name.toUpperCase()}`;
+    this.buffer.writeText(2, startY + 1, title.substring(0, Layout.WIDTH - 4), Palette.NEON_CYAN, bgColor);
+
+    // Description (2 lines max)
+    let y = startY + 2;
+    if (activity.description) {
+      const descLines = this.wrapText(activity.description, Layout.WIDTH - 6);
+      descLines.slice(0, 2).forEach((line, idx) => {
+        this.buffer.writeText(2, y + idx, line, Palette.MID_GRAY, bgColor);
+      });
+      y += 2;
+    }
+
+    // Gap
+    y += 1;
+
+    // Requirements section
+    this.buffer.writeText(2, y, "Requirements:", Palette.NEON_TEAL, bgColor);
+    y += 1;
+
+    // Duration
+    this.buffer.writeText(4, y, `Duration: ${this.formatMs(option.durationMs)}`, Palette.WHITE, bgColor);
+    y += 1;
+
+    // Staff requirements (show all)
+    const staffReqs = option.requirements?.staff || [];
+    if (staffReqs.length > 0) {
+      staffReqs.forEach(req => {
+        this.buffer.writeText(4, y, `Crew: ${req.count}x ${req.roleId}`, Palette.WHITE, bgColor);
+        y += 1;
+      });
+    } else {
+      this.buffer.writeText(4, y, `Crew: None`, Palette.WHITE, bgColor);
+      y += 1;
+    }
+
+    // Resource requirements
+    if (option.requirements?.resources) {
+      Object.entries(option.requirements.resources).forEach(([id, amt]) => {
+        this.buffer.writeText(4, y, `Cost: $${amt} ${id}`, Palette.WHITE, bgColor);
+        y += 1;
+      });
+    }
+
+    y += 1;
+
+    // Build selected staff from crew slots
+    const selectedStaff = [];
+    for (const slot of detail.crewSlots) {
+      const staff = slot.options[slot.selectedIndex];
+      if (staff) {
+        for (let i = 0; i < slot.count; i++) {
+          selectedStaff.push(staff);
+        }
+      }
+    }
+
+    // Define left and right columns (50/50 split)
+    const leftCol = { x: 2, width: 38 };
+    const rightCol = { x: 42, width: 36 };
+
+    // LEFT COLUMN: Outcomes
+    let leftY = y;
+    if (option.resolution?.type === 'weighted_outcomes') {
+      this.buffer.writeText(leftCol.x, leftY, "Outcomes:", Palette.SUCCESS_GREEN, bgColor);
+      leftY += 1;
+
+      // Apply modifiers based on selected crew
+      const modifiedOutcomes = this.engine.applyModifiers(option, selectedStaff);
+      const totalWeight = modifiedOutcomes.reduce((sum, o) => sum + Math.max(0, o.weight), 0);
+
+      modifiedOutcomes.slice(0, 4).forEach((outcome) => {
+        const pct = totalWeight > 0 ? Math.round((outcome.weight / totalWeight) * 100) : 0;
+        const name = outcome.id || 'Unknown';
+
+        // Color based on outcome type
+        let nameColor = Palette.NEON_TEAL;
+        let icon = ' ';
+        if (name.toLowerCase().includes('success')) {
+          nameColor = Palette.SUCCESS_GREEN;
+          icon = '✓';
+        } else if (name.toLowerCase().includes('botch')) {
+          nameColor = Palette.ELECTRIC_ORANGE;
+          icon = '!';
+        } else if (name.toLowerCase().includes('bust')) {
+          nameColor = Palette.HEAT_RED;
+          icon = '✗';
+        }
+
+        this.buffer.writeText(leftCol.x, leftY, `${icon} ${name}`, nameColor, bgColor);
+        this.buffer.writeText(leftCol.x + 16, leftY, `${pct}%`, Palette.WHITE, bgColor);
+
+        // Show outputs in detail (compact)
+        const details = [];
+        if (outcome.outputs?.resources) {
+          Object.entries(outcome.outputs.resources).forEach(([id, amt]) => {
+            details.push(`$${amt}`);
+          });
+        }
+        if (outcome.credDelta) {
+          details.push(`${outcome.credDelta > 0 ? '+' : ''}${outcome.credDelta}C`);
+        }
+        if (outcome.heatDelta) {
+          details.push(`${outcome.heatDelta > 0 ? '+' : ''}${outcome.heatDelta}H`);
+        }
+
+        if (details.length > 0) {
+          const detailText = details.join(' ').substring(0, leftCol.width - 20);
+          this.buffer.writeText(leftCol.x + 20, leftY, detailText, Palette.MID_GRAY, bgColor);
+        }
+        leftY += 1;
+      });
+    }
+
+    // RIGHT COLUMN: Crew slots
+    let rightY = y;
+    this.buffer.writeText(rightCol.x, rightY, "Crew Selection:", Palette.SUCCESS_GREEN, bgColor);
+    rightY += 1;
+
+    if (detail.crewSlots.length === 0) {
+      this.buffer.writeText(rightCol.x, rightY, "No crew required", Palette.DIM_GRAY, bgColor);
+    } else {
+      detail.crewSlots.forEach((slot, idx) => {
+        const selected = detail.selectedSlotIndex === idx;
+        const prefix = selected ? '>' : ' ';
+        const labelColor = selected ? Palette.SUCCESS_GREEN : Palette.NEON_TEAL;
+
+        // Slot label
+        const slotLabel = `${prefix} ${slot.count}x ${slot.roleId}:`;
+        this.buffer.writeText(rightCol.x, rightY, slotLabel, labelColor, bgColor);
+        rightY += 1;
+
+        // Selected crew member
+        const staff = slot.options[slot.selectedIndex];
+        if (staff) {
+          const stars = this.engine.getStars(staff);
+          const crewText = stars > 0 ? `${staff.name} (${stars}★)` : staff.name;
+          this.buffer.writeText(rightCol.x + 2, rightY, crewText.substring(0, rightCol.width - 4), Palette.WHITE, bgColor);
+        } else {
+          this.buffer.writeText(rightCol.x + 2, rightY, 'None available', Palette.HEAT_RED, bgColor);
+        }
+        rightY += 1;
+
+        // Show navigation hint for selected slot
+        if (selected && slot.options.length > 1) {
+          this.buffer.writeText(rightCol.x + 2, rightY, `[←→] ${slot.selectedIndex + 1}/${slot.options.length}`, Palette.DIM_GRAY, bgColor);
+          rightY += 1;
+        }
+      });
+    }
+
+    // Toggle controls section (near bottom)
+    const controlsY = Layout.HEIGHT - 6;
+
+    this.buffer.writeText(2, controlsY, "[I] Iterate:", Palette.NEON_CYAN, bgColor);
+    const mode = detail.repeatMode;
+    const modeText = mode === 'single' ? 'Single' : mode === 'multi' ? `Multi (${detail.repeatCount})` : 'Infinite';
+    this.buffer.writeText(15, controlsY, modeText, Palette.WHITE, bgColor);
+    if (mode === 'multi') {
+      this.buffer.writeText(15 + modeText.length + 1, controlsY, '[+/-]', Palette.DIM_GRAY, bgColor);
+    }
+
+    this.buffer.writeText(2, controlsY + 1, "[P] Policy:", Palette.NEON_CYAN, bgColor);
+    const policyText = detail.stopPolicy === 'stopOnFail' ? 'Stop on fail' : 'Retry regardless';
+    this.buffer.writeText(15, controlsY + 1, policyText, Palette.WHITE, bgColor);
+
+    // Validation check
+    const validation = this.engine.canStartRun(activity.id, option.id);
+    if (!validation.ok) {
+      this.buffer.writeText(2, Layout.HEIGHT - 4, `! ${validation.reason}`, Palette.HEAT_RED, bgColor);
+    }
+
+    // Bottom controls
+    this.buffer.drawHLine(2, Layout.HEIGHT - 3, Layout.WIDTH - 4, "─", Palette.DIM_GRAY, bgColor);
+    this.buffer.writeText(2, Layout.HEIGHT - 2, "[Q]Quick", Palette.SUCCESS_GREEN, bgColor);
+    this.buffer.writeText(14, Layout.HEIGHT - 2, "[ENTER]Start", Palette.SUCCESS_GREEN, bgColor);
+    this.buffer.writeText(30, Layout.HEIGHT - 2, "[↑↓←→]Crew", Palette.NEON_CYAN, bgColor);
+    this.buffer.writeText(46, Layout.HEIGHT - 2, "[I]Iterate", Palette.NEON_CYAN, bgColor);
+    this.buffer.writeText(60, Layout.HEIGHT - 2, "[P]Policy", Palette.NEON_CYAN, bgColor);
+    this.buffer.writeText(Layout.WIDTH - 14, Layout.HEIGHT - 2, "[ESC]Cancel", Palette.DIM_GRAY, bgColor);
+  }
+
   // Render fullscreen modal overlay
   renderModal() {
     const modal = this.ui.modal;
@@ -692,7 +943,7 @@ export class UI {
     const scrollOffset = modal.scroll || 0;
 
     // Fill entire screen with solid background first
-    this.buffer.fill(' ', Palette.LIGHT_GRAY, backgroundColor);
+    this.buffer.fill(" ", Palette.LIGHT_GRAY, backgroundColor);
 
     // Draw fullscreen box with border
     this.buffer.drawBox(0, 0, Layout.WIDTH, Layout.HEIGHT, borderStyle, borderColor, backgroundColor);
@@ -706,7 +957,7 @@ export class UI {
       let x = 2; // Left padding
 
       // Render each segment in the line
-      line.segments.forEach(segment => {
+      line.segments.forEach((segment) => {
         this.buffer.writeText(x, y, segment.text, segment.fg, segment.bg);
         x += segment.text.length;
       });
@@ -714,16 +965,7 @@ export class UI {
 
     // Draw scrollbar if content exceeds visible area
     if (parsedLines.length > contentHeight) {
-      this.renderScrollBar(
-        Layout.WIDTH - 2,
-        contentStartY,
-        contentHeight,
-        parsedLines.length,
-        scrollOffset,
-        borderColor,
-        backgroundColor,
-        contentHeight
-      );
+      this.renderScrollBar(Layout.WIDTH - 2, contentStartY, contentHeight, parsedLines.length, scrollOffset, borderColor, backgroundColor, contentHeight);
     }
   }
 }

@@ -53,7 +53,6 @@ export function parseModalContent(content, width = 76, bgColor = Palette.BLACK) 
 function processMultilineColorTags(content) {
   let result = '';
   let inTag = false;
-  let tagOpen = '';
 
   for (let i = 0; i < content.length; i++) {
     const char = content[i];
@@ -61,7 +60,6 @@ function processMultilineColorTags(content) {
     // Check for opening tag
     if (!inTag && content.substr(i, 2) === '{{' && content.substr(i, 5) !== '{{/}}') {
       inTag = true;
-      tagOpen = '{{';
       result += char;
     }
     // Check for closing tag
@@ -147,8 +145,8 @@ function parseLineSegments(line, bgColor = Palette.BLACK) {
           // Check if it's a background color tag
           else if (tag.startsWith('bg:')) {
             const colorName = tag.substring(3).toUpperCase();
-            const bgColor = Palette[colorName] || currentBg;
-            segments.push({ text, fg: currentFg, bg: bgColor });
+            const segmentBg = Palette[colorName] || currentBg;
+            segments.push({ text, fg: currentFg, bg: segmentBg });
           } else {
             // Foreground color
             const colorName = tag.toUpperCase();
@@ -249,7 +247,7 @@ function wrapSegments(segments, width) {
  */
 export async function loadModalData() {
   try {
-    const response = await fetch('data/modals.json');
+    const response = await fetch('data/modals.json', { cache: 'no-store' });
     MODAL_DATA = await response.json();
     return MODAL_DATA;
   } catch (error) {

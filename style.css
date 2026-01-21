@@ -1,4 +1,10 @@
 @font-face {
+  font-family: "IBM_BIOS";
+  src: url("fonts/Ac437_IBM_BIOS.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
   font-family: "VGA_9x8";
   src: url("fonts/Ac437_IBM_VGA_9x8.ttf") format("truetype");
   font-display: swap;
@@ -18,7 +24,7 @@
 
 body {
   margin: 0;
-  background: #050b14;
+  background: #000000;
   color: #cfcfcf;
   display: flex;
   align-items: center;
@@ -33,7 +39,7 @@ body {
   letter-spacing: 0;
   background: #03070f;
   padding: 12px;
-  border: 1px solid #0b1a2d;
+  border: 1px solid #000000;
   box-shadow: 0 0 24px rgba(0, 0, 0, 0.7);
   user-select: none;
   font-variant-ligatures: none;
@@ -56,6 +62,10 @@ body {
   display: none;
 }
 
+.font-ibm-bios {
+  font-family: "IBM_BIOS", "Courier New", monospace;
+}
+
 .font-vga-9x8 {
   font-family: "VGA_9x8", "Courier New", monospace;
 }
@@ -66,16 +76,21 @@ body {
 
 .font-scp {
   font-family: "Source Code Pro", "Consolas", monospace;
-  font-weight: 500;
+  font-weight: 700;
   font-variant-ligatures: none;
   font-feature-settings: normal;
   letter-spacing: 0;
+  line-height: 1.1;
+}
+
+#game.font-scp {
+  line-height: 1.1;
 }
 
 .font-fira {
   /* Force strict monospace fallback chain and disable ligatures for alignment */
-  font-family: "Fira Code", "Fira Mono", "DejaVu Sans Mono", "Consolas", monospace;
-  font-weight: 500;
+  font-family: "Fira Mono", "Fira Code", "DejaVu Sans Mono", "Consolas", monospace;
+  font-weight: 700;
   font-variant-ligatures: none;
   font-feature-settings: "liga" 0, "calt" 0, "clig" 0;
   letter-spacing: 0;

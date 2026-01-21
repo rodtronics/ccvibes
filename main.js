@@ -15,13 +15,26 @@ const engine = new Engine();
 const BLOOM_OVERLAY_ID = 'bloom-overlay';
 
 // Settings constants (must be defined before loadSettings)
-const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono'];
+const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono', 'ibm-bios', 'scp'];
+const FONT_CATEGORIES = {
+  modern: ['fira', 'jetbrains-mono', 'scp'],
+  retro: ['vga-9x8', 'vga-8x16', 'ibm-bios']
+};
+
 const FONT_NAMES = {
-  'fira': 'Fira Code (modern)',
+  'fira': 'Fira Mono (bold)',
   'vga-9x8': 'VGA 9x8 (compact)',
   'vga-8x16': 'VGA 8x16 (classic)',
-  'jetbrains-mono': 'JetBrains Mono (bold)'
+  'jetbrains-mono': 'JetBrains Mono (bold)',
+  'ibm-bios': 'IBM BIOS (retro)',
+  'scp': 'Source Code Pro (bold)'
 };
+
+function getFontCategory(fontId) {
+  if (FONT_CATEGORIES.modern.includes(fontId)) return 'modern';
+  return 'retro';
+}
+
 const MIN_ZOOM = 100; // %
 const MAX_ZOOM = 300; // %
 const ZOOM_STEP = 50; // %
@@ -29,7 +42,7 @@ const ZOOM_STEP = 50; // %
 // UI state (navigation, selections, options)
 const ui = {
   tab: 'jobs', // jobs, active, crew, resources, stats, options
-  focus: 'activity', // activity | option
+  focus: 'activity', // activity | option | runs | crimeDetail
   branchIndex: 0,
   activityIndex: 0,
   optionIndex: 0,
@@ -47,6 +60,16 @@ const ui = {
     backgroundColor: null,
     scroll: 0,
   },
+  crimeDetail: {
+    active: false,
+    activityId: null,
+    optionId: null,
+    repeatMode: 'single', // 'single' | 'multi' | 'infinite'
+    repeatCount: 2,
+    stopPolicy: 'stopOnFail', // 'stopOnFail' | 'retryRegardless'
+    selectedSlotIndex: 0, // Which crew slot is selected (for multi-crew crimes)
+    crewSlots: [], // Array of { options: [], selectedIndex: 0 } for each slot
+  },
 };
 
 // Create UI layer
@@ -61,6 +84,10 @@ window.addEventListener('beforeunload', saveSettings);
 
 // Main entry point
 async function main() {
+  // Hide the game container until fully initialized
+  const container = document.getElementById('game');
+  if (container) container.style.visibility = 'hidden';
+
   await engine.init();
   await loadModalData(); // Load modal definitions from JSON
   applyFont();
@@ -75,6 +102,9 @@ async function main() {
       showModal(nextId);
     }
   }
+
+  // Reveal the game now that everything is ready
+  if (container) container.style.visibility = 'visible';
 
   // Game loop: tick engine and render at 5fps (200ms)
   setInterval(() => {
@@ -147,14 +177,34 @@ function applyFont() {
   applyBloom();
 }
 
-function cycleFontSetting() {
-  const currentIndex = FONTS.indexOf(ui.settings.font);
-  const nextIndex = (currentIndex + 1) % FONTS.length;
-  ui.settings.font = FONTS[nextIndex];
-  console.log(`Font changed to: ${ui.settings.font}`);
+function cycleFontSetting(direction = 1) {
+  const currentFont = ui.settings.font;
+  const category = getFontCategory(currentFont);
+  const fonts = FONT_CATEGORIES[category];
+  
+  const currentIndex = fonts.indexOf(currentFont);
+  // Calculate next index with wrap-around
+  let nextIndex = (currentIndex + direction) % fonts.length;
+  if (nextIndex < 0) nextIndex = fonts.length - 1;
+  
+  ui.settings.font = fonts[nextIndex];
+  console.log(`Font cycled to: ${ui.settings.font} (Category: ${category})`);
   applyFont();
   saveSettings();
 }
+
+function switchFontCategory() {
+  const currentFont = ui.settings.font;
+  const currentCategory = getFontCategory(currentFont);
+  const nextCategory = currentCategory === 'modern' ? 'retro' : 'modern';
+  
+  // Pick the first font of the new category
+  ui.settings.font = FONT_CATEGORIES[nextCategory][0];
+  console.log(`Font category switched to: ${nextCategory}, Font: ${ui.settings.font}`);
+  applyFont();
+  saveSettings();
+}
+
 
 // Input handling by tab
 function handleInput(e) {
@@ -169,14 +219,33 @@ function handleInput(e) {
     ui.tab = 'jobs';
     ui.focus = 'activity';  // Reset to branch/activity list
     ui.optionIndex = 0;
+    closeCrimeDetail(); // Close crime detail if open
     // ui.branchIndex already persists, so last branch is remembered
   }
-  if (e.key === 'a' || e.key === 'A') ui.tab = 'active';
-  if (e.key === 'c' || e.key === 'C') ui.tab = 'crew';
-  if (e.key === 'r' || e.key === 'R') ui.tab = 'resources';
-  if (e.key === 's' || e.key === 'S') ui.tab = 'stats';
-  if (e.key === 'l' || e.key === 'L') ui.tab = 'log';
-  if (e.key === 'o' || e.key === 'O') ui.tab = 'options';
+  if (e.key === 'a' || e.key === 'A') {
+    ui.tab = 'active';
+    closeCrimeDetail();
+  }
+  if (e.key === 'c' || e.key === 'C') {
+    ui.tab = 'crew';
+    closeCrimeDetail();
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    ui.tab = 'resources';
+    closeCrimeDetail();
+  }
+  if (e.key === 's' || e.key === 'S') {
+    ui.tab = 'stats';
+    closeCrimeDetail();
+  }
+  if (e.key === 'l' || e.key === 'L') {
+    ui.tab = 'log';
+    closeCrimeDetail();
+  }
+  if (e.key === 'o' || e.key === 'O') {
+    ui.tab = 'options';
+    closeCrimeDetail();
+  }
 
   // Tab-specific input
   if (ui.tab === 'jobs') handleJobsInput(e);
@@ -191,6 +260,12 @@ function handleInput(e) {
 }
 
 function handleJobsInput(e) {
+  // Crime detail window takes priority
+  if (ui.crimeDetail.active) {
+    handleCrimeDetailInput(e);
+    return;
+  }
+
   const branches = uiLayer.getVisibleBranches();
   const branch = branches[ui.branchIndex] || branches[0];
   const activities = uiLayer.getVisibleActivities(branch?.id);
@@ -228,8 +303,8 @@ function handleJobsInput(e) {
     }
   }
 
-  // Backspace to go back
-  if (e.key === 'Backspace') {
+  // Backspace/Escape to go back
+  if (e.key === 'Backspace' || e.key === 'Escape') {
     if (ui.focus === 'option') {
       ui.focus = 'activity';
       ui.optionIndex = 0;
@@ -247,7 +322,19 @@ function handleJobsInput(e) {
   } else if (ui.focus === 'option') {
     if (e.key === 'ArrowUp') ui.optionIndex = Math.max(0, ui.optionIndex - 1);
     if (e.key === 'ArrowDown') ui.optionIndex = Math.min(Math.max(0, options.length - 1), ui.optionIndex + 1);
-    if (e.key === 'Enter') startSelectedRun(activity, options[ui.optionIndex]);
+
+    // ENTER opens crime detail window
+    if (e.key === 'Enter') {
+      const selectedOption = options[ui.optionIndex];
+      if (selectedOption) {
+        openCrimeDetail(activity, selectedOption);
+      }
+    }
+
+    // Q for quick start (skip detail window)
+    if (key === 'q') {
+      startSelectedRun(activity, options[ui.optionIndex]);
+    }
 
     // RIGHT arrow switches to runs column
     if (e.key === 'ArrowRight') {
@@ -313,6 +400,194 @@ function handleJobsInput(e) {
         engine.stopRepeat(run.runId);
       }
     }
+  }
+}
+
+// Open crime detail window
+function openCrimeDetail(activity, option) {
+  ui.crimeDetail.active = true;
+  ui.crimeDetail.activityId = activity.id;
+  ui.crimeDetail.optionId = option.id;
+  // Reset to defaults
+  ui.crimeDetail.repeatMode = 'single';
+  ui.crimeDetail.repeatCount = 2;
+  ui.crimeDetail.stopPolicy = 'stopOnFail';
+  ui.crimeDetail.selectedSlotIndex = 0;
+
+  // Build crew slots based on requirements
+  const staffReqs = option.requirements?.staff || [];
+  ui.crimeDetail.crewSlots = staffReqs.map(req => {
+    // Get all available crew matching this role
+    const available = engine.state.crew.staff.filter(
+      s => s.roleId === req.roleId && s.status === 'available'
+    );
+
+    return {
+      roleId: req.roleId,
+      count: req.count,
+      options: available,
+      selectedIndex: 0
+    };
+  });
+}
+
+// Close crime detail window
+function closeCrimeDetail() {
+  ui.crimeDetail.active = false;
+  ui.crimeDetail.activityId = null;
+  ui.crimeDetail.optionId = null;
+}
+
+// Handle input for crime detail window
+function handleCrimeDetailInput(e) {
+  const key = (e.key || '').toLowerCase();
+  const activity = engine.data.activities.find(a => a.id === ui.crimeDetail.activityId);
+  const option = activity?.options.find(o => o.id === ui.crimeDetail.optionId);
+
+  if (!activity || !option) {
+    closeCrimeDetail();
+    return;
+  }
+
+  // ESC/Backspace to close without starting
+  if (e.key === 'Escape' || e.key === 'Backspace') {
+    closeCrimeDetail();
+    return;
+  }
+
+  // Q for quick start (single run with default policy)
+  if (key === 'q') {
+    startRunFromDetail(activity, option, 'single');
+    closeCrimeDetail();
+    return;
+  }
+
+  // I key cycles through iterate modes (only if repeatable)
+  if (key === 'i') {
+    if (option.repeatable) {
+      const modes = ['single', 'multi', 'infinite'];
+      const currentIndex = modes.indexOf(ui.crimeDetail.repeatMode);
+      ui.crimeDetail.repeatMode = modes[(currentIndex + 1) % modes.length];
+    } else {
+      ui.crimeDetail.repeatMode = 'single';
+    }
+  }
+
+  // P key toggles policy
+  if (key === 'p') {
+    ui.crimeDetail.stopPolicy = ui.crimeDetail.stopPolicy === 'stopOnFail'
+      ? 'retryRegardless'
+      : 'stopOnFail';
+  }
+
+  // +/- adjust repeat count (only for multi mode)
+  if (ui.crimeDetail.repeatMode === 'multi') {
+    if (e.key === '+' || e.key === '=') {
+      ui.crimeDetail.repeatCount = Math.min(999, ui.crimeDetail.repeatCount + 1);
+    }
+    if (e.key === '-' || e.key === '_') {
+      ui.crimeDetail.repeatCount = Math.max(1, ui.crimeDetail.repeatCount - 1);
+    }
+  }
+
+  // UP/DOWN navigate crew slots
+  const slots = ui.crimeDetail.crewSlots;
+  if (e.key === 'ArrowUp' && slots.length > 0) {
+    ui.crimeDetail.selectedSlotIndex = Math.max(0, ui.crimeDetail.selectedSlotIndex - 1);
+  }
+  if (e.key === 'ArrowDown' && slots.length > 0) {
+    ui.crimeDetail.selectedSlotIndex = Math.min(slots.length - 1, ui.crimeDetail.selectedSlotIndex + 1);
+  }
+
+  // LEFT/RIGHT cycle through crew options for selected slot
+  if (slots.length > 0) {
+    const currentSlot = slots[ui.crimeDetail.selectedSlotIndex];
+    if (currentSlot && currentSlot.options.length > 0) {
+      if (e.key === 'ArrowLeft') {
+        currentSlot.selectedIndex = Math.max(0, currentSlot.selectedIndex - 1);
+      }
+      if (e.key === 'ArrowRight') {
+        currentSlot.selectedIndex = Math.min(currentSlot.options.length - 1, currentSlot.selectedIndex + 1);
+      }
+    }
+  }
+
+  // ENTER to start with configured settings
+  if (e.key === 'Enter') {
+    startRunFromDetail(activity, option, ui.crimeDetail.repeatMode);
+    closeCrimeDetail();
+  }
+}
+
+// Get all available crew choices that meet requirements (simplified)
+function getAvailableCrewChoices(requirements) {
+  const staffReqs = requirements?.staff || [];
+  if (staffReqs.length === 0) return [];
+
+  // For now, just get all available crew that match the role requirement
+  // and create simple combinations (first N available crew)
+
+  const choices = [];
+
+  // Get all matching crew for the requirement
+  if (staffReqs.length === 1) {
+    const req = staffReqs[0];
+    const available = engine.state.crew.staff.filter(
+      s => s.roleId === req.roleId && s.status === 'available'
+    );
+
+    // Create choices by picking different crew members
+    for (let i = 0; i + req.count - 1 < available.length; i++) {
+      const staffIds = available.slice(i, i + req.count).map(s => s.id);
+      choices.push({ staffIds, staff: available.slice(i, i + req.count) });
+    }
+  } else {
+    // Multiple requirements - just use auto-assign for now
+    const autoIds = engine.autoAssign(requirements);
+    if (autoIds.length > 0) {
+      choices.push({
+        staffIds: autoIds,
+        staff: autoIds.map(id => engine.state.crew.staff.find(s => s.id === id)).filter(Boolean)
+      });
+    }
+  }
+
+  return choices;
+}
+
+// Start run using crime detail settings
+function startRunFromDetail(activity, option, repeatMode) {
+  const mode = repeatMode || ui.crimeDetail.repeatMode;
+  let runsLeft = 0;
+
+  if (option.repeatable) {
+    if (mode === 'infinite') {
+      runsLeft = -1;
+    } else if (mode === 'multi') {
+      runsLeft = ui.crimeDetail.repeatCount - 1;
+    }
+  }
+
+  // Build staff IDs from selected crew in slots
+  let staffIds = null;
+  if (ui.crimeDetail.crewSlots.length > 0) {
+    staffIds = [];
+    for (const slot of ui.crimeDetail.crewSlots) {
+      const selectedStaff = slot.options[slot.selectedIndex];
+      if (selectedStaff) {
+        // Add this staff member 'count' times for the requirement
+        for (let i = 0; i < slot.count; i++) {
+          staffIds.push(selectedStaff.id);
+        }
+      }
+    }
+    // If we couldn't build a valid selection, fall back to auto-assign
+    if (staffIds.length === 0) staffIds = null;
+  }
+
+  const result = engine.startRun(activity.id, option.id, staffIds, runsLeft);
+  if (!result.ok) {
+    engine.log(`Start failed: ${result.reason}`, 'error');
   }
 }
 
@@ -422,24 +697,83 @@ function handleCrewInput(e) {
 }
 
 function handleOptionsInput(e) {
+  // Check if we are in the font submenu
+  if (ui.inFontSubMenu) {
+    handleFontSubMenuInput(e);
+    return;
+  }
+
   // Initialize selectedSetting if not set
   if (ui.selectedSetting === undefined) ui.selectedSetting = 0;
 
-  // Arrow navigation for settings list (5 options: 0-4)
+  // Arrow navigation for settings list (4 options: 0-3)
   if (e.key === 'ArrowUp') {
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.selectedSetting = Math.min(4, ui.selectedSetting + 1);
+    ui.selectedSetting = Math.min(3, ui.selectedSetting + 1);
   }
 
-  // Number key selection (1-5)
-  if (e.key >= '1' && e.key <= '5') {
+  // Number key selection (1-4)
+  if (e.key >= '1' && e.key <= '4') {
     ui.selectedSetting = parseInt(e.key) - 1;
   }
 
-  // Left/right to change font size when selected
-  if (ui.selectedSetting === 1) {
+  // Enter/space to toggle or cycle
+  // Options: 0=Font..., 1=Bloom, 2=Funny names, 3=Show intro
+  if (e.key === 'Enter' || e.key === ' ') {
+    if (ui.selectedSetting === 0) {
+      ui.inFontSubMenu = true;
+      ui.fontSubMenuIndex = 0;
+    } else if (ui.selectedSetting === 1) {
+      ui.settings.bloom = !ui.settings.bloom;
+      applyBloom();
+      saveSettings();
+    } else if (ui.selectedSetting === 2) {
+      ui.settings.funnyNames = !ui.settings.funnyNames;
+      saveSettings();
+    } else if (ui.selectedSetting === 3) {
+      ui.settings.showIntro = !ui.settings.showIntro;
+      saveSettings();
+    }
+  }
+}
+
+function handleFontSubMenuInput(e) {
+  if (ui.fontSubMenuIndex === undefined) ui.fontSubMenuIndex = 0;
+
+  // Exit submenu
+  if (e.key === 'Escape' || e.key === 'Backspace') {
+    ui.inFontSubMenu = false;
+    return;
+  }
+
+  // Navigation (0-2)
+  if (e.key === 'ArrowUp') {
+    ui.fontSubMenuIndex = Math.max(0, ui.fontSubMenuIndex - 1);
+  }
+  if (e.key === 'ArrowDown') {
+    ui.fontSubMenuIndex = Math.min(2, ui.fontSubMenuIndex + 1);
+  }
+
+  // 0: Generation (Toggle)
+  if (ui.fontSubMenuIndex === 0) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
+      switchFontCategory();
+    }
+  }
+  
+  // 1: Face (Cycle)
+  if (ui.fontSubMenuIndex === 1) {
+    if (e.key === 'ArrowLeft') {
+      cycleFontSetting(-1);
+    } else if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
+      cycleFontSetting(1);
+    }
+  }
+
+  // 2: Size (Resize)
+  if (ui.fontSubMenuIndex === 2) {
     if (e.key === 'ArrowLeft') {
       ui.settings.zoom = clamp((ui.settings.zoom || MIN_ZOOM) - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM);
       applyFont();
@@ -448,30 +782,6 @@ function handleOptionsInput(e) {
     if (e.key === 'ArrowRight') {
       ui.settings.zoom = clamp((ui.settings.zoom || MIN_ZOOM) + ZOOM_STEP, MIN_ZOOM, MAX_ZOOM);
       applyFont();
-      saveSettings();
-    }
-  }
-
-  // Enter/space to toggle or cycle
-  // Options: 0=Font, 1=Font size, 2=Bloom, 3=Funny names, 4=Show intro
-  if (e.key === 'Enter' || e.key === ' ') {
-    if (ui.selectedSetting === 0) {
-      cycleFontSetting();
-    } else if (ui.selectedSetting === 1) {
-      // Step up (wrap to min after max)
-      const nextZoom = (ui.settings.zoom || MIN_ZOOM) + ZOOM_STEP;
-      ui.settings.zoom = nextZoom > MAX_ZOOM ? MIN_ZOOM : clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
-      applyFont();
-      saveSettings();
-    } else if (ui.selectedSetting === 2) {
-      ui.settings.bloom = !ui.settings.bloom;
-      applyBloom();
-      saveSettings();
-    } else if (ui.selectedSetting === 3) {
-      ui.settings.funnyNames = !ui.settings.funnyNames;
-      saveSettings();
-    } else if (ui.selectedSetting === 4) {
-      ui.settings.showIntro = !ui.settings.showIntro;
       saveSettings();
     }
   }

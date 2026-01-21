@@ -3,7 +3,12 @@
 // Based on 02_ui_spec.md color palette section
 
 export const Palette = {
-  // Background colors
+  //intro colours
+  INTRO_A: "#fdd475",
+  INTRO_B: "#ff5e9f",
+  LOGO: "#ff89a5",
+
+  //   // Background colors
   BLACK: "#000000",
   DARK_BLUE: "#0a1628",
   DARKER_BLUE: "#1a2332",
@@ -43,6 +48,7 @@ export const Palette = {
   LIGHT_GRAY: "#cccccc",
   MID_GRAY: "#888888",
   DIM_GRAY: "#555555",
+  DARK_GRAY: "#1a1a1a",
 
   // Branch background colors (subtle tints)
   DARK_GREEN: "#002200", // Street branch background
