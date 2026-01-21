@@ -1,7 +1,5 @@
 THIS TO DO LIST relates the index.html, related files, and the founding documents starting with 00_agent_readme.md
 
-when in the jobs screen, left and right should go left and right through the various branches.
-
 menu for resources/stats. perhaps this could be tabbed? resources is exactly that, a list of all the resources you have. stats will just tell you about what's going on.
 
 the active crimes are numbered which is good, but when a crime restarts automatically it should keep its position number
@@ -18,8 +16,6 @@ some kind of way of bringing showing information about a job. maybe pressing k f
 
 a RPG system to an extent. I want to be able to manage crew more, crew can earn stars and when they get a new star they are eligible for a new skill and those skills will do things like speed up the crime, or give better outcomes, or lower heat, etc. I like the idea of the skill tree where you can choose this skill OR that one, and so any one player can't be everything amazing.
 
-small quality of life - when the game first loads, it seems the main screen is displayed, the font size change is made, then the intro modal, all in that order. its quick, but you still see if happen.
-
 future ideas: - menu items to stop all jobs or something
 future ideas: on the crew menu, if you select a crew member who is doing a job, it'll take you to that job
 future ideas: can sort crew
@@ -29,6 +25,4 @@ bold idea - a rolling graph implement in text to show some statistics
 
 idea : the number of players on the crew increases heat just be virtue of existing, encouraging perhaps a smaller group of more skilled crew members. when heat reaches an internal threshold (which the player doesnt know, it'll just be a gradient), someone randomly goes to jail and heat comes down a bit
 
-right justify log and options on the menu bar
-
-default font Zoom is 150%
+add a "once off" modal to explain some very basics to the player before they get started.

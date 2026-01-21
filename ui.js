@@ -91,23 +91,39 @@ export class UI {
   }
 
   renderTabBar() {
-    const tabs = [
+    const leftTabs = [
       { id: "jobs", label: "JOBS", hotkey: "j" },
       { id: "active", label: "ACTIVE", hotkey: "a" },
       { id: "crew", label: "CREW", hotkey: "c" },
       { id: "resources", label: "RESOURCES", hotkey: "r" },
       { id: "stats", label: "STATS", hotkey: "s" },
+    ];
+
+    const rightTabs = [
       { id: "log", label: "LOG", hotkey: "l" },
       { id: "options", label: "OPTIONS", hotkey: "o" },
     ];
 
-    let x = 2;
     const y = 1;
 
-    tabs.forEach((tab) => {
+    // Render left-aligned tabs
+    let x = 2;
+    leftTabs.forEach((tab) => {
       const active = tab.id === this.ui.tab;
       const width = this.renderTab(x, y, tab.label, tab.hotkey, active, Palette.NEON_CYAN, Palette.BLACK, Palette.DIM_GRAY);
       x += width + 3; // Add spacing between tabs
+    });
+
+    // Render right-aligned tabs (calculate position from right edge)
+    const rightTabsReversed = [...rightTabs].reverse();
+    x = Layout.WIDTH - 2;
+    rightTabsReversed.forEach((tab) => {
+      const active = tab.id === this.ui.tab;
+      // Calculate tab width first
+      const tabWidth = tab.label.length + 3; // [X] format
+      x -= tabWidth;
+      this.renderTab(x, y, tab.label, tab.hotkey, active, Palette.NEON_CYAN, Palette.BLACK, Palette.DIM_GRAY);
+      x -= 3; // Add spacing
     });
 
     // No navigation hint text (keep the bar clean)
@@ -533,8 +549,17 @@ export class UI {
       this.buffer.writeText(Layout.WIDTH - 18, introRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
+    // 5. About
+    const aboutRow = top + 6;
+    const aboutSelected = selectedSetting === 4;
+    this.buffer.writeText(3, aboutRow, aboutSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, aboutRow, "5. About", aboutSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    if (aboutSelected) {
+      this.buffer.writeText(Layout.WIDTH - 20, aboutRow, "<ENTER> VIEW INFO", Palette.SUCCESS_GREEN, Palette.BLACK);
+    }
+
     // Help text
-    this.buffer.writeText(4, top + 9, "Arrows to move | 1-4 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(4, top + 9, "Arrows to move | 1-5 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
   }
 
   renderFontSubMenu() {
@@ -899,17 +924,20 @@ export class UI {
     // Toggle controls section (near bottom)
     const controlsY = Layout.HEIGHT - 6;
 
-    this.buffer.writeText(2, controlsY, "[I] Iterate:", Palette.NEON_CYAN, bgColor);
-    const mode = detail.repeatMode;
-    const modeText = mode === 'single' ? 'Single' : mode === 'multi' ? `Multi (${detail.repeatCount})` : 'Infinite';
-    this.buffer.writeText(15, controlsY, modeText, Palette.WHITE, bgColor);
-    if (mode === 'multi') {
-      this.buffer.writeText(15 + modeText.length + 1, controlsY, '[+/-]', Palette.DIM_GRAY, bgColor);
-    }
+    // Only show iteration controls if the option is repeatable
+    if (option.repeatable) {
+      this.buffer.writeText(2, controlsY, "[I] Iterate:", Palette.NEON_CYAN, bgColor);
+      const mode = detail.repeatMode;
+      const modeText = mode === 'single' ? 'Single' : mode === 'multi' ? `Multi (${detail.repeatCount})` : 'Infinite';
+      this.buffer.writeText(15, controlsY, modeText, Palette.WHITE, bgColor);
+      if (mode === 'multi') {
+        this.buffer.writeText(15 + modeText.length + 1, controlsY, '[+/-]', Palette.DIM_GRAY, bgColor);
+      }
 
-    this.buffer.writeText(2, controlsY + 1, "[P] Policy:", Palette.NEON_CYAN, bgColor);
-    const policyText = detail.stopPolicy === 'stopOnFail' ? 'Stop on fail' : 'Retry regardless';
-    this.buffer.writeText(15, controlsY + 1, policyText, Palette.WHITE, bgColor);
+      this.buffer.writeText(2, controlsY + 1, "[P] Policy:", Palette.NEON_CYAN, bgColor);
+      const policyText = detail.stopPolicy === 'stopOnFail' ? 'Stop on fail' : 'Retry regardless';
+      this.buffer.writeText(15, controlsY + 1, policyText, Palette.WHITE, bgColor);
+    }
 
     // Validation check
     const validation = this.engine.canStartRun(activity.id, option.id);
@@ -922,8 +950,13 @@ export class UI {
     this.buffer.writeText(2, Layout.HEIGHT - 2, "[Q]Quick", Palette.SUCCESS_GREEN, bgColor);
     this.buffer.writeText(14, Layout.HEIGHT - 2, "[ENTER]Start", Palette.SUCCESS_GREEN, bgColor);
     this.buffer.writeText(30, Layout.HEIGHT - 2, "[↑↓←→]Crew", Palette.NEON_CYAN, bgColor);
-    this.buffer.writeText(46, Layout.HEIGHT - 2, "[I]Iterate", Palette.NEON_CYAN, bgColor);
-    this.buffer.writeText(60, Layout.HEIGHT - 2, "[P]Policy", Palette.NEON_CYAN, bgColor);
+
+    // Only show iteration/policy hints if repeatable
+    if (option.repeatable) {
+      this.buffer.writeText(46, Layout.HEIGHT - 2, "[I]Iterate", Palette.NEON_CYAN, bgColor);
+      this.buffer.writeText(60, Layout.HEIGHT - 2, "[P]Policy", Palette.NEON_CYAN, bgColor);
+    }
+
     this.buffer.writeText(Layout.WIDTH - 14, Layout.HEIGHT - 2, "[ESC]Cancel", Palette.DIM_GRAY, bgColor);
   }
 

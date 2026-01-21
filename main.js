@@ -13,6 +13,12 @@ const buffer = new FrameBuffer(Layout.WIDTH, Layout.HEIGHT);
 const renderer = new DOMRenderer(buffer, 'game');
 const engine = new Engine();
 const BLOOM_OVERLAY_ID = 'bloom-overlay';
+const bloomLayer = document.getElementById(BLOOM_OVERLAY_ID);
+const bloomRenderer = bloomLayer ? new DOMRenderer(buffer, BLOOM_OVERLAY_ID) : null;
+
+if (bloomLayer) {
+  bloomLayer.style.backgroundColor = 'transparent';
+}
 
 // Settings constants (must be defined before loadSettings)
 const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono', 'ibm-bios', 'scp'];
@@ -122,7 +128,7 @@ function loadSettings() {
     bloom: false,
     funnyNames: false,
     allCaps: true,       // Always on (removed from options)
-    zoom: 100, // Font size zoom percentage (100, 150, 200, 250, etc.)
+    zoom: 150, // Font size zoom percentage (100, 150, 200, 250, etc.)
     showIntro: true,     // Show intro modal on launch
   };
 
@@ -160,18 +166,21 @@ function saveSettings() {
 function applyFont() {
   const container = document.getElementById('game');
   if (!container) return;
+  const overlay = document.getElementById(BLOOM_OVERLAY_ID);
+  const targets = overlay ? [container, overlay] : [container];
 
   // Remove all font classes
-  FONTS.forEach(font => container.classList.remove(`font-${font}`));
-  // Add current font class
   const nextFont = FONTS.includes(ui.settings.font) ? ui.settings.font : 'fira';
   ui.settings.font = nextFont;
-  container.classList.add(`font-${nextFont}`);
 
   // Scale the font size via CSS
   const zoom = clamp(ui.settings.zoom || MIN_ZOOM, MIN_ZOOM, MAX_ZOOM);
   ui.settings.zoom = zoom;
-  container.style.fontSize = `${zoom}%`;
+  targets.forEach((target) => {
+    FONTS.forEach(font => target.classList.remove(`font-${font}`));
+    target.classList.add(`font-${nextFont}`);
+    target.style.fontSize = `${zoom}%`;
+  });
 
   // Bloom-style overlay (separate element)
   applyBloom();
@@ -315,6 +324,19 @@ function handleJobsInput(e) {
   if (ui.focus === 'activity') {
     if (e.key === 'ArrowUp') ui.activityIndex = Math.max(0, ui.activityIndex - 1);
     if (e.key === 'ArrowDown') ui.activityIndex = Math.min(Math.max(0, activities.length - 1), ui.activityIndex + 1);
+
+    // Left/right to switch branches
+    if (e.key === 'ArrowLeft') {
+      ui.branchIndex = Math.max(0, ui.branchIndex - 1);
+      ui.activityIndex = 0;
+      ui.optionIndex = 0;
+    }
+    if (e.key === 'ArrowRight') {
+      ui.branchIndex = Math.min(branches.length - 1, ui.branchIndex + 1);
+      ui.activityIndex = 0;
+      ui.optionIndex = 0;
+    }
+
     if (e.key === 'Enter' && activity) {
       ui.focus = 'option';
       ui.optionIndex = 0;
@@ -706,21 +728,21 @@ function handleOptionsInput(e) {
   // Initialize selectedSetting if not set
   if (ui.selectedSetting === undefined) ui.selectedSetting = 0;
 
-  // Arrow navigation for settings list (4 options: 0-3)
+  // Arrow navigation for settings list (5 options: 0-4)
   if (e.key === 'ArrowUp') {
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.selectedSetting = Math.min(3, ui.selectedSetting + 1);
+    ui.selectedSetting = Math.min(4, ui.selectedSetting + 1);
   }
 
-  // Number key selection (1-4)
-  if (e.key >= '1' && e.key <= '4') {
+  // Number key selection (1-5)
+  if (e.key >= '1' && e.key <= '5') {
     ui.selectedSetting = parseInt(e.key) - 1;
   }
 
   // Enter/space to toggle or cycle
-  // Options: 0=Font..., 1=Bloom, 2=Funny names, 3=Show intro
+  // Options: 0=Font..., 1=Bloom, 2=Funny names, 3=Show intro, 4=About
   if (e.key === 'Enter' || e.key === ' ') {
     if (ui.selectedSetting === 0) {
       ui.inFontSubMenu = true;
@@ -735,6 +757,8 @@ function handleOptionsInput(e) {
     } else if (ui.selectedSetting === 3) {
       ui.settings.showIntro = !ui.settings.showIntro;
       saveSettings();
+    } else if (ui.selectedSetting === 4) {
+      showModal('about');
     }
   }
 }
@@ -788,20 +812,9 @@ function handleFontSubMenuInput(e) {
 }
 
 function applyBloom() {
-  const existing = document.getElementById(BLOOM_OVERLAY_ID);
-  if (!ui.settings.bloom) {
-    if (existing) existing.style.display = 'none';
-    return;
-  }
-
-  const overlay = existing || (() => {
-    const el = document.createElement('div');
-    el.id = BLOOM_OVERLAY_ID;
-    document.body.appendChild(el);
-    return el;
-  })();
-
-  overlay.style.display = 'block';
+  const overlay = document.getElementById(BLOOM_OVERLAY_ID);
+  if (!overlay) return;
+  overlay.style.display = ui.settings.bloom ? 'block' : 'none';
 }
 
 // Modal input handler
@@ -908,6 +921,9 @@ function render() {
 
   // Renderer flushes buffer to DOM
   renderer.render();
+  if (ui.settings.bloom && bloomRenderer) {
+    bloomRenderer.render();
+  }
 }
 
 function syncSelection() {

@@ -46,6 +46,11 @@
       "type": "unlock",
       "showOnce": false,
       "content": "**NEW BRANCH: COMMERCE**\n\nYou've gained enough reputation to access the {{neon_cyan}}Commerce{{/}} branch.\n\nThese operations focus on {{neon_cyan}}theft and burglary{{/}} - riskier than street crimes, but the payouts are worth it.\n\nBreaking into stores and warehouses requires more planning. Some jobs may need specialized crew or tools.\n\nTime to expand your criminal portfolio."
+    },
+    "about": {
+      "type": "default",
+      "showOnce": false,
+      "content": "**CRIME COMMITTER VI**\n\n{{neon_cyan}}A terminal-based crime management simulator{{/}}\n\nBuild your criminal empire from the ground up. Start with street-level hustles and work your way into more lucrative operations.\n\n**FEATURES:**\n• Multiple crime branches with unique opportunities\n• Crew management and progression system\n• Risk vs. reward decision making\n• Heat and reputation mechanics\n• Retro terminal aesthetic\n\n**CONTROLS:**\nUse keyboard shortcuts to navigate (shown in brackets).\nArrow keys for navigation, ENTER to select.\nPress {{success_green}}[O]{{/}} to access Options and customize your experience.\n\n{{logo}}©2026 WFPRODUCTIONSNZ{{/}}\nVersion 0.1 Alpha"
     }
   }
 }
