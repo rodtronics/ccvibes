@@ -451,24 +451,35 @@ export class UI {
       // Selection indicator
       const prefix = isSelected ? ">" : " ";
 
-      // Calculate stars (5-star system)
+      // Calculate stars (5-star system) - use asterisks for consistent spacing
       const stars = this.engine.getStars(member);
-      const starDisplay = "\u2605".repeat(stars) + "\u2606".repeat(5 - stars);
+      const starDisplay = "*".repeat(stars) + "-".repeat(5 - stars);
 
       // Check for pending upgrade
       const hasPending = member.pendingPerkChoice !== null;
-      const pendingIndicator = hasPending ? " [!]" : "";
 
-      // Status color
-      const statusColor = member.status === "available" ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE;
+      // Determine status display (jailed vs available vs busy)
+      let statusStr, statusColor;
+      if (member.status === "available") {
+        statusStr = "available";
+        statusColor = Palette.SUCCESS_GREEN;
+      } else if (member.status === "unavailable" && member.unavailableUntil > this.engine.state.now) {
+        statusStr = "jailed";
+        statusColor = Palette.HEAT_ORANGE;
+      } else if (member.status === "busy") {
+        statusStr = "busy";
+        statusColor = Palette.BRIGHT_YELLOW;
+      } else {
+        statusStr = member.status;
+        statusColor = Palette.HEAT_ORANGE;
+      }
 
       // Colors - highlight selected row
       const prefixColor = isSelected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
       const nameColor = isSelected ? Palette.NEON_CYAN : Palette.LIGHT_GRAY;
       const starColor = Palette.BRIGHT_YELLOW;
-      const pendingColor = Palette.BRIGHT_YELLOW;
 
-      // Row format: "> 1. NAME ★★☆☆☆ - role (status) [!]"
+      // Row format: "> 1. NAME **--- - role (status)                    [!]"
       const rowNumber = absoluteIndex + 1;
       let x = 2;
 
@@ -487,7 +498,7 @@ export class UI {
 
       // Stars
       this.buffer.writeText(x, y, starDisplay, starColor, Palette.BLACK);
-      x += starDisplay.length + 1;
+      x += 5 + 1; // Fixed width: 5 chars for stars + 1 space
 
       // Role
       const roleStr = `- ${member.roleId}`;
@@ -495,13 +506,11 @@ export class UI {
       x += roleStr.length + 1;
 
       // Status
-      const statusStr = `(${member.status})`;
-      this.buffer.writeText(x, y, statusStr, statusColor, Palette.BLACK);
-      x += statusStr.length;
+      this.buffer.writeText(x, y, `(${statusStr})`, statusColor, Palette.BLACK);
 
-      // Pending upgrade indicator
+      // Pending upgrade indicator - far right
       if (hasPending) {
-        this.buffer.writeText(x, y, pendingIndicator, pendingColor, Palette.BLACK);
+        this.buffer.writeText(Layout.WIDTH - 5, y, "[!]", Palette.BRIGHT_YELLOW, Palette.BLACK);
       }
     });
 
@@ -531,10 +540,42 @@ export class UI {
 
     let y = 5;
 
-    // Status line
-    const statusColor = member.status === "available" ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE;
-    this.buffer.writeText(2, y, `Status: ${member.status}`, statusColor, bgColor);
-    y += 2;
+    // Status line with more detail
+    let statusText, statusColor;
+    if (member.status === "available") {
+      statusText = "Available";
+      statusColor = Palette.SUCCESS_GREEN;
+    } else if (member.status === "unavailable" && member.unavailableUntil > this.engine.state.now) {
+      const remainingMs = member.unavailableUntil - this.engine.state.now;
+      const remainingText = this.engine.formatDuration(remainingMs);
+      statusText = `Jailed (${remainingText} remaining)`;
+      statusColor = Palette.HEAT_ORANGE;
+    } else if (member.status === "busy") {
+      statusText = "Busy";
+      statusColor = Palette.BRIGHT_YELLOW;
+    } else {
+      statusText = member.status;
+      statusColor = Palette.HEAT_ORANGE;
+    }
+    this.buffer.writeText(2, y, `Status: ${statusText}`, statusColor, bgColor);
+    y += 1;
+
+    // If busy, show which job they're on
+    if (member.status === "busy") {
+      const activeRun = this.engine.state.runs.find(r => r.assignedStaffIds.includes(member.id));
+      if (activeRun) {
+        const activity = this.engine.data.activities.find(a => a.id === activeRun.activityId);
+        const option = activity?.options.find(o => o.id === activeRun.optionId);
+        const remainingMs = activeRun.endsAt - this.engine.state.now;
+        const remainingText = this.engine.formatDuration(remainingMs);
+        const jobText = `${activity?.name || '?'} / ${option?.name || '?'}`;
+        this.buffer.writeText(4, y, `Job: ${jobText}`, Palette.NEON_TEAL, bgColor);
+        y += 1;
+        this.buffer.writeText(4, y, `Time left: ${remainingText}`, Palette.DIM_GRAY, bgColor);
+        y += 1;
+      }
+    }
+    y += 1;
 
     // Progression section
     this.buffer.writeText(2, y, "PROGRESSION", Palette.SUCCESS_GREEN, bgColor);
@@ -542,8 +583,8 @@ export class UI {
     this.buffer.writeText(4, y, `XP: ${member.xp || 0}`, Palette.WHITE, bgColor);
     y += 1;
 
-    // Stars display with progress to next
-    const starDisplay = "\u2605".repeat(stars) + "\u2606".repeat(maxStars - stars);
+    // Stars display with progress to next - use asterisks for consistent spacing
+    const starDisplay = "*".repeat(stars) + "-".repeat(maxStars - stars);
     this.buffer.writeText(4, y, `Stars: ${starDisplay}`, Palette.BRIGHT_YELLOW, bgColor);
 
     // Show XP to next star
