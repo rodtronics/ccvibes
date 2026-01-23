@@ -419,35 +419,214 @@ export class UI {
 
   renderCrewTab() {
     const top = 4;
-    this.buffer.writeText(2, top - 1, "CREW MANAGEMENT", Palette.SUCCESS_GREEN, Palette.BLACK);
-
-    // Current crew count
     const crewCount = this.engine.state.crew.staff.length;
-    this.buffer.writeText(2, top + 1, `Current crew: ${crewCount}`, Palette.MID_GRAY, Palette.BLACK);
 
-    // Test spawn button
-    this.buffer.writeText(2, top + 3, "[SPACE] Add test crew member (+1 free)", Palette.NEON_CYAN, Palette.BLACK);
-    if (crewCount > 0) {
-      this.buffer.writeText(2, top + 4, "[UP/DOWN] Scroll roster", Palette.DIM_GRAY, Palette.BLACK);
+    // Check if we're in detail view
+    if (this.ui.crewSelection?.detailView) {
+      this.renderCrewDetailView();
+      return;
     }
 
-    // List crew roster
-    this.buffer.writeText(2, top + 6, "CREW ROSTER:", Palette.SUCCESS_GREEN, Palette.BLACK);
-    const rosterTop = top + 7;
+    // Header
+    this.buffer.writeText(2, top - 1, "CREW MANAGEMENT", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(2, top + 1, `Crew: ${crewCount}`, Palette.MID_GRAY, Palette.BLACK);
+
+    // Controls hint
+    this.buffer.writeText(2, top + 2, "[ENTER] Details  [SPACE] Add  [U] Auto-upgrade", Palette.DIM_GRAY, Palette.BLACK);
+
+    // Roster header
+    this.buffer.writeText(2, top + 4, "CREW ROSTER:", Palette.NEON_CYAN, Palette.BLACK);
+
+    const rosterTop = top + 5;
     const rosterBottom = Layout.HEIGHT - 3;
     const visibleRows = Math.max(0, rosterBottom - rosterTop + 1);
     const scrollOffset = this.clampScrollOffset("crew", crewCount, visibleRows);
 
     const visibleCrew = this.engine.state.crew.staff.slice(scrollOffset, scrollOffset + visibleRows);
     visibleCrew.forEach((member, idx) => {
+      const absoluteIndex = scrollOffset + idx;
       const y = rosterTop + idx;
+      const isSelected = absoluteIndex === (this.ui.crewSelection?.selectedIndex || 0);
+
+      // Selection indicator
+      const prefix = isSelected ? ">" : " ";
+
+      // Calculate stars (5-star system)
+      const stars = this.engine.getStars(member);
+      const starDisplay = "\u2605".repeat(stars) + "\u2606".repeat(5 - stars);
+
+      // Check for pending upgrade
+      const hasPending = member.pendingPerkChoice !== null;
+      const pendingIndicator = hasPending ? " [!]" : "";
+
+      // Status color
       const statusColor = member.status === "available" ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE;
-      const rowNumber = scrollOffset + idx + 1;
-      this.buffer.writeText(2, y, `${rowNumber}. ${member.name} - ${member.roleId} (${member.status})`, statusColor, Palette.BLACK);
+
+      // Colors - highlight selected row
+      const prefixColor = isSelected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
+      const nameColor = isSelected ? Palette.NEON_CYAN : Palette.LIGHT_GRAY;
+      const starColor = Palette.BRIGHT_YELLOW;
+      const pendingColor = Palette.BRIGHT_YELLOW;
+
+      // Row format: "> 1. NAME ★★☆☆☆ - role (status) [!]"
+      const rowNumber = absoluteIndex + 1;
+      let x = 2;
+
+      // Prefix (selection indicator)
+      this.buffer.writeText(x, y, prefix, prefixColor, Palette.BLACK);
+      x += 2;
+
+      // Row number
+      const numStr = `${rowNumber}.`;
+      this.buffer.writeText(x, y, numStr, Palette.DIM_GRAY, Palette.BLACK);
+      x += numStr.length + 1;
+
+      // Name
+      this.buffer.writeText(x, y, member.name, nameColor, Palette.BLACK);
+      x += member.name.length + 1;
+
+      // Stars
+      this.buffer.writeText(x, y, starDisplay, starColor, Palette.BLACK);
+      x += starDisplay.length + 1;
+
+      // Role
+      const roleStr = `- ${member.roleId}`;
+      this.buffer.writeText(x, y, roleStr, Palette.MID_GRAY, Palette.BLACK);
+      x += roleStr.length + 1;
+
+      // Status
+      const statusStr = `(${member.status})`;
+      this.buffer.writeText(x, y, statusStr, statusColor, Palette.BLACK);
+      x += statusStr.length;
+
+      // Pending upgrade indicator
+      if (hasPending) {
+        this.buffer.writeText(x, y, pendingIndicator, pendingColor, Palette.BLACK);
+      }
     });
 
-    // Simple ASCII scrollbar using '|' for track and '*' for thumb
+    // Scrollbar
     this.renderScrollBar(Layout.WIDTH - 3, rosterTop, visibleRows, crewCount, scrollOffset, Palette.DIM_GRAY, Palette.BLACK);
+  }
+
+  // Crew detail view - shows single crew member info and perk choices
+  renderCrewDetailView() {
+    const member = this.engine.state.crew.staff[this.ui.crewSelection?.selectedIndex || 0];
+    if (!member) {
+      this.ui.crewSelection.detailView = false;
+      return;
+    }
+
+    const role = this.engine.data.roles.find(r => r.id === member.roleId);
+    const stars = this.engine.getStars(member);
+    const maxStars = 5;
+    const bgColor = Palette.BLACK;
+
+    // Draw border box
+    this.buffer.drawBox(0, 2, Layout.WIDTH, Layout.HEIGHT - 2, BoxStyles.DOUBLE, Palette.NEON_CYAN, bgColor);
+
+    // Header: Name and role
+    const title = `${member.name.toUpperCase()} - ${role?.name?.toUpperCase() || member.roleId.toUpperCase()}`;
+    this.buffer.writeText(2, 3, title, Palette.NEON_CYAN, bgColor);
+
+    let y = 5;
+
+    // Status line
+    const statusColor = member.status === "available" ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE;
+    this.buffer.writeText(2, y, `Status: ${member.status}`, statusColor, bgColor);
+    y += 2;
+
+    // Progression section
+    this.buffer.writeText(2, y, "PROGRESSION", Palette.SUCCESS_GREEN, bgColor);
+    y += 1;
+    this.buffer.writeText(4, y, `XP: ${member.xp || 0}`, Palette.WHITE, bgColor);
+    y += 1;
+
+    // Stars display with progress to next
+    const starDisplay = "\u2605".repeat(stars) + "\u2606".repeat(maxStars - stars);
+    this.buffer.writeText(4, y, `Stars: ${starDisplay}`, Palette.BRIGHT_YELLOW, bgColor);
+
+    // Show XP to next star
+    if (role?.xpToStars && stars < maxStars) {
+      const nextTier = role.xpToStars.find(t => t.stars === stars + 1);
+      if (nextTier) {
+        const xpNeeded = nextTier.minXp - (member.xp || 0);
+        this.buffer.writeText(22, y, `(${xpNeeded} XP to next)`, Palette.DIM_GRAY, bgColor);
+      }
+    } else if (stars >= maxStars) {
+      this.buffer.writeText(22, y, "(MAX)", Palette.SUCCESS_GREEN, bgColor);
+    }
+    y += 2;
+
+    // Acquired perks section
+    this.buffer.writeText(2, y, "PERKS", Palette.SUCCESS_GREEN, bgColor);
+    y += 1;
+
+    const perks = member.perks || [];
+    if (perks.length === 0) {
+      this.buffer.writeText(4, y, "None yet", Palette.DIM_GRAY, bgColor);
+      y += 1;
+    } else {
+      perks.forEach(perkId => {
+        const perk = this.engine.data.perks?.[perkId];
+        if (perk) {
+          this.buffer.writeText(4, y, `\u2022 ${perk.name}`, Palette.NEON_TEAL, bgColor);
+          y += 1;
+        }
+      });
+    }
+    y += 1;
+
+    // Pending perk choice (if any)
+    if (member.pendingPerkChoice) {
+      this.renderPerkChoiceUI(member, y, bgColor);
+    }
+
+    // Bottom controls
+    this.buffer.drawHLine(2, Layout.HEIGHT - 3, Layout.WIDTH - 4, "\u2500", Palette.DIM_GRAY, bgColor);
+    this.buffer.writeText(2, Layout.HEIGHT - 2, "[ESC] Back to list", Palette.DIM_GRAY, bgColor);
+  }
+
+  // Render perk choice UI within detail view
+  renderPerkChoiceUI(member, startY, bgColor) {
+    const pending = member.pendingPerkChoice;
+    if (!pending) return;
+
+    let y = startY;
+    const isRedemption = pending.isRedemption || false;
+
+    if (isRedemption) {
+      this.buffer.writeText(2, y, "** MASTERY ACHIEVED - STAR 5 **", Palette.BRIGHT_YELLOW, bgColor);
+      y += 1;
+      this.buffer.writeText(2, y, "Choose a perk you previously passed on:", Palette.WHITE, bgColor);
+    } else {
+      this.buffer.writeText(2, y, "** UPGRADE AVAILABLE **", Palette.BRIGHT_YELLOW, bgColor);
+      y += 1;
+      this.buffer.writeText(2, y, "Choose one perk (permanent choice):", Palette.WHITE, bgColor);
+    }
+    y += 2;
+
+    const options = pending.options || [];
+    const selectedIdx = this.ui.crewSelection?.perkChoiceIndex || 0;
+
+    options.forEach((perkId, idx) => {
+      const perk = this.engine.data.perks?.[perkId];
+      if (!perk) return;
+
+      const isSelected = idx === selectedIdx;
+      const prefix = isSelected ? ">" : " ";
+      const nameColor = isSelected ? Palette.SUCCESS_GREEN : Palette.NEON_TEAL;
+      const keyLabel = `[${idx + 1}]`;
+
+      this.buffer.writeText(2, y, prefix, isSelected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, bgColor);
+      this.buffer.writeText(4, y, keyLabel, Palette.DIM_GRAY, bgColor);
+      this.buffer.writeText(8, y, perk.name, nameColor, bgColor);
+      y += 1;
+      this.buffer.writeText(8, y, perk.description, Palette.MID_GRAY, bgColor);
+      y += 2;
+    });
+
+    this.buffer.writeText(2, y, "[ENTER] Confirm selection", Palette.SUCCESS_GREEN, bgColor);
   }
 
   renderResourcesTab() {
@@ -504,7 +683,7 @@ export class UI {
     }
 
     this.buffer.writeText(2, top - 2, "OPTIONS", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 11, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 16, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
     this.buffer.writeText(4, top, " DISPLAY ", Palette.NEON_CYAN, Palette.BLACK);
 
     // 1. Font (Submenu)
@@ -549,17 +728,45 @@ export class UI {
       this.buffer.writeText(Layout.WIDTH - 18, introRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 5. About
-    const aboutRow = top + 6;
-    const aboutSelected = selectedSetting === 4;
+    // 5. Skip tutorials toggle
+    const skipTutRow = top + 6;
+    const skipTutSelected = selectedSetting === 4;
+    const skipTutOn = !!this.ui.settings.skipTutorials;
+    this.buffer.writeText(3, skipTutRow, skipTutSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, skipTutRow, "5. Skip tutorials", skipTutSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(valueCol, skipTutRow, skipTutOn ? "ENABLED" : "DISABLED", skipTutOn ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
+    if (skipTutSelected) {
+      this.buffer.writeText(Layout.WIDTH - 18, skipTutRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
+    }
+
+    // 6. About
+    const aboutRow = top + 7;
+    const aboutSelected = selectedSetting === 5;
     this.buffer.writeText(3, aboutRow, aboutSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, aboutRow, "5. About", aboutSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(4, aboutRow, "6. About", aboutSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
     if (aboutSelected) {
       this.buffer.writeText(Layout.WIDTH - 20, aboutRow, "<ENTER> VIEW INFO", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
+    // 7. Reset progress
+    const resetRow = top + 9;
+    const resetSelected = selectedSetting === 6;
+    this.buffer.writeText(3, resetRow, resetSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, resetRow, "7. Reset progress", resetSelected ? Palette.HEAT_RED : Palette.HEAT_ORANGE, Palette.BLACK);
+    if (resetSelected) {
+      if (this.ui.confirmReset) {
+        this.buffer.writeText(Layout.WIDTH - 28, resetRow, "<ENTER> CONFIRM RESET", Palette.HEAT_RED, Palette.BLACK);
+      } else {
+        this.buffer.writeText(Layout.WIDTH - 20, resetRow, "<ENTER> TO RESET", Palette.HEAT_ORANGE, Palette.BLACK);
+      }
+    }
+    // Show warning when in confirmation mode
+    if (this.ui.confirmReset && resetSelected) {
+      this.buffer.writeText(4, resetRow + 1, "WARNING: This will erase ALL progress!", Palette.HEAT_RED, Palette.BLACK);
+    }
+
     // Help text
-    this.buffer.writeText(4, top + 9, "Arrows to move | 1-5 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(4, top + 12, "Arrows to move | 1-7 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
   }
 
   renderFontSubMenu() {
@@ -602,14 +809,14 @@ export class UI {
     this.buffer.writeText(valueCol, faceRow, fontText, Palette.WHITE, Palette.BLACK);
     if (faceSelected) this.buffer.writeText(Layout.WIDTH - 25, faceRow, "[ARROWS] CYCLE", Palette.SUCCESS_GREEN, Palette.BLACK);
 
-    // 3. Size
-    const sizeRow = top + 4;
-    const sizeSelected = selected === 2;
+    // 3. Zoom
+    const zoomRow = top + 4;
+    const zoomSelected = selected === 2;
     const zoom = this.ui.settings.zoom || 100;
-    this.buffer.writeText(3, sizeRow, sizeSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, sizeRow, "3. Font size", sizeSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
-    this.buffer.writeText(valueCol, sizeRow, `${zoom}%`, Palette.WHITE, Palette.BLACK);
-    if (sizeSelected) this.buffer.writeText(Layout.WIDTH - 25, sizeRow, "[ARROWS] RESIZE", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(3, zoomRow, zoomSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, zoomRow, "3. Zoom", zoomSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(valueCol, zoomRow, `${zoom}%`, Palette.WHITE, Palette.BLACK);
+    if (zoomSelected) this.buffer.writeText(Layout.WIDTH - 25, zoomRow, "[ARROWS] RESIZE", Palette.SUCCESS_GREEN, Palette.BLACK);
 
     this.buffer.writeText(4, top + 9, "<ESC/BACKSPACE> BACK", Palette.DIM_GRAY, Palette.BLACK);
   }

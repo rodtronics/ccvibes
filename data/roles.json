@@ -6,8 +6,16 @@
     "xpToStars": [
       { "stars": 0, "minXp": 0 },
       { "stars": 1, "minXp": 100 },
-      { "stars": 2, "minXp": 300 },
-      { "stars": 3, "minXp": 700 }
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "player_1", "starsRequired": 1, "options": ["player_steady_nerves", "player_street_sense"] },
+      { "tierId": "player_2", "starsRequired": 2, "options": ["player_quick_thinker", "player_network"] },
+      { "tierId": "player_3", "starsRequired": 3, "options": ["player_mastermind", "player_iron_will"] },
+      { "tierId": "player_4", "starsRequired": 4, "options": ["player_legend", "player_ghost"] }
     ],
     "revealedByDefault": true
   },
@@ -18,8 +26,16 @@
     "xpToStars": [
       { "stars": 0, "minXp": 0 },
       { "stars": 1, "minXp": 100 },
-      { "stars": 2, "minXp": 300 },
-      { "stars": 3, "minXp": 700 }
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "thief_1", "starsRequired": 1, "options": ["thief_steady_hands", "thief_cold_read"] },
+      { "tierId": "thief_2", "starsRequired": 2, "options": ["thief_ghost_step", "thief_hard_case"] },
+      { "tierId": "thief_3", "starsRequired": 3, "options": ["thief_quick_fingers", "thief_fence_connect"] },
+      { "tierId": "thief_4", "starsRequired": 4, "options": ["thief_master_thief", "thief_shadow_walker"] }
     ],
     "revealedByDefault": false
   },
@@ -30,8 +46,16 @@
     "xpToStars": [
       { "stars": 0, "minXp": 0 },
       { "stars": 1, "minXp": 100 },
-      { "stars": 2, "minXp": 300 },
-      { "stars": 3, "minXp": 700 }
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "driver_1", "starsRequired": 1, "options": ["driver_lead_foot", "driver_cool_headed"] },
+      { "tierId": "driver_2", "starsRequired": 2, "options": ["driver_backroads", "driver_crash_course"] },
+      { "tierId": "driver_3", "starsRequired": 3, "options": ["driver_precision", "driver_logistics"] },
+      { "tierId": "driver_4", "starsRequired": 4, "options": ["driver_wheelman", "driver_convoy"] }
     ],
     "revealedByDefault": false
   },
@@ -42,8 +66,16 @@
     "xpToStars": [
       { "stars": 0, "minXp": 0 },
       { "stars": 1, "minXp": 50 },
-      { "stars": 2, "minXp": 150 },
-      { "stars": 3, "minXp": 400 }
+      { "stars": 2, "minXp": 175 },
+      { "stars": 3, "minXp": 400 },
+      { "stars": 4, "minXp": 750 },
+      { "stars": 5, "minXp": 1250 }
+    ],
+    "perkChoices": [
+      { "tierId": "runner_1", "starsRequired": 1, "options": ["runner_fleet_foot", "runner_slippery"] },
+      { "tierId": "runner_2", "starsRequired": 2, "options": ["runner_parkour", "runner_low_profile"] },
+      { "tierId": "runner_3", "starsRequired": 3, "options": ["runner_endurance", "runner_street_cred"] },
+      { "tierId": "runner_4", "starsRequired": 4, "options": ["runner_untouchable", "runner_scout"] }
     ],
     "revealedByDefault": false
   }

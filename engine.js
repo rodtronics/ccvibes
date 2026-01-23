@@ -22,7 +22,7 @@ export class Engine {
       },
       crew: {
         staff: [
-          { id: "s_you", name: "you", roleId: "player", xp: 0, status: "available", unavailableUntil: 0 }
+          { id: "s_you", name: "you", roleId: "player", xp: 0, status: "available", unavailableUntil: 0, perks: [], perkChoices: {}, unchosen: [], pendingPerkChoice: null }
         ]
       },
       runs: [],
@@ -35,7 +35,8 @@ export class Engine {
       lexicon: {},
       resources: [],
       roles: [],
-      tech: []
+      tech: [],
+      perks: {}
     };
     this.lastTick = Date.now();
   }
@@ -55,7 +56,8 @@ export class Engine {
       ["lexicon.json", "lexicon"],
       ["resources.json", "resources"],
       ["roles.json", "roles"],
-      ["tech.json", "tech"]
+      ["tech.json", "tech"],
+      ["perks.json", "perks"]
     ];
 
     for (const [file, key] of files) {
@@ -87,31 +89,77 @@ export class Engine {
         now: Date.now()  // Always use current time
       };
 
+      // Migrate crew members to include new perk fields
+      if (this.state.crew?.staff) {
+        this.state.crew.staff = this.state.crew.staff.map(staff => ({
+          ...staff,
+          perks: staff.perks || [],
+          perkChoices: staff.perkChoices || {},
+          unchosen: staff.unchosen || [],
+          pendingPerkChoice: staff.pendingPerkChoice !== undefined ? staff.pendingPerkChoice : null
+        }));
+      }
+
       // Process any runs that should have completed while offline
       const now = Date.now();
       const completedOffline = [];
-      const stillActive = [];
 
-      this.state.runs.forEach((run) => {
+      this.state.runs.forEach((run, index) => {
         if (run.endsAt <= now) {
-          completedOffline.push(run);
-        } else {
-          stillActive.push(run);
+          completedOffline.push({ run, originalIndex: index });
         }
       });
 
-      // Complete offline runs
-      this.state.runs = stillActive;
-      completedOffline.forEach((run) => {
+      // Complete offline runs - completeRun handles removal/replacement
+      completedOffline.forEach(({ run, originalIndex }) => {
         console.log(`Completing run that finished offline: ${run.runId}`);
-        this.completeRun(run);
+        this.completeRun(run, originalIndex);
       });
 
+      const stillActive = this.state.runs.filter(r => r.endsAt > now);
       console.log(`State loaded: ${completedOffline.length} runs completed offline, ${stillActive.length} still active`);
     } catch (err) {
       console.warn('Failed to load state:', err);
       this.log('Failed to load saved state', 'warn');
     }
+  }
+
+  resetProgress() {
+    // Clear game state from localStorage
+    localStorage.removeItem('ccv_game_state');
+    localStorage.removeItem('ccv_seen_modals');
+    // Reinitialize to default state
+    this.state = {
+      version: 6,
+      now: Date.now(),
+      resources: {
+        cash: 0,
+        dirtyMoney: 0,
+        cleanMoney: 0,
+        cred: 50,
+        heat: 0,
+        notoriety: 0
+      },
+      items: {},
+      flags: {},
+      reveals: {
+        branches: {},
+        activities: {},
+        resources: {},
+        roles: {},
+        tabs: { activities: true, log: true }
+      },
+      crew: {
+        staff: [
+          { id: "s_you", name: "you", roleId: "player", xp: 0, status: "available", unavailableUntil: 0, perks: [], perkChoices: {}, unchosen: [], pendingPerkChoice: null }
+        ]
+      },
+      runs: [],
+      log: []
+    };
+    this.applyDefaultReveals();
+    this.log("Progress reset. Starting fresh.", "info");
+    return { ok: true };
   }
 
   saveState() {
@@ -159,16 +207,17 @@ export class Engine {
     const completed = [];
     const active = [];
 
-    this.state.runs.forEach((run) => {
+    this.state.runs.forEach((run, index) => {
       if (run.endsAt <= now) {
-        completed.push(run);
+        // Store original index for position preservation on repeat
+        completed.push({ run, originalIndex: index });
       } else {
         active.push(run);
       }
     });
 
-    this.state.runs = active;
-    completed.forEach((run) => this.completeRun(run));
+    // Don't filter yet - let completeRun handle it so repeats can replace in-place
+    completed.forEach(({ run, originalIndex }) => this.completeRun(run, originalIndex));
   }
 
   recoverStaff(now) {
@@ -193,7 +242,7 @@ export class Engine {
     }
   }
 
-  startRun(activityId, optionId, assignedStaffIds, runsLeft = 0) {
+  startRun(activityId, optionId, assignedStaffIds, runsLeft = 0, replaceIndex = -1) {
     this.state.now = Date.now();
     const activity = this.data.activities.find((a) => a.id === activityId);
     if (!activity) return { ok: false, reason: "Activity not found" };
@@ -241,7 +290,12 @@ export class Engine {
       snapshot: { plannedOutcomeId }
     };
 
-    this.state.runs.push(run);
+    // Replace at specific index (for repeat runs) or append to end
+    if (replaceIndex >= 0 && replaceIndex < this.state.runs.length) {
+      this.state.runs[replaceIndex] = run;
+    } else {
+      this.state.runs.push(run);
+    }
     this.log(`Started: ${activity.name} / ${option.name}`, "info");
     this.saveState();  // Save state after starting run
     return { ok: true, run };
@@ -260,7 +314,7 @@ export class Engine {
     return outcomes[0]?.id || null;
   }
 
-  completeRun(run) {
+  completeRun(run, originalIndex = -1) {
     const activity = this.data.activities.find((a) => a.id === run.activityId);
     const option = activity?.options.find((o) => o.id === run.optionId);
     if (!activity || !option) return;
@@ -279,15 +333,18 @@ export class Engine {
     if (run.runsLeft !== 0) {
       const nextRunsLeft = run.runsLeft === -1 ? -1 : run.runsLeft - 1;
 
-      // Try to restart with same staff
+      // Try to restart with same staff, preserving position
       const result = this.startRun(
         run.activityId,
         run.optionId,
         run.assignedStaffIds,
-        nextRunsLeft
+        nextRunsLeft,
+        originalIndex  // Replace at same position
       );
 
       if (!result.ok) {
+        // Remove the completed run since restart failed
+        this.state.runs = this.state.runs.filter(r => r.runId !== run.runId);
         const reasonText = String(result.reason || 'Unknown');
         const clarifiedReason = reasonText === 'No crew available'
           ? 'Assigned crew unavailable (jailed or busy)'
@@ -297,6 +354,8 @@ export class Engine {
       }
       // Note: startRun already saves state if successful
     } else {
+      // Remove completed single run
+      this.state.runs = this.state.runs.filter(r => r.runId !== run.runId);
       this.saveState();  // Save state after single run completion
     }
   }
@@ -363,6 +422,10 @@ export class Engine {
     const resolution = option.resolution;
     if (!resolution) return;
 
+    // Base XP reward for completing a job (scaled by difficulty/duration)
+    const baseXp = option.xpReward || 10;
+    let wasSuccessful = true;
+
     if (resolution.type === "deterministic") {
       this.applyOutputs(resolution.outputs);
       this.applyCred(resolution.credDelta);
@@ -381,6 +444,7 @@ export class Engine {
       this.applyHeat(outcome.heatDelta);
       this.applyEffects(outcome.effects);
       if (outcome.jail) {
+        wasSuccessful = false;
         const activity = this.data.activities.find((a) => a.id === run.activityId);
         const activityName = activity?.name || "Unknown";
         const optionName = option?.name || "Unknown";
@@ -395,6 +459,11 @@ export class Engine {
           this.log(`Unavailable: ${s.name} jailed for ${durationText}.`, "warning");
         });
       }
+    }
+
+    // Award XP on successful completion
+    if (wasSuccessful && staff.length > 0) {
+      this.awardXp(staff, baseXp);
     }
   }
 
@@ -616,5 +685,134 @@ export class Engine {
     if (cond.type === "anyOf") return cond.conds.some((c) => this.evalCondition(c));
     if (cond.type === "not") return !this.evalCondition(cond.cond);
     return false;
+  }
+
+  // Award XP to staff after successful job completion
+  awardXp(staff, xpAmount) {
+    if (!staff || !xpAmount || xpAmount <= 0) return;
+
+    staff.forEach((s) => {
+      // Ensure perk fields exist
+      if (!s.perks) s.perks = [];
+      if (!s.perkChoices) s.perkChoices = {};
+      if (!s.unchosen) s.unchosen = [];
+
+      const oldStars = this.getStars(s);
+      s.xp = (s.xp || 0) + xpAmount;
+      const newStars = this.getStars(s);
+
+      if (newStars > oldStars) {
+        this.onStarGained(s, newStars);
+      }
+    });
+  }
+
+  // Called when a staff member gains a new star
+  onStarGained(staff, newStars) {
+    this.log(`${staff.name} reached ${newStars} star${newStars > 1 ? 's' : ''}!`, 'success');
+
+    // Don't queue if already has a pending choice
+    if (staff.pendingPerkChoice) return;
+
+    const role = this.data.roles.find(r => r.id === staff.roleId);
+    if (!role?.perkChoices) return;
+
+    // Star 5 is special - redemption tier (choose from unchosen perks)
+    if (newStars === 5) {
+      const unchosen = staff.unchosen || [];
+      if (unchosen.length > 0) {
+        staff.pendingPerkChoice = {
+          tierId: `${staff.roleId}_redemption`,
+          starsRequired: 5,
+          options: [...unchosen],
+          isRedemption: true
+        };
+        this.log(`${staff.name} can reclaim a passed perk!`, 'info');
+      }
+      return;
+    }
+
+    // Stars 1-4: Find the tier that just unlocked
+    const newTier = role.perkChoices.find(t =>
+      t.starsRequired === newStars &&
+      !staff.perkChoices?.[t.tierId]
+    );
+
+    if (newTier) {
+      staff.pendingPerkChoice = {
+        tierId: newTier.tierId,
+        starsRequired: newTier.starsRequired,
+        options: [...newTier.options],
+        isRedemption: false
+      };
+      this.log(`${staff.name} can learn a new skill!`, 'info');
+    }
+  }
+
+  // Apply a perk choice for a staff member
+  choosePerk(staff, perkId) {
+    if (!staff.pendingPerkChoice) {
+      return { ok: false, reason: 'No pending choice' };
+    }
+
+    const pending = staff.pendingPerkChoice;
+    if (!pending.options.includes(perkId)) {
+      return { ok: false, reason: 'Invalid perk choice' };
+    }
+
+    // Ensure arrays exist
+    if (!staff.perks) staff.perks = [];
+    if (!staff.perkChoices) staff.perkChoices = {};
+    if (!staff.unchosen) staff.unchosen = [];
+
+    // Add chosen perk
+    staff.perks.push(perkId);
+    staff.perkChoices[pending.tierId] = perkId;
+
+    // For non-redemption choices, track the unchosen perk(s)
+    if (!pending.isRedemption) {
+      pending.options.forEach(opt => {
+        if (opt !== perkId) {
+          staff.unchosen.push(opt);
+        }
+      });
+    } else {
+      // For redemption, remove chosen from unchosen list
+      staff.unchosen = staff.unchosen.filter(u => u !== perkId);
+    }
+
+    // Clear pending choice
+    staff.pendingPerkChoice = null;
+
+    const perk = this.data.perks?.[perkId];
+    const perkName = perk?.name || perkId;
+    this.log(`${staff.name} learned: ${perkName}`, 'success');
+    this.saveState();
+
+    return { ok: true };
+  }
+
+  // Auto-upgrade all staff with pending perk choices (random selection)
+  autoUpgradeAll() {
+    let upgraded = 0;
+
+    this.state.crew.staff.forEach(staff => {
+      if (staff.pendingPerkChoice) {
+        const options = staff.pendingPerkChoice.options || [];
+        if (options.length > 0) {
+          const randomIndex = Math.floor(Math.random() * options.length);
+          const result = this.choosePerk(staff, options[randomIndex]);
+          if (result.ok) upgraded++;
+        }
+      }
+    });
+
+    if (upgraded > 0) {
+      this.log(`Auto-upgraded ${upgraded} crew member${upgraded > 1 ? 's' : ''}`, 'info');
+    } else {
+      this.log('No pending upgrades to apply', 'info');
+    }
+
+    return upgraded;
   }
 }

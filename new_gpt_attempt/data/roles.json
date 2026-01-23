@@ -1,0 +1,38 @@
+[
+  {
+    "id": "runner",
+    "name": "runner",
+    "description": "fast feet, short memory.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 80 },
+      { "stars": 2, "minXp": 220 },
+      { "stars": 3, "minXp": 500 }
+    ],
+    "revealedByDefault": true
+  },
+  {
+    "id": "thief",
+    "name": "thief",
+    "description": "handles pockets, doors, and ethics.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 120 },
+      { "stars": 2, "minXp": 320 },
+      { "stars": 3, "minXp": 700 }
+    ],
+    "revealedByDefault": true
+  },
+  {
+    "id": "driver",
+    "name": "driver",
+    "description": "gets you out, claims it was the plan.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 120 },
+      { "stars": 2, "minXp": 320 },
+      { "stars": 3, "minXp": 700 }
+    ],
+    "revealedByDefault": false
+  }
+]

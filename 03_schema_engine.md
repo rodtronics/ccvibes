@@ -37,7 +37,10 @@ Purpose: single source of truth for data structures and engine behavior. All gam
         "roleId": "runner",
         "xp": 0,
         "status": "available",
-        "unavailableUntil": 0
+        "unavailableUntil": 0,
+        "perks": [],
+        "perkChoices": {},
+        "pendingPerkChoice": null
       }
     ]
   },
@@ -166,13 +169,45 @@ Staff role definition with XP -> stars mapping.
     { "stars": 2, "minXp": 300 },
     { "stars": 3, "minXp": 700 }
   ],
-  "revealedByDefault": false
+  "revealedByDefault": false,
+  "perkChoices": [
+    { "tierId": "thief_1", "starsRequired": 1, "options": ["steady_hands", "cold_read"] },
+    { "tierId": "thief_2", "starsRequired": 2, "options": ["ghost_step", "hard_case"] }
+  ]
 }
 ```
 Role archetypes:
 - Core: thief (executor), driver (getaway/logistics), runner (starter), hacker (digital).
 - Specialists (optional bonuses): fixer (cred specialist), cleaner (heat reduction), planner (success/precision).
 - Reputation grinder roles: courier, lookout, consultant.
+
+Perk choices are optional. Each tier offers exactly two options; one is chosen permanently and the other is locked out.
+
+### Perk
+Permanent staff upgrade chosen from a tier.
+```json
+{
+  "id": "steady_hands",
+  "name": "steady hands",
+  "description": "less noise, more time.",
+  "tags": ["thief"],
+  "revealedByDefault": false
+}
+```
+
+Perk state lives on the staff record:
+```json
+{
+  "perks": ["steady_hands"],
+  "perkChoices": { "thief_1": "steady_hands" },
+  "pendingPerkChoice": null
+}
+```
+
+Perk choice flow (permanent):
+- When a staff member gains a new star and a `perkChoices` tier is newly available, queue a `pendingPerkChoice` for that staff.
+- Only one pending choice per staff at a time; if multiple tiers unlock, queue in star order.
+- Selecting a perk adds it to `staff.perks` and records it in `staff.perkChoices`. The other option is never offered again.
 
 ### Activity
 UI container; never executes directly.
@@ -290,7 +325,7 @@ Modifiers adjust resolution parameters before rolling; they stack additively and
 
 ### Canonical Modifier Types
 - Environment-based: `heatAbove`, `heatBelow`, `flagIs`, `resourceGte`, `hasItem`.
-- Crew-based: `staffStars`, `staffRole`, `staffCount`.
+- Crew-based: `staffStars`, `staffRole`, `staffCount`, `staffPerk`.
 
 ### Modifier Effects
 - Outcome weight adjustment, delta bonuses (`credDeltaBonus`, `heatDeltaReduction`), multipliers (`credDeltaMultiplier`, `heatDeltaMultiplier`, `durationMultiplier`), special (`discoveryChanceReduction`).
@@ -313,11 +348,15 @@ Modifiers adjust resolution parameters before rolling; they stack additively and
 { "type": "staffRole", "roleId": "cleaner", "effects": { "heatDeltaMultiplier": 0.6 } }
 { "type": "staffRole", "roleId": "planner", "effects": { "durationMultiplier": 1.2, "outcomeWeightAdjustment": { "brute_force_success": -20, "clean_success": 20 }, "credDeltaBonus": 3 } }
 ```
+- Perk-based bonuses (applies once if any assigned staff has the perk):
+```json
+{ "type": "staffPerk", "perkId": "steady_hands", "effects": { "outcomeWeightAdjustment": { "caught": -5, "clean_success": 5 } } }
+```
 
 Design principle: modifiers only adjust numeric values; they do not execute logic or mutate state directly.
 
 ## 7. Conditions (visibleIf/unlockIf)
-Atomic types: `flagIs`, `resourceGte`, `itemGte`, `roleRevealed`, `activityRevealed`, `staffStarsGte`, `activityCompletedGte`.
+Atomic types: `flagIs`, `resourceGte`, `itemGte`, `roleRevealed`, `activityRevealed`, `staffStarsGte`, `activityCompletedGte`, `crewHasPerk`.
 Logical wrappers: `allOf`, `anyOf`, `not`.
 Example:
 ```json
@@ -329,6 +368,7 @@ Example:
   ]
 }
 ```
+`crewHasPerk` is true if any staff member in the roster has the perk.
 
 ## 8. Effects
 Reveal effects: `revealBranch`, `revealActivity`, `revealResource`, `revealRole`, `revealTab`.

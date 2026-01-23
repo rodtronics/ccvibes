@@ -2,10 +2,6 @@ THIS TO DO LIST relates the index.html, related files, and the founding document
 
 menu for resources/stats. perhaps this could be tabbed? resources is exactly that, a list of all the resources you have. stats will just tell you about what's going on.
 
-the active crimes are numbered which is good, but when a crime restarts automatically it should keep its position number
-
-add a option in options to reset progress (should have a confirmation)
-
 in the log menu, have some toggles to display or not display things like successes and failures etc
 
 scrolling down the crew members should effectivly be selecting one and then the next and next etc. because at some stage we want to be able to select a member and go into them, see their skill set and perks and what type of specialist they are
@@ -25,10 +21,18 @@ bold idea - a rolling graph implement in text to show some statistics
 
 idea : the number of players on the crew increases heat just be virtue of existing, encouraging perhaps a smaller group of more skilled crew members. when heat reaches an internal threshold (which the player doesnt know, it'll just be a gradient), someone randomly goes to jail and heat comes down a bit
 
-add a "once off" modal to explain some very basics to the player before they get started.
-
-funny names isnt always funny names, they just get added to the pool
-
 upgrade the crew section to allow for selection of individual members, up and down to scroll through them, and enter will "go into" them, which will show information related to experience, and this is where you can upgrade players. the crew screen will indicate that a player can be upgraded. we will try and keep some stats on the players. and importantyl this is where we can retire players
 
-a function in crew.js to re-roll a name if the total length is too long
+it's already implemented in other places but tools for impatient players
+
+in the crew menu when in a player it should show if they're in a crime and their progress
+
+the stars we use knock out the font spacing
+
+the [!] we put to show upgrade available should be on the right
+
+if someone is in jail it should say so
+
+crew menu should have a tab for visiting jail
+
+auto repeat doesnt seem to work if crime fails

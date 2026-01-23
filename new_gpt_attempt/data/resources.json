@@ -1,0 +1,32 @@
+[
+  {
+    "id": "cash",
+    "name": "cash",
+    "description": "portable proof of competence.",
+    "revealedByDefault": true
+  },
+  {
+    "id": "dirtyMoney",
+    "name": "dirty money",
+    "description": "money that feels slightly wet.",
+    "revealedByDefault": false
+  },
+  {
+    "id": "cred",
+    "name": "cred",
+    "description": "reputation you can almost spend.",
+    "revealedByDefault": true
+  },
+  {
+    "id": "heat",
+    "name": "heat",
+    "description": "background pressure and bad luck.",
+    "revealedByDefault": true
+  },
+  {
+    "id": "notoriety",
+    "name": "notoriety",
+    "description": "everyone knows your face, not your name.",
+    "revealedByDefault": false
+  }
+]

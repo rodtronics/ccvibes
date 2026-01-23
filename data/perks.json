@@ -1,0 +1,261 @@
+{
+  "player_steady_nerves": {
+    "id": "player_steady_nerves",
+    "name": "Steady Nerves",
+    "description": "Stay calm under pressure. +5% success rate.",
+    "roleId": "player",
+    "tier": 1,
+    "effects": { "outcomeWeightAdjust": { "success": 5 } }
+  },
+  "player_street_sense": {
+    "id": "player_street_sense",
+    "name": "Street Sense",
+    "description": "Know when trouble's coming. -5% caught rate.",
+    "roleId": "player",
+    "tier": 1,
+    "effects": { "outcomeWeightAdjust": { "caught": -5 } }
+  },
+  "player_quick_thinker": {
+    "id": "player_quick_thinker",
+    "name": "Quick Thinker",
+    "description": "Faster on your feet. -10% job duration.",
+    "roleId": "player",
+    "tier": 2,
+    "effects": { "durationMultiplier": 0.9 }
+  },
+  "player_network": {
+    "id": "player_network",
+    "name": "Network",
+    "description": "Know the right people. -10% heat gain.",
+    "roleId": "player",
+    "tier": 2,
+    "effects": { "heatMultiplier": 0.9 }
+  },
+  "player_mastermind": {
+    "id": "player_mastermind",
+    "name": "Mastermind",
+    "description": "See the bigger picture. +10% cash rewards.",
+    "roleId": "player",
+    "tier": 3,
+    "effects": { "cashMultiplier": 1.1 }
+  },
+  "player_iron_will": {
+    "id": "player_iron_will",
+    "name": "Iron Will",
+    "description": "Never crack. -20% jail time.",
+    "roleId": "player",
+    "tier": 3,
+    "effects": { "jailTimeMultiplier": 0.8 }
+  },
+  "player_legend": {
+    "id": "player_legend",
+    "name": "Legend",
+    "description": "Your reputation opens doors. +15% cred gain.",
+    "roleId": "player",
+    "tier": 4,
+    "effects": { "credMultiplier": 1.15 }
+  },
+  "player_ghost": {
+    "id": "player_ghost",
+    "name": "Ghost",
+    "description": "Leave no trace. -15% heat gain.",
+    "roleId": "player",
+    "tier": 4,
+    "effects": { "heatMultiplier": 0.85 }
+  },
+
+  "thief_steady_hands": {
+    "id": "thief_steady_hands",
+    "name": "Steady Hands",
+    "description": "Nimble fingers. -5% botched jobs.",
+    "roleId": "thief",
+    "tier": 1,
+    "effects": { "outcomeWeightAdjust": { "caught": -5 } }
+  },
+  "thief_cold_read": {
+    "id": "thief_cold_read",
+    "name": "Cold Read",
+    "description": "Size up marks quickly. +5% success.",
+    "roleId": "thief",
+    "tier": 1,
+    "effects": { "outcomeWeightAdjust": { "success": 5 } }
+  },
+  "thief_ghost_step": {
+    "id": "thief_ghost_step",
+    "name": "Ghost Step",
+    "description": "Move without a sound. -10% heat.",
+    "roleId": "thief",
+    "tier": 2,
+    "effects": { "heatMultiplier": 0.9 }
+  },
+  "thief_hard_case": {
+    "id": "thief_hard_case",
+    "name": "Hard Case",
+    "description": "Tough as nails. -20% jail time.",
+    "roleId": "thief",
+    "tier": 2,
+    "effects": { "jailTimeMultiplier": 0.8 }
+  },
+  "thief_quick_fingers": {
+    "id": "thief_quick_fingers",
+    "name": "Quick Fingers",
+    "description": "In and out fast. -15% job duration.",
+    "roleId": "thief",
+    "tier": 3,
+    "effects": { "durationMultiplier": 0.85 }
+  },
+  "thief_fence_connect": {
+    "id": "thief_fence_connect",
+    "name": "Fence Connect",
+    "description": "Better prices on goods. +10% cash.",
+    "roleId": "thief",
+    "tier": 3,
+    "effects": { "cashMultiplier": 1.1 }
+  },
+  "thief_master_thief": {
+    "id": "thief_master_thief",
+    "name": "Master Thief",
+    "description": "Peak of your craft. +10% success.",
+    "roleId": "thief",
+    "tier": 4,
+    "effects": { "outcomeWeightAdjust": { "success": 10 } }
+  },
+  "thief_shadow_walker": {
+    "id": "thief_shadow_walker",
+    "name": "Shadow Walker",
+    "description": "Become invisible. -15% heat.",
+    "roleId": "thief",
+    "tier": 4,
+    "effects": { "heatMultiplier": 0.85 }
+  },
+
+  "driver_lead_foot": {
+    "id": "driver_lead_foot",
+    "name": "Lead Foot",
+    "description": "Faster getaways. -10% job duration.",
+    "roleId": "driver",
+    "tier": 1,
+    "effects": { "durationMultiplier": 0.9 }
+  },
+  "driver_cool_headed": {
+    "id": "driver_cool_headed",
+    "name": "Cool Headed",
+    "description": "Calm in the chase. +5% success.",
+    "roleId": "driver",
+    "tier": 1,
+    "effects": { "outcomeWeightAdjust": { "success": 5 } }
+  },
+  "driver_backroads": {
+    "id": "driver_backroads",
+    "name": "Backroads",
+    "description": "Know every shortcut. -10% heat.",
+    "roleId": "driver",
+    "tier": 2,
+    "effects": { "heatMultiplier": 0.9 }
+  },
+  "driver_crash_course": {
+    "id": "driver_crash_course",
+    "name": "Crash Course",
+    "description": "Walk away from anything. -20% jail time.",
+    "roleId": "driver",
+    "tier": 2,
+    "effects": { "jailTimeMultiplier": 0.8 }
+  },
+  "driver_precision": {
+    "id": "driver_precision",
+    "name": "Precision",
+    "description": "Every move counts. +10% success.",
+    "roleId": "driver",
+    "tier": 3,
+    "effects": { "outcomeWeightAdjust": { "success": 10 } }
+  },
+  "driver_logistics": {
+    "id": "driver_logistics",
+    "name": "Logistics",
+    "description": "Efficient routes. -15% job duration.",
+    "roleId": "driver",
+    "tier": 3,
+    "effects": { "durationMultiplier": 0.85 }
+  },
+  "driver_wheelman": {
+    "id": "driver_wheelman",
+    "name": "Wheelman",
+    "description": "Best in the business. -5% caught rate.",
+    "roleId": "driver",
+    "tier": 4,
+    "effects": { "outcomeWeightAdjust": { "caught": -5 } }
+  },
+  "driver_convoy": {
+    "id": "driver_convoy",
+    "name": "Convoy",
+    "description": "Move more goods. +15% cash.",
+    "roleId": "driver",
+    "tier": 4,
+    "effects": { "cashMultiplier": 1.15 }
+  },
+
+  "runner_fleet_foot": {
+    "id": "runner_fleet_foot",
+    "name": "Fleet Foot",
+    "description": "Faster than anyone. -10% job duration.",
+    "roleId": "runner",
+    "tier": 1,
+    "effects": { "durationMultiplier": 0.9 }
+  },
+  "runner_slippery": {
+    "id": "runner_slippery",
+    "name": "Slippery",
+    "description": "Hard to catch. -5% caught rate.",
+    "roleId": "runner",
+    "tier": 1,
+    "effects": { "outcomeWeightAdjust": { "caught": -5 } }
+  },
+  "runner_parkour": {
+    "id": "runner_parkour",
+    "name": "Parkour",
+    "description": "No obstacle slows you. +5% success.",
+    "roleId": "runner",
+    "tier": 2,
+    "effects": { "outcomeWeightAdjust": { "success": 5 } }
+  },
+  "runner_low_profile": {
+    "id": "runner_low_profile",
+    "name": "Low Profile",
+    "description": "Blend into crowds. -10% heat.",
+    "roleId": "runner",
+    "tier": 2,
+    "effects": { "heatMultiplier": 0.9 }
+  },
+  "runner_endurance": {
+    "id": "runner_endurance",
+    "name": "Endurance",
+    "description": "Never tire out. -15% job duration.",
+    "roleId": "runner",
+    "tier": 3,
+    "effects": { "durationMultiplier": 0.85 }
+  },
+  "runner_street_cred": {
+    "id": "runner_street_cred",
+    "name": "Street Cred",
+    "description": "Known and respected. +10% cred.",
+    "roleId": "runner",
+    "tier": 3,
+    "effects": { "credMultiplier": 1.1 }
+  },
+  "runner_untouchable": {
+    "id": "runner_untouchable",
+    "name": "Untouchable",
+    "description": "Can't be pinned down. -10% caught rate.",
+    "roleId": "runner",
+    "tier": 4,
+    "effects": { "outcomeWeightAdjust": { "caught": -10 } }
+  },
+  "runner_scout": {
+    "id": "runner_scout",
+    "name": "Scout",
+    "description": "Know before you go. +10% success.",
+    "roleId": "runner",
+    "tier": 4,
+    "effects": { "outcomeWeightAdjust": { "success": 10 } }
+  }
+}

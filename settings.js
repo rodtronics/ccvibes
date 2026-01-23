@@ -35,6 +35,7 @@ export function loadSettings() {
     allCaps: true,       // Always on (removed from options)
     zoom: 150, // Font size zoom percentage (100, 150, 200, 250, etc.)
     showIntro: true,     // Show intro modal on launch
+    skipTutorials: false, // Skip tutorial and story modals
   };
 
   try {
@@ -43,7 +44,6 @@ export function loadSettings() {
       const parsed = JSON.parse(raw);
       // Migrate old font settings
       if (parsed.font === 'vga') parsed.font = 'vga-9x8';
-      if (parsed.font === 'scp') parsed.font = 'fira';
       if (parsed.fontScale && !parsed.zoom) parsed.zoom = Math.round(parsed.fontScale * 100);
       if (parsed.zoom && parsed.zoom < MIN_ZOOM) parsed.zoom = MIN_ZOOM;
 

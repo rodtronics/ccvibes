@@ -43,6 +43,11 @@ const ui = {
   scroll: {
     crew: 0, // vertical scroll offset for crew roster
   },
+  crewSelection: {
+    selectedIndex: 0,      // Currently highlighted crew member index
+    detailView: false,     // Whether we're viewing a single crew member
+    perkChoiceIndex: 0,    // 0 = first perk option, 1+ = other options
+  },
   modal: {
     active: false,
     id: null,
@@ -544,28 +549,83 @@ function handleLogInput(e) {
 }
 
 
+// Smart scroll helper - keeps selection in "comfort zone" (5 rows from edges)
+function updateCrewScroll(selectedIndex, visibleRows, totalCrew) {
+  const COMFORT_ZONE = 5;
+  const maxOffset = Math.max(0, totalCrew - visibleRows);
+  let scrollOffset = ui.scroll?.crew || 0;
+
+  // If selection is too close to top, scroll up
+  if (selectedIndex < scrollOffset + COMFORT_ZONE) {
+    scrollOffset = Math.max(0, selectedIndex - COMFORT_ZONE);
+  }
+
+  // If selection is too close to bottom, scroll down
+  if (selectedIndex >= scrollOffset + visibleRows - COMFORT_ZONE) {
+    scrollOffset = Math.min(maxOffset, selectedIndex - visibleRows + COMFORT_ZONE + 1);
+  }
+
+  if (!ui.scroll) ui.scroll = {};
+  ui.scroll.crew = scrollOffset;
+}
+
 function handleCrewInput(e) {
-  // Scrolling support (keep in sync with renderCrewTab layout)
-  const rosterTop = 5 + 7; // tab top (5) + roster header spacing (7)
+  const totalCrew = engine.state.crew.staff.length;
+
+  // If in detail view, delegate to detail handler
+  if (ui.crewSelection.detailView) {
+    handleCrewDetailInput(e);
+    return;
+  }
+
+  // Layout calculations for smart scroll
+  const rosterTop = 4 + 5; // top offset + header spacing
   const rosterBottom = Layout.HEIGHT - 3;
   const visibleRows = Math.max(0, rosterBottom - rosterTop + 1);
-  const totalCrew = engine.state.crew.staff.length;
   const pageStep = Math.max(1, visibleRows - 1);
-  const maxOffset = Math.max(0, totalCrew - visibleRows);
 
-  const setCrewScroll = (next) => {
-    if (!ui.scroll) ui.scroll = {};
-    ui.scroll.crew = Math.max(0, Math.min(maxOffset, next));
-  };
+  // Clamp selection index to valid range
+  if (ui.crewSelection.selectedIndex >= totalCrew) {
+    ui.crewSelection.selectedIndex = Math.max(0, totalCrew - 1);
+  }
 
-  if (e.key === 'ArrowDown') setCrewScroll((ui.scroll?.crew || 0) + 1);
-  if (e.key === 'ArrowUp') setCrewScroll((ui.scroll?.crew || 0) - 1);
-  if (e.key === 'PageDown') setCrewScroll((ui.scroll?.crew || 0) + pageStep);
-  if (e.key === 'PageUp') setCrewScroll((ui.scroll?.crew || 0) - pageStep);
-  if (e.key === 'End') setCrewScroll(maxOffset);
-  if (e.key === 'Home') setCrewScroll(0);
+  // Arrow up/down moves selection one at a time
+  if (e.key === 'ArrowUp') {
+    ui.crewSelection.selectedIndex = Math.max(0, ui.crewSelection.selectedIndex - 1);
+    updateCrewScroll(ui.crewSelection.selectedIndex, visibleRows, totalCrew);
+  }
+  if (e.key === 'ArrowDown') {
+    ui.crewSelection.selectedIndex = Math.min(totalCrew - 1, ui.crewSelection.selectedIndex + 1);
+    updateCrewScroll(ui.crewSelection.selectedIndex, visibleRows, totalCrew);
+  }
 
-  // Spawn single test crew member
+  // Page up/down for faster navigation
+  if (e.key === 'PageUp') {
+    ui.crewSelection.selectedIndex = Math.max(0, ui.crewSelection.selectedIndex - pageStep);
+    updateCrewScroll(ui.crewSelection.selectedIndex, visibleRows, totalCrew);
+  }
+  if (e.key === 'PageDown') {
+    ui.crewSelection.selectedIndex = Math.min(totalCrew - 1, ui.crewSelection.selectedIndex + pageStep);
+    updateCrewScroll(ui.crewSelection.selectedIndex, visibleRows, totalCrew);
+  }
+
+  // Home/End to jump to start/end
+  if (e.key === 'Home') {
+    ui.crewSelection.selectedIndex = 0;
+    updateCrewScroll(ui.crewSelection.selectedIndex, visibleRows, totalCrew);
+  }
+  if (e.key === 'End') {
+    ui.crewSelection.selectedIndex = Math.max(0, totalCrew - 1);
+    updateCrewScroll(ui.crewSelection.selectedIndex, visibleRows, totalCrew);
+  }
+
+  // Enter to view crew member details
+  if (e.key === 'Enter' && totalCrew > 0) {
+    ui.crewSelection.detailView = true;
+    ui.crewSelection.perkChoiceIndex = 0;
+  }
+
+  // Space to add test crew member
   if (e.key === ' ') {
     const usedNames = getUsedCrewNames(engine.state.crew.staff);
     const testMember = {
@@ -574,14 +634,66 @@ function handleCrewInput(e) {
       roleId: 'player',
       status: 'available',
       xp: 0,
-      stars: 1
+      perks: [],
+      perkChoices: {},
+      unchosen: [],
+      pendingPerkChoice: null
     };
     engine.state.crew.staff.push(testMember);
     engine.log('Added test crew member', 'info');
     engine.saveState();
   }
 
+  // U key for auto-upgrade all pending
+  if (e.key === 'u' || e.key === 'U') {
+    engine.autoUpgradeAll();
+  }
+
   if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
+}
+
+// Handle input when viewing crew member detail
+function handleCrewDetailInput(e) {
+  const member = engine.state.crew.staff[ui.crewSelection.selectedIndex];
+  if (!member) {
+    ui.crewSelection.detailView = false;
+    return;
+  }
+
+  // Escape/Backspace returns to list
+  if (e.key === 'Escape' || e.key === 'Backspace') {
+    ui.crewSelection.detailView = false;
+    return;
+  }
+
+  // If there's a pending perk choice, handle perk selection
+  if (member.pendingPerkChoice) {
+    const options = member.pendingPerkChoice.options || [];
+    const maxIndex = options.length - 1;
+
+    // Arrow keys to select between options
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      ui.crewSelection.perkChoiceIndex = Math.max(0, ui.crewSelection.perkChoiceIndex - 1);
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      ui.crewSelection.perkChoiceIndex = Math.min(maxIndex, ui.crewSelection.perkChoiceIndex + 1);
+    }
+
+    // Number keys for direct selection (1-9)
+    const num = parseInt(e.key, 10);
+    if (num >= 1 && num <= options.length) {
+      ui.crewSelection.perkChoiceIndex = num - 1;
+    }
+
+    // Enter to confirm perk choice
+    if (e.key === 'Enter') {
+      const selectedPerk = options[ui.crewSelection.perkChoiceIndex];
+      if (selectedPerk) {
+        engine.choosePerk(member, selectedPerk);
+        ui.crewSelection.perkChoiceIndex = 0;
+      }
+    }
+  }
 }
 
 function handleOptionsInput(e) {
@@ -594,21 +706,28 @@ function handleOptionsInput(e) {
   // Initialize selectedSetting if not set
   if (ui.selectedSetting === undefined) ui.selectedSetting = 0;
 
-  // Arrow navigation for settings list (5 options: 0-4)
+  // Clear confirmation state when navigating away from reset option
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    ui.confirmReset = false;
+  }
+
+  // Arrow navigation for settings list (7 options: 0-6)
   if (e.key === 'ArrowUp') {
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.selectedSetting = Math.min(4, ui.selectedSetting + 1);
+    ui.selectedSetting = Math.min(6, ui.selectedSetting + 1);
   }
 
-  // Number key selection (1-5)
-  if (e.key >= '1' && e.key <= '5') {
-    ui.selectedSetting = parseInt(e.key) - 1;
+  // Number key selection (1-7)
+  if (e.key >= '1' && e.key <= '7') {
+    const newSetting = parseInt(e.key) - 1;
+    if (newSetting !== ui.selectedSetting) ui.confirmReset = false;
+    ui.selectedSetting = newSetting;
   }
 
   // Enter/space to toggle or cycle
-  // Options: 0=Font..., 1=Bloom, 2=Funny names, 3=Show intro, 4=About
+  // Options: 0=Font..., 1=Bloom, 2=Funny names, 3=Show intro, 4=Skip tutorials, 5=About, 6=Reset
   if (e.key === 'Enter' || e.key === ' ') {
     if (ui.selectedSetting === 0) {
       ui.inFontSubMenu = true;
@@ -624,8 +743,25 @@ function handleOptionsInput(e) {
       ui.settings.showIntro = !ui.settings.showIntro;
       saveSettings(ui.settings);
     } else if (ui.selectedSetting === 4) {
+      ui.settings.skipTutorials = !ui.settings.skipTutorials;
+      saveSettings(ui.settings);
+    } else if (ui.selectedSetting === 5) {
       showModal('about');
+    } else if (ui.selectedSetting === 6) {
+      // Reset progress with confirmation
+      if (ui.confirmReset) {
+        engine.resetProgress();
+        ui.confirmReset = false;
+        ui.tab = 'jobs';
+      } else {
+        ui.confirmReset = true;
+      }
     }
+  }
+
+  // Escape cancels reset confirmation
+  if (e.key === 'Escape') {
+    ui.confirmReset = false;
   }
 }
 
@@ -709,6 +845,17 @@ function showModal(modalId) {
   const modal = getModal(modalId);
   if (!modal) {
     console.warn(`Modal not found: ${modalId}`);
+    return;
+  }
+
+  // Skip tutorial and story modals if setting is enabled
+  if (ui.settings.skipTutorials && (modal.type === 'tutorial' || modal.type === 'story')) {
+    console.log(`Skipping ${modal.type} modal: ${modalId} (skipTutorials enabled)`);
+    // Check for next modal in queue
+    if (modalQueue.hasNext()) {
+      const nextId = modalQueue.dequeue();
+      showModal(nextId);
+    }
     return;
   }
 

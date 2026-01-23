@@ -93,11 +93,11 @@ body {
   font-variant-ligatures: none;
   font-feature-settings: normal;
   letter-spacing: 0;
-  line-height: 1.1;
+  line-height: 1;
 }
 
 .game-layer.font-scp {
-  line-height: 1.1;
+  line-height: 1;
 }
 
 .font-fira {

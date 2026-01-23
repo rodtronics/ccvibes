@@ -1,0 +1,58 @@
+{
+  "actions": {
+    "start": "START",
+    "stop": "STOP",
+    "stop_repeat": "STOP REPEAT",
+    "repeat": "REPEAT",
+    "confirm": "CONFIRM",
+    "cancel": "CANCEL"
+  },
+  "status": {
+    "available": "AVAILABLE",
+    "busy": "BUSY",
+    "unavailable": "UNAVAILABLE"
+  },
+  "labels": {
+    "cash": "CASH",
+    "heat": "HEAT",
+    "cred": "CRED",
+    "runs": "RUNS",
+    "time": "TIME",
+    "crew": "CREW",
+    "dirtyMoney": "DIRTY"
+  },
+  "tabs": {
+    "jobs": "JOBS",
+    "active": "ACTIVE",
+    "crew": "CREW",
+    "settings": "SETTINGS"
+  },
+  "panels": {
+    "jobs": "JOBS",
+    "active": "ACTIVE RUNS",
+    "crew": "CREW",
+    "settings": "SETTINGS",
+    "log": "EVENTS"
+  },
+  "log_templates": {
+    "run_started": "Started: {activityName} - {optionName}",
+    "run_completed": "Completed: {activityName} - {optionName} ({outcomeId})",
+    "run_cancelled": "Dropped: {activityName} - {optionName}",
+    "repeat_stopped": "Repeat stopped: {activityName} - {optionName}",
+    "crew_unavailable": "Crew unavailable for {activityName} - {optionName}",
+    "missing_resources": "Missing inputs for {activityName} - {optionName}",
+    "no_slots": "Required roles missing for {activityName} - {optionName}",
+    "jail": "{staffName} is unavailable for a while"
+  },
+  "errors": {
+    "invalid_option": "Invalid option.",
+    "locked": "Locked.",
+    "no_runs": "No active runs.",
+    "invalid_key": "Nothing happens."
+  },
+  "tooltips": {
+    "repeat": "Repeat runs without speeding them up.",
+    "heat": "Heat increases bad outcomes but never blocks actions.",
+    "cred": "Cred gates access and softens risk."
+  }
+}

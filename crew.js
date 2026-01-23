@@ -70,13 +70,16 @@ export function generateName(funnyMode = false) {
     }
   }
 
-  let first = getRandom(nameData.firstNames);
-  let last = getRandom(nameData.lastNames);
+  // When funnyMode is on, draw from combined pools (normal + funny mixed together)
+  const firstPool = funnyMode
+    ? [...nameData.firstNames, ...nameData.funnyFirstNames]
+    : nameData.firstNames;
+  const lastPool = funnyMode
+    ? [...nameData.lastNames, ...nameData.funnyLastNames]
+    : nameData.lastNames;
 
-  if (funnyMode) {
-    if (Math.random() < 0.5) first = getRandom(nameData.funnyFirstNames);
-    if (Math.random() < 0.5) last = getRandom(nameData.funnyLastNames);
-  }
+  let first = getRandom(firstPool);
+  let last = getRandom(lastPool);
 
   const middle = getRandom(nameData.firstNames); // Reuse first names for middle
   const middle2 = getRandom(nameData.firstNames);
@@ -117,8 +120,11 @@ export function getUsedCrewNames(staff) {
   );
 }
 
+// Maximum name length for display purposes
+const MAX_NAME_LENGTH = 30;
+
 /**
- * Generates a unique crew member name, ensuring no collisions
+ * Generates a unique crew member name, ensuring no collisions and respecting max length
  * @param {Set<string>} usedNames - Set of lowercase names already in use
  * @param {boolean} funnyNames - Whether to use funny name generation
  * @returns {string} A unique crew member name
@@ -130,12 +136,18 @@ export function generateUniqueCrewName(usedNames, funnyNames = false) {
   do {
     candidate = generateName(funnyNames);
     attempts += 1;
-  } while (usedNames.has(candidate.toLowerCase()) && attempts < 20);
+    // Re-roll if name is too long or already used
+  } while ((candidate.length > MAX_NAME_LENGTH || usedNames.has(candidate.toLowerCase())) && attempts < 30);
 
   // Fallback to suffixing if we somehow hit too many duplicates
   if (usedNames.has(candidate.toLowerCase())) {
     const suffix = Math.floor(Math.random() * 9000) + 1000;
     candidate = `${candidate} ${suffix}`;
+  }
+
+  // Final length truncation if still too long (shouldn't happen often)
+  if (candidate.length > MAX_NAME_LENGTH) {
+    candidate = candidate.substring(0, MAX_NAME_LENGTH - 3) + '...';
   }
 
   usedNames.add(candidate.toLowerCase());
