@@ -29,3 +29,7 @@ crew menu should have a tab for visiting jail
 auto repeat doesnt seem to work if crime fails
 
 when selecting criminals for a crime, ones that dont meet requirements shouldnt be an option. and if quick selection is chosen, it should choose a random member who meets requirements
+
+quickstart doesnt work
+
+when countdown gets rto less than a minute - add milliseconds

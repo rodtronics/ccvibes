@@ -41,7 +41,7 @@
     "description": "fraud and grift",
     "order": 40,
     "hotkey": "f",
-    "revealedByDefault": false,
+    "revealedByDefault": true,
     "ui": {
       "color": "ELECTRIC_BLUE",
       "gradient": "new_branch"

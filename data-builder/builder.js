@@ -96,15 +96,14 @@ function defaultEffect() {
   return {
     type: 'revealActivity',
     activityId: '',
-    optionId: '',
     branchId: '',
     resourceId: '',
     roleId: '',
     tabId: '',
     key: '',
     value: '',
-    delta: 1,
-    message: ''
+    text: '',
+    kind: ''
   };
 }
 
@@ -488,9 +487,7 @@ function renderConditionOptions(current) {
     'itemGte',
     'flagIs',
     'roleRevealed',
-    'activityRevealed',
-    'staffStarsGte',
-    'activityCompletedGte'
+    'activityRevealed'
   ];
   return types.map(t => `<option value="${t}" ${current === t ? 'selected' : ''}>${t}</option>`).join('');
 }
@@ -525,20 +522,6 @@ function renderConditionFields(cond, scope, idx) {
       return `<input type="text" value="${safe(cond.roleId)}" placeholder="roleId" oninput="updateCondition('${scope}', ${idx}, 'roleId', this.value)">`;
     case 'activityRevealed':
       return `<input type="text" value="${safe(cond.activityId)}" placeholder="activityId" oninput="updateCondition('${scope}', ${idx}, 'activityId', this.value)">`;
-    case 'staffStarsGte':
-      return `
-        <div class="pill-row">
-          <input type="text" value="${safe(cond.roleId)}" placeholder="roleId" oninput="updateCondition('${scope}', ${idx}, 'roleId', this.value)">
-          <input type="number" value="${safe(cond.value)}" placeholder="stars" oninput="updateCondition('${scope}', ${idx}, 'value', parseInt(this.value, 10) || 0)">
-        </div>
-      `;
-    case 'activityCompletedGte':
-      return `
-        <div class="pill-row">
-          <input type="text" value="${safe(cond.activityId)}" placeholder="activityId" oninput="updateCondition('${scope}', ${idx}, 'activityId', this.value)">
-          <input type="number" value="${safe(cond.value)}" placeholder="times" oninput="updateCondition('${scope}', ${idx}, 'value', parseInt(this.value, 10) || 0)">
-        </div>
-      `;
     default:
       return '<div class="hint">Unknown condition</div>';
   }
@@ -570,7 +553,6 @@ function renderEffectOptions(current) {
     'revealRole',
     'revealTab',
     'unlockActivity',
-    'unlockOption',
     'setFlag',
     'incFlagCounter',
     'logMessage'
@@ -592,13 +574,6 @@ function renderEffectFields(effect, scope, idx) {
       return `<input type="text" value="${safe(effect.tabId)}" placeholder="tabId" oninput="updateEffect('${scope}', ${idx}, 'tabId', this.value)">`;
     case 'unlockActivity':
       return `<input type="text" value="${safe(effect.activityId)}" placeholder="activityId" oninput="updateEffect('${scope}', ${idx}, 'activityId', this.value)">`;
-    case 'unlockOption':
-      return `
-        <div class="pill-row">
-          <input type="text" value="${safe(effect.activityId)}" placeholder="activityId" oninput="updateEffect('${scope}', ${idx}, 'activityId', this.value)">
-          <input type="text" value="${safe(effect.optionId)}" placeholder="optionId" oninput="updateEffect('${scope}', ${idx}, 'optionId', this.value)">
-        </div>
-      `;
     case 'setFlag':
       return `
         <div class="pill-row">
@@ -607,17 +582,24 @@ function renderEffectFields(effect, scope, idx) {
         </div>
       `;
     case 'incFlagCounter':
+      return `<input type="text" value="${safe(effect.key)}" placeholder="flag key" oninput="updateEffect('${scope}', ${idx}, 'key', this.value)">`;
+    case 'logMessage':
       return `
         <div class="pill-row">
-          <input type="text" value="${safe(effect.key)}" placeholder="flag key" oninput="updateEffect('${scope}', ${idx}, 'key', this.value)">
-          <input type="number" value="${safe(effect.delta)}" placeholder="delta" oninput="updateEffect('${scope}', ${idx}, 'delta', parseInt(this.value, 10) || 0)">
+          <input type="text" value="${safe(effect.text || effect.message)}" placeholder="message" oninput="updateEffect('${scope}', ${idx}, 'text', this.value)">
+          <select onchange="updateEffect('${scope}', ${idx}, 'kind', this.value)">
+            ${renderLogKindOptions(effect.kind)}
+          </select>
         </div>
       `;
-    case 'logMessage':
-      return `<input type="text" value="${safe(effect.message)}" placeholder="message" oninput="updateEffect('${scope}', ${idx}, 'message', this.value)">`;
     default:
       return '<div class="hint">Unknown effect</div>';
   }
+}
+
+function renderLogKindOptions(current) {
+  const kinds = ['info', 'success', 'warning', 'error'];
+  return kinds.map(k => `<option value="${k}" ${current === k ? 'selected' : ''}>${k}</option>`).join('');
 }
 
 function renderKvList(list, scope, mode = 'amount', keyLabel = 'resourceId') {
@@ -1069,14 +1051,12 @@ function normalizeEffect(effect) {
       return { ...base, tabId: effect.tabId || '' };
     case 'unlockActivity':
       return { ...base, activityId: effect.activityId || '' };
-    case 'unlockOption':
-      return { ...base, activityId: effect.activityId || '', optionId: effect.optionId || '' };
     case 'setFlag':
       return { ...base, key: effect.key || '', value: effect.value || '' };
     case 'incFlagCounter':
-      return { ...base, key: effect.key || '', delta: numberOrDefault(effect.delta, 1) };
+      return { ...base, key: effect.key || '' };
     case 'logMessage':
-      return { ...base, message: effect.message || '' };
+      return cleanObject({ ...base, text: effect.text || effect.message || '', kind: effect.kind || undefined });
     default:
       return base;
   }
