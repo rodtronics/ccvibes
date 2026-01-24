@@ -136,18 +136,8 @@ export class UI {
     const activity = activities[this.ui.activityIndex];
     const options = activity ? this.getVisibleOptions(activity) : [];
 
-    // Row 4: Branch tabs (secondary navigation)
-    let tabX = 2;
-    const tabY = 3;
-    branches.forEach((b, i) => {
-      const isActive = i === this.ui.branchIndex;
-      // Use color from schema, fallback to TERMINAL_GREEN
-      const branchColor = b.ui?.color ? Palette[b.ui.color] : Palette.TERMINAL_GREEN;
-      // Use gradient if specified in schema
-      const gradient = b.ui?.gradient || null;
-      const width = this.renderTab(tabX, tabY, b.name.toUpperCase(), b.hotkey || "", isActive, branchColor, Palette.BLACK, Palette.DIM_GRAY, gradient);
-      tabX += width + 2;
-    });
+    // Branch tab bar with box-drawing borders
+    this.renderBranchTabBar(branches, this.ui.branchIndex);
 
     // Determine layout based on focus
     const showingOptions = (this.ui.focus === "option" || this.ui.focus === "runs") && activity;
@@ -192,13 +182,13 @@ export class UI {
 
       // Apply branch background color if specified
       const branchBgColor = branch?.ui?.bgColor ? Palette[branch.ui.bgColor] : Palette.BLACK;
-      this.buffer.fillRect(0, 3, Layout.WIDTH, Layout.HEIGHT - 3, " ", Palette.LIGHT_GRAY, branchBgColor);
+      this.buffer.fillRect(0, 5, Layout.WIDTH, Layout.HEIGHT - 5, " ", Palette.LIGHT_GRAY, branchBgColor);
 
-      // Redraw main box border over the background
-      this.buffer.drawBox(0, 3, Layout.WIDTH, Layout.HEIGHT - 3, BoxStyles.SINGLE, Palette.DIM_GRAY, branchBgColor);
+      // Redraw branch tab bar over the background (preserves tab visual)
+      this.renderBranchTabBar(branches, this.ui.branchIndex);
 
       // Draw vertical divider between columns
-      this.buffer.drawVLine(51, optionsTop, Layout.HEIGHT - optionsTop - 2, "│", Palette.DIM_GRAY, branchBgColor);
+      this.buffer.drawVLine(51, optionsTop, Layout.HEIGHT - optionsTop - 1, "│", Palette.DIM_GRAY, branchBgColor);
 
       // LEFT COLUMN: Activity header and options list
       this.buffer.writeText(leftCol.x, optionsTop, activity.name.toUpperCase(), Palette.NEON_CYAN, branchBgColor);
@@ -903,6 +893,110 @@ export class UI {
     }
 
     return safeLabel.length; // Return width for positioning next tab
+  }
+
+  // Branch tab bar - visual tabs with box-drawing borders
+  // 3 rows: Row 2 = top border (┌/┬/┐), Row 3 = │ LABEL │, Row 4 = bottom line with selected tab open
+  // Tabs overwrite the main panel top line only within the tab span
+  renderBranchTabBar(branches, selectedIndex) {
+    const TAB_Y = 3;           // Label row
+    const TOP_Y = TAB_Y - 1;   // Top border row for tabs
+    const TAB_PADDING = 1;     // Space on each side of label inside tab
+    const BOX = BoxStyles.SINGLE;
+
+    // Calculate tab data with positions
+    const tabs = [];
+    let x = 2; // Start at column 2 to keep tabs off the left border
+
+    branches.forEach((b, i) => {
+      const label = b.name.toUpperCase();
+      const innerWidth = label.length + TAB_PADDING * 2; // Padding on each side
+      const totalWidth = innerWidth + 2; // +2 for │ borders on each side
+
+      tabs.push({
+        branch: b,
+        label: label,
+        x: x,
+        innerWidth: innerWidth,
+        totalWidth: totalWidth,
+        isSelected: i === selectedIndex
+      });
+
+      // Overlap one column so tab borders share a seam
+      x += totalWidth - 1;
+    });
+
+    // Top border for tabs (replaces the main panel top line within the tab span)
+    if (tabs.length > 0) {
+      const firstX = tabs[0].x;
+      const lastTab = tabs[tabs.length - 1];
+      const lastX = lastTab.x + lastTab.totalWidth - 1;
+
+      // Clear the entire row so the main panel top border disappears under the tab caps
+      for (let i = 0; i < Layout.WIDTH; i++) {
+        this.buffer.setCell(i, TOP_Y, " ", Palette.BLACK, Palette.BLACK);
+      }
+
+      // Draw the tab top line with tee connectors
+      tabs.forEach((tab, index) => {
+        const leftChar = index === 0 ? "┌" : "┬";
+        this.buffer.setCell(tab.x, TOP_Y, leftChar, Palette.DIM_GRAY, Palette.BLACK);
+        for (let i = 1; i < tab.totalWidth - 1; i++) {
+          this.buffer.setCell(tab.x + i, TOP_Y, "─", Palette.DIM_GRAY, Palette.BLACK);
+        }
+      });
+
+      // Right corner of the last tab
+      this.buffer.setCell(lastX, TOP_Y, "┐", Palette.DIM_GRAY, Palette.BLACK);
+    }
+
+    // Row 1 (y=3): │ LABEL │ for each tab
+    tabs.forEach(tab => {
+      // Left border
+      this.buffer.setCell(tab.x, TAB_Y, BOX.vertical, Palette.DIM_GRAY, Palette.BLACK);
+
+      // Label with padding
+      const labelStart = tab.x + 1 + TAB_PADDING;
+      const branchColor = tab.branch.ui?.color ? Palette[tab.branch.ui.color] : Palette.TERMINAL_GREEN;
+      const labelColor = tab.isSelected ? branchColor : Palette.DIM_GRAY;
+
+      // Clear the inside with spaces first (for consistent background)
+      for (let i = 1; i <= tab.innerWidth; i++) {
+        this.buffer.setCell(tab.x + i, TAB_Y, " ", Palette.BLACK, Palette.BLACK);
+      }
+
+      // Write label
+      this.buffer.writeText(labelStart, TAB_Y, tab.label, labelColor, Palette.BLACK);
+
+      // Right border
+      this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y, BOX.vertical, Palette.DIM_GRAY, Palette.BLACK);
+    });
+
+    // Row 2 (y=4): Bottom line - selected tab opens, others closed
+    // First, draw a continuous horizontal line across the full width
+    for (let i = 0; i < Layout.WIDTH; i++) {
+      this.buffer.setCell(i, TAB_Y + 1, BOX.horizontal, Palette.DIM_GRAY, Palette.BLACK);
+    }
+
+    // Now handle each tab's bottom
+    tabs.forEach(tab => {
+      if (tab.isSelected) {
+        // Selected tab: open bottom (┘ spaces └)
+        this.buffer.setCell(tab.x, TAB_Y + 1, BOX.bottomRight, Palette.DIM_GRAY, Palette.BLACK);
+        // Clear the bottom (spaces - tab merges with content)
+        for (let i = 1; i <= tab.innerWidth; i++) {
+          this.buffer.setCell(tab.x + i, TAB_Y + 1, " ", Palette.BLACK, Palette.BLACK);
+        }
+        this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y + 1, BOX.bottomLeft, Palette.DIM_GRAY, Palette.BLACK);
+      } else {
+        // Unselected tab: closed bottom with tee connectors
+        this.buffer.setCell(tab.x, TAB_Y + 1, BOX.teeUp, Palette.DIM_GRAY, Palette.BLACK);
+        for (let i = 1; i <= tab.innerWidth; i++) {
+          this.buffer.setCell(tab.x + i, TAB_Y + 1, BOX.horizontal, Palette.DIM_GRAY, Palette.BLACK);
+        }
+        this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y + 1, BOX.teeUp, Palette.DIM_GRAY, Palette.BLACK);
+      }
+    });
   }
 
   // Helper methods

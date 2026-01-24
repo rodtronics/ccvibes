@@ -78,5 +78,299 @@
       { "tierId": "runner_4", "starsRequired": 4, "options": ["runner_untouchable", "runner_scout"] }
     ],
     "revealedByDefault": false
+  },
+  {
+    "id": "scavenger",
+    "name": "scavenger",
+    "description": "salvage and resource sense.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "scavenger_1", "starsRequired": 1, "options": ["scavenger_sharp_eyes", "scavenger_quiet_steps"] },
+      { "tierId": "scavenger_2", "starsRequired": 2, "options": ["scavenger_light_pack", "scavenger_dust_cover"] },
+      { "tierId": "scavenger_3", "starsRequired": 3, "options": ["scavenger_barter_sense", "scavenger_favor_bank"] },
+      { "tierId": "scavenger_4", "starsRequired": 4, "options": ["scavenger_shortcuts", "scavenger_no_trace"] },
+      { "tierId": "scavenger_5", "starsRequired": 5, "options": ["scavenger_value_instinct", "scavenger_ghosted"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "survivalist",
+    "name": "survivalist",
+    "description": "endures scarcity and keeps teams moving.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "survivalist_1", "starsRequired": 1, "options": ["survivalist_stone_calm", "survivalist_low_profile"] },
+      { "tierId": "survivalist_2", "starsRequired": 2, "options": ["survivalist_hard_march", "survivalist_cold_ash"] },
+      { "tierId": "survivalist_3", "starsRequired": 3, "options": ["survivalist_trade_routes", "survivalist_story_credit"] },
+      { "tierId": "survivalist_4", "starsRequired": 4, "options": ["survivalist_long_run", "survivalist_smoke_screen"] },
+      { "tierId": "survivalist_5", "starsRequired": 5, "options": ["survivalist_hard_won", "survivalist_slip_free"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "lookout",
+    "name": "lookout",
+    "description": "eyes on the street, warnings early.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "lookout_1", "starsRequired": 1, "options": ["lookout_wide_lens", "lookout_early_warning"] },
+      { "tierId": "lookout_2", "starsRequired": 2, "options": ["lookout_short_route", "lookout_crowd_cover"] },
+      { "tierId": "lookout_3", "starsRequired": 3, "options": ["lookout_tip_line", "lookout_street_buzz"] },
+      { "tierId": "lookout_4", "starsRequired": 4, "options": ["lookout_clear_path", "lookout_stay_in_shadows"] },
+      { "tierId": "lookout_5", "starsRequired": 5, "options": ["lookout_pinpoint", "lookout_gone_dark"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "brawler",
+    "name": "brawler",
+    "description": "pressure and muscle, short and loud.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "brawler_1", "starsRequired": 1, "options": ["brawler_steady_fists", "brawler_hard_stare"] },
+      { "tierId": "brawler_2", "starsRequired": 2, "options": ["brawler_fast_break", "brawler_heat_sink"] },
+      { "tierId": "brawler_3", "starsRequired": 3, "options": ["brawler_shakedown", "brawler_rep_builder"] },
+      { "tierId": "brawler_4", "starsRequired": 4, "options": ["brawler_quick_exit", "brawler_low_heat"] },
+      { "tierId": "brawler_5", "starsRequired": 5, "options": ["brawler_knockout", "brawler_no_witness"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "chemist",
+    "name": "chemist",
+    "description": "mixes product, manages risk.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "chemist_1", "starsRequired": 1, "options": ["chemist_precise_mix", "chemist_low_profile"] },
+      { "tierId": "chemist_2", "starsRequired": 2, "options": ["chemist_fast_reaction", "chemist_odor_mask"] },
+      { "tierId": "chemist_3", "starsRequired": 3, "options": ["chemist_yield_boost", "chemist_good_reviews"] },
+      { "tierId": "chemist_4", "starsRequired": 4, "options": ["chemist_streamlined", "chemist_clean_lab"] },
+      { "tierId": "chemist_5", "starsRequired": 5, "options": ["chemist_pure_batch", "chemist_no_snitch"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "pusher",
+    "name": "pusher",
+    "description": "moves product, reads the crowd.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "pusher_1", "starsRequired": 1, "options": ["pusher_smooth_talk", "pusher_heat_check"] },
+      { "tierId": "pusher_2", "starsRequired": 2, "options": ["pusher_fast_handoff", "pusher_blend_in"] },
+      { "tierId": "pusher_3", "starsRequired": 3, "options": ["pusher_markup", "pusher_street_rep"] },
+      { "tierId": "pusher_4", "starsRequired": 4, "options": ["pusher_quick_turn", "pusher_ghost_corners"] },
+      { "tierId": "pusher_5", "starsRequired": 5, "options": ["pusher_networked", "pusher_no_trace"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "con_artist",
+    "name": "con artist",
+    "description": "sells lies with a clean smile.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "con_artist_1", "starsRequired": 1, "options": ["con_artist_silver_tongue", "con_artist_soft_exit"] },
+      { "tierId": "con_artist_2", "starsRequired": 2, "options": ["con_artist_fast_pitch", "con_artist_low_heat"] },
+      { "tierId": "con_artist_3", "starsRequired": 3, "options": ["con_artist_big_take", "con_artist_reputation"] },
+      { "tierId": "con_artist_4", "starsRequired": 4, "options": ["con_artist_clean_break", "con_artist_smoke_and_mirrors"] },
+      { "tierId": "con_artist_5", "starsRequired": 5, "options": ["con_artist_master_plot", "con_artist_vanishing_act"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "forger",
+    "name": "forger",
+    "description": "makes paper look real.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "forger_1", "starsRequired": 1, "options": ["forger_steady_hand", "forger_cautious"] },
+      { "tierId": "forger_2", "starsRequired": 2, "options": ["forger_quick_press", "forger_ink_control"] },
+      { "tierId": "forger_3", "starsRequired": 3, "options": ["forger_premium_stock", "forger_trusted"] },
+      { "tierId": "forger_4", "starsRequired": 4, "options": ["forger_fast_checks", "forger_clean_paper"] },
+      { "tierId": "forger_5", "starsRequired": 5, "options": ["forger_master_stamp", "forger_no_trail"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "fixer",
+    "name": "fixer",
+    "description": "moves influence without fingerprints.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "fixer_1", "starsRequired": 1, "options": ["fixer_smooth_intros", "fixer_cover_story"] },
+      { "tierId": "fixer_2", "starsRequired": 2, "options": ["fixer_fast_favors", "fixer_quiet_deals"] },
+      { "tierId": "fixer_3", "starsRequired": 3, "options": ["fixer_cut_taken", "fixer_pull_strings"] },
+      { "tierId": "fixer_4", "starsRequired": 4, "options": ["fixer_quick_clear", "fixer_low_heat"] },
+      { "tierId": "fixer_5", "starsRequired": 5, "options": ["fixer_kingmaker", "fixer_buried_files"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "insider",
+    "name": "insider",
+    "description": "access and quiet leverage.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "insider_1", "starsRequired": 1, "options": ["insider_early_tip", "insider_stay_in"] },
+      { "tierId": "insider_2", "starsRequired": 2, "options": ["insider_short_loop", "insider_low_heat"] },
+      { "tierId": "insider_3", "starsRequired": 3, "options": ["insider_bonus_stack", "insider_boardroom"] },
+      { "tierId": "insider_4", "starsRequired": 4, "options": ["insider_fast_track", "insider_coverup"] },
+      { "tierId": "insider_5", "starsRequired": 5, "options": ["insider_keycard", "insider_blackout"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "hacker",
+    "name": "hacker",
+    "description": "breaks systems, leaves little trace.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "hacker_1", "starsRequired": 1, "options": ["hacker_clean_shell", "hacker_trace_mask"] },
+      { "tierId": "hacker_2", "starsRequired": 2, "options": ["hacker_fast_script", "hacker_low_heat"] },
+      { "tierId": "hacker_3", "starsRequired": 3, "options": ["hacker_crypto_cut", "hacker_rep_online"] },
+      { "tierId": "hacker_4", "starsRequired": 4, "options": ["hacker_quick_patch", "hacker_smoke_proxy"] },
+      { "tierId": "hacker_5", "starsRequired": 5, "options": ["hacker_root_access", "hacker_zero_trace"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "technician",
+    "name": "technician",
+    "description": "hardware, rigs, and quiet setups.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "technician_1", "starsRequired": 1, "options": ["technician_steady_tools", "technician_low_noise"] },
+      { "tierId": "technician_2", "starsRequired": 2, "options": ["technician_fast_rig", "technician_low_heat"] },
+      { "tierId": "technician_3", "starsRequired": 3, "options": ["technician_bonus_parts", "technician_good_word"] },
+      { "tierId": "technician_4", "starsRequired": 4, "options": ["technician_streamlined", "technician_clean_shutdown"] },
+      { "tierId": "technician_5", "starsRequired": 5, "options": ["technician_master_circuit", "technician_no_fault"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "occultist",
+    "name": "occultist",
+    "description": "leans on forbidden rituals.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "occultist_1", "starsRequired": 1, "options": ["occultist_cold_focus", "occultist_soft_steps"] },
+      { "tierId": "occultist_2", "starsRequired": 2, "options": ["occultist_quick_ritual", "occultist_low_heat"] },
+      { "tierId": "occultist_3", "starsRequired": 3, "options": ["occultist_better_offering", "occultist_dark_repute"] },
+      { "tierId": "occultist_4", "starsRequired": 4, "options": ["occultist_shortened_rite", "occultist_veil"] },
+      { "tierId": "occultist_5", "starsRequired": 5, "options": ["occultist_true_name", "occultist_no_witness"] }
+    ],
+    "revealedByDefault": false
+  },
+  {
+    "id": "silencer",
+    "name": "silencer",
+    "description": "ends problems quietly.",
+    "xpToStars": [
+      { "stars": 0, "minXp": 0 },
+      { "stars": 1, "minXp": 100 },
+      { "stars": 2, "minXp": 350 },
+      { "stars": 3, "minXp": 800 },
+      { "stars": 4, "minXp": 1500 },
+      { "stars": 5, "minXp": 2500 }
+    ],
+    "perkChoices": [
+      { "tierId": "silencer_1", "starsRequired": 1, "options": ["silencer_calm_shot", "silencer_no_trace"] },
+      { "tierId": "silencer_2", "starsRequired": 2, "options": ["silencer_fast_exit", "silencer_cool_off"] },
+      { "tierId": "silencer_3", "starsRequired": 3, "options": ["silencer_clean_cut", "silencer_whisper_rep"] },
+      { "tierId": "silencer_4", "starsRequired": 4, "options": ["silencer_quick_reset", "silencer_smoke_out"] },
+      { "tierId": "silencer_5", "starsRequired": 5, "options": ["silencer_dead_air", "silencer_disappear"] }
+    ],
+    "revealedByDefault": false
   }
 ]

@@ -176,20 +176,6 @@ function handleJobsInput(e) {
   const activities = uiLayer.getVisibleActivities(branch?.id);
   const activity = activities[ui.activityIndex];
   const options = activity ? uiLayer.getVisibleOptions(activity) : [];
-  const key = (e.key || '').toLowerCase();
-
-  // Branch hotkeys
-  for (let i = 0; i < branches.length; i++) {
-    const hotkey = (branches[i].hotkey || '').toString().trim().toLowerCase();
-    if (hotkey && key === hotkey) {
-      ui.branchIndex = i;
-      ui.activityIndex = 0;
-      ui.optionIndex = 0;
-      ui.focus = 'activity';
-      return;
-    }
-  }
-
   // Number keys for selection
   if (e.key >= '1' && e.key <= '9') {
     const num = parseInt(e.key);
