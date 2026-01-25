@@ -26,7 +26,12 @@ export class Engine {
         ]
       },
       runs: [],
-      log: []
+      log: [],
+      stats: {
+        lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
+        series: {},
+        totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
+      }
     };
     this.data = {
       activities: [],
@@ -100,6 +105,15 @@ export class Engine {
         }));
       }
 
+      // Migrate stats if missing
+      if (!this.state.stats) {
+        this.state.stats = {
+          lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
+          series: {},
+          totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
+        };
+      }
+
       // Process any runs that should have completed while offline
       const now = Date.now();
       const completedOffline = [];
@@ -155,7 +169,12 @@ export class Engine {
         ]
       },
       runs: [],
-      log: []
+      log: [],
+      stats: {
+        lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
+        series: {},
+        totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
+      }
     };
     this.applyDefaultReveals();
     this.log("Progress reset. Starting fresh.", "info");
@@ -172,7 +191,8 @@ export class Engine {
         reveals: this.state.reveals,
         crew: this.state.crew,
         runs: this.state.runs,
-        log: this.state.log.slice(0, 50)  // Save only last 50 log entries
+        log: this.state.log.slice(0, 50),  // Save only last 50 log entries
+        stats: this.state.stats
       };
 
       localStorage.setItem('ccv_game_state', JSON.stringify(toSave));
@@ -200,7 +220,64 @@ export class Engine {
     this.processRuns(now);
     this.recoverStaff(now);
     this.decayHeat(now);
+    this.recordStats(now);
     this.lastTick = now;
+  }
+
+  recordStats(now) {
+    // Initialize stats if missing
+    if (!this.state.stats) {
+      this.state.stats = {
+        lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
+        series: {},
+        totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
+      };
+    }
+
+    // 64 points per time period
+    const intervals = {
+      second: 1000,      // 64000 / 64 (64 seconds total)
+      minute: 938,       // 60000 / 64
+      fiveMin: 4688,     // 300000 / 64
+      hour: 56250,       // 3600000 / 64
+      day: 1350000,      // 86400000 / 64
+      month: 40500000    // 2592000000 / 64 (30 days)
+    };
+
+    const statsToRecord = {
+      cash: this.state.resources.cash || 0,
+      heat: this.state.resources.heat || 0,
+      cred: this.state.resources.cred || 0,
+      crewCount: this.state.crew.staff.length,
+      activeRuns: this.state.runs.length,
+      successRate: this.calculateSuccessRate()
+    };
+
+    Object.entries(intervals).forEach(([scale, interval]) => {
+      const lastRecorded = this.state.stats.lastRecorded[scale] || 0;
+      if (now - lastRecorded >= interval) {
+        this.state.stats.lastRecorded[scale] = now;
+
+        Object.entries(statsToRecord).forEach(([stat, value]) => {
+          if (!this.state.stats.series[stat]) {
+            this.state.stats.series[stat] = {};
+          }
+          if (!this.state.stats.series[stat][scale]) {
+            this.state.stats.series[stat][scale] = [];
+          }
+
+          const arr = this.state.stats.series[stat][scale];
+          arr.push(value);
+          if (arr.length > 64) arr.shift();
+        });
+      }
+    });
+  }
+
+  calculateSuccessRate() {
+    const totals = this.state.stats?.totals;
+    if (!totals || totals.crimesCompleted === 0) return 0;
+    return Math.round((totals.crimesSucceeded / totals.crimesCompleted) * 100);
   }
 
   processRuns(now) {
@@ -459,6 +536,21 @@ export class Engine {
           this.log(`Unavailable: ${s.name} jailed for ${durationText}.`, "warning");
         });
       }
+    }
+
+    // Track stats totals
+    if (!this.state.stats) {
+      this.state.stats = {
+        lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
+        series: {},
+        totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
+      };
+    }
+    this.state.stats.totals.crimesCompleted++;
+    if (wasSuccessful) {
+      this.state.stats.totals.crimesSucceeded++;
+    } else {
+      this.state.stats.totals.crimesFailed++;
     }
 
     // Award XP on successful completion

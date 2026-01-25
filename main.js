@@ -52,6 +52,11 @@ const ui = {
   resourceSelection: {
     selectedIndex: 0,      // Currently highlighted resource index
   },
+  statsSelection: {
+    selectedStat: 0,       // Index of selected stat (0-5)
+    selectedPeriod: 0,     // 0=1sec, 1=1min, 2=5min, 3=1hr, 4=1day, 5=1mo
+    logScale: false        // Whether to use logarithmic Y-axis
+  },
   modal: {
     active: false,
     id: null,
@@ -584,7 +589,30 @@ function updateResourcesScroll(selectedIndex, visibleRows, totalResources) {
 }
 
 function handleStatsInput(e) {
-  // Placeholder for future stats screen
+  const STAT_COUNT = 6;  // cash, heat, cred, crewCount, activeRuns, successRate
+  const PERIOD_COUNT = 6;  // second, minute, fiveMin, hour, day, month
+
+  // Arrow Up/Down: Navigate stat selection
+  if (e.key === 'ArrowUp') {
+    ui.statsSelection.selectedStat = Math.max(0, ui.statsSelection.selectedStat - 1);
+  }
+  if (e.key === 'ArrowDown') {
+    ui.statsSelection.selectedStat = Math.min(STAT_COUNT - 1, ui.statsSelection.selectedStat + 1);
+  }
+
+  // Arrow Left/Right: Change time period
+  if (e.key === 'ArrowLeft') {
+    ui.statsSelection.selectedPeriod = Math.max(0, ui.statsSelection.selectedPeriod - 1);
+  }
+  if (e.key === 'ArrowRight') {
+    ui.statsSelection.selectedPeriod = Math.min(PERIOD_COUNT - 1, ui.statsSelection.selectedPeriod + 1);
+  }
+
+  // L key: Toggle logarithmic scale
+  if (e.key === 'l' || e.key === 'L') {
+    ui.statsSelection.logScale = !ui.statsSelection.logScale;
+  }
+
   if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
 }
 

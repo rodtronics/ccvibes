@@ -784,7 +784,223 @@ export class UI {
   renderStatsTab() {
     const top = 4;
     this.buffer.writeText(2, top - 1, "STATS", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(2, top + 1, "Stats view coming soon.", Palette.DIM_GRAY, Palette.BLACK);
+
+    // Stat definitions
+    const statDefs = [
+      { id: 'cash', name: 'Cash', format: v => '$' + this.fmtNum(v) },
+      { id: 'heat', name: 'Heat', format: v => String(v) },
+      { id: 'cred', name: 'Cred', format: v => String(v) },
+      { id: 'crewCount', name: 'Crew Size', format: v => String(v) },
+      { id: 'activeRuns', name: 'Active Runs', format: v => String(v) },
+      { id: 'successRate', name: 'Success Rate', format: v => v + '%' }
+    ];
+
+    const periodDefs = [
+      { id: 'second', name: '1s', duration: 1000 },
+      { id: 'minute', name: '1m', duration: 938 },
+      { id: 'fiveMin', name: '5m', duration: 4688 },
+      { id: 'hour', name: '1h', duration: 56250 },
+      { id: 'day', name: '1d', duration: 1350000 },
+      { id: 'month', name: '1mo', duration: 40500000 }
+    ];
+
+    // Get selection state
+    const selectedStat = this.ui.statsSelection?.selectedStat || 0;
+    const selectedPeriod = this.ui.statsSelection?.selectedPeriod || 0;
+    const statDef = statDefs[selectedStat];
+    const periodDef = periodDefs[selectedPeriod];
+
+    // Get current values for each stat
+    const getCurrentValue = (statId) => {
+      if (statId === 'cash') return this.engine.state.resources.cash || 0;
+      if (statId === 'heat') return this.engine.state.resources.heat || 0;
+      if (statId === 'cred') return this.engine.state.resources.cred || 0;
+      if (statId === 'crewCount') return this.engine.state.crew.staff.length;
+      if (statId === 'activeRuns') return this.engine.state.runs.length;
+      if (statId === 'successRate') return this.engine.calculateSuccessRate();
+      return 0;
+    };
+
+    // Render stat selection (left side)
+    const labelY = top + 1;
+    this.buffer.writeText(2, labelY, "SELECT STAT:", Palette.DIM_GRAY, Palette.BLACK);
+
+    statDefs.forEach((stat, idx) => {
+      const y = labelY + 1 + idx;
+      const isSelected = idx === selectedStat;
+      const prefix = isSelected ? ">" : " ";
+      const nameColor = isSelected ? Palette.NEON_CYAN : Palette.LIGHT_GRAY;
+      const valueColor = isSelected ? Palette.WHITE : Palette.DIM_GRAY;
+
+      this.buffer.writeText(2, y, prefix, isSelected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.writeText(4, y, stat.name.padEnd(14), nameColor, Palette.BLACK);
+      this.buffer.writeText(18, y, stat.format(getCurrentValue(stat.id)).padStart(10), valueColor, Palette.BLACK);
+    });
+
+    // Render time period selection (right side)
+    const periodX = 34;
+    this.buffer.writeText(periodX, labelY, "TIME PERIOD:", Palette.DIM_GRAY, Palette.BLACK);
+
+    let px = periodX;
+    periodDefs.forEach((period, idx) => {
+      const isSelected = idx === selectedPeriod;
+      const color = isSelected ? Palette.NEON_CYAN : Palette.DIM_GRAY;
+      const text = isSelected ? `[${period.name}]` : ` ${period.name} `;
+      this.buffer.writeText(px, labelY + 1, text, color, Palette.BLACK);
+      px += text.length + 1;
+    });
+
+    // Get data for selected stat and period
+    const data = this.engine.state.stats?.series?.[statDef.id]?.[periodDef.id] || [];
+    const useLogScale = this.ui.statsSelection?.logScale || false;
+
+    // Calculate and display stats info
+    const infoY = labelY + 3;
+    const currentVal = getCurrentValue(statDef.id);
+    this.buffer.writeText(periodX, infoY, "CURRENT: " + statDef.format(currentVal), Palette.WHITE, Palette.BLACK);
+
+    if (data.length > 0) {
+      const min = Math.min(...data);
+      const max = Math.max(...data);
+      const first = data[0];
+      const last = data[data.length - 1];
+      const trend = first !== 0 ? Math.round(((last - first) / Math.abs(first)) * 100) : 0;
+      const trendStr = trend >= 0 ? `+${trend}%` : `${trend}%`;
+      const trendColor = trend > 0 ? Palette.SUCCESS_GREEN : (trend < 0 ? Palette.HEAT_RED : Palette.DIM_GRAY);
+
+      this.buffer.writeText(periodX, infoY + 1, "RANGE: " + statDef.format(min) + " - " + statDef.format(max), Palette.MID_GRAY, Palette.BLACK);
+      this.buffer.writeText(periodX, infoY + 2, "TREND: ", Palette.MID_GRAY, Palette.BLACK);
+      this.buffer.writeText(periodX + 7, infoY + 2, trendStr, trendColor, Palette.BLACK);
+    } else {
+      this.buffer.writeText(periodX, infoY + 1, "RANGE: Collecting...", Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.writeText(periodX, infoY + 2, "TREND: --", Palette.DIM_GRAY, Palette.BLACK);
+    }
+
+    // Show log scale indicator
+    if (useLogScale) {
+      this.buffer.writeText(periodX, infoY + 3, "[LOG SCALE]", Palette.BRIGHT_YELLOW, Palette.BLACK);
+    } else {
+      this.buffer.writeText(periodX, infoY + 3, "[L] Log Scale", Palette.DIM_GRAY, Palette.BLACK);
+    }
+
+    // Render the graph
+    const graphY = 13;  // Graph starts here
+    const graphHeight = 10;
+    const graphWidth = 64;  // Width for 64 data points
+    const graphX = 8;  // X position for graph data area
+
+    // Draw horizontal separator
+    this.buffer.drawHLine(2, graphY - 1, Layout.WIDTH - 4, "─", Palette.DIM_GRAY, Palette.BLACK);
+
+    if (data.length === 0) {
+      this.buffer.writeText(graphX + 10, graphY + 4, "Collecting data...", Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.writeText(graphX + 5, graphY + 5, "(Stats recorded over time)", Palette.DIM_GRAY, Palette.BLACK);
+    } else {
+      this.renderRollingGraph(data, graphX, graphY, graphWidth, graphHeight, statDef, useLogScale);
+    }
+
+    // Time axis labels: show exact past time on left, "now" on right
+    const pastTimeLabel = this.formatPastTime(periodDef.duration);
+    this.buffer.writeText(graphX, graphY + graphHeight, pastTimeLabel, Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(graphX + graphWidth - 3, graphY + graphHeight, "now", Palette.DIM_GRAY, Palette.BLACK);
+  }
+
+  formatPastTime(durationMs) {
+    // Format the time period as "64s ago", "64m ago", etc.
+    const totalSeconds = Math.floor(durationMs / 1000);
+
+    if (totalSeconds < 120) {
+      return totalSeconds + "s ago";
+    } else if (totalSeconds < 7200) {
+      return Math.floor(totalSeconds / 60) + "m ago";
+    } else if (totalSeconds < 172800) {
+      return Math.floor(totalSeconds / 3600) + "h ago";
+    } else {
+      return Math.floor(totalSeconds / 86400) + "d ago";
+    }
+  }
+
+  renderRollingGraph(data, x, y, width, height, statDef, useLogScale) {
+    if (data.length === 0) return;
+
+    // For log scale, need to handle zeros and negatives
+    let min, max, range;
+    let processedData = data;
+
+    if (useLogScale) {
+      // Filter out zeros and negatives for log scale
+      const positiveData = data.map(v => Math.max(0.1, v)); // Minimum value of 0.1 to avoid log(0)
+      min = Math.min(...positiveData);
+      max = Math.max(...positiveData);
+
+      // Use log scale
+      const logMin = Math.log10(min);
+      const logMax = Math.log10(max);
+      range = logMax - logMin || 1;
+
+      processedData = positiveData.map(v => Math.log10(v));
+      min = logMin;
+      max = logMax;
+    } else {
+      min = Math.min(...data);
+      max = Math.max(...data);
+      range = max - min || 1;  // Avoid division by zero
+      processedData = data;
+    }
+
+    // Draw Y-axis
+    this.buffer.writeText(x - 1, y + height - 1, "└", Palette.DIM_GRAY, Palette.BLACK);
+    for (let row = 0; row < height - 1; row++) {
+      this.buffer.writeText(x - 1, y + row, "│", Palette.DIM_GRAY, Palette.BLACK);
+    }
+
+    // Draw Y-axis labels (5 labels: max, 75%, 50%, 25%, min)
+    const labelPositions = [0, Math.floor(height * 0.25), Math.floor(height * 0.5), Math.floor(height * 0.75), height - 1];
+
+    labelPositions.forEach((pos, idx) => {
+      const labelY = y + pos;
+      let value;
+
+      if (useLogScale) {
+        // For log scale, interpolate in log space then convert back
+        const logValue = max - (pos / (height - 1)) * range;
+        value = Math.pow(10, logValue);
+      } else {
+        // Linear scale
+        value = max - (pos / (height - 1)) * range;
+      }
+
+      const label = statDef.format(Math.round(value));
+      // Right-align label before Y-axis
+      const labelX = x - 2 - label.length;
+      if (labelX >= 2) {
+        this.buffer.writeText(labelX, labelY, label, Palette.DIM_GRAY, Palette.BLACK);
+      }
+      // Draw tick mark
+      this.buffer.writeText(x - 1, labelY, "┤", Palette.DIM_GRAY, Palette.BLACK);
+    });
+
+    // Draw X-axis
+    for (let col = 0; col < width; col++) {
+      this.buffer.writeText(x + col, y + height - 1, "─", Palette.DIM_GRAY, Palette.BLACK);
+    }
+    this.buffer.writeText(x + width - 1, y + height - 1, ">", Palette.DIM_GRAY, Palette.BLACK);
+
+    // Plot data points - each point gets exactly one column
+    // If we have fewer than 64 points, they stay on the left
+    processedData.forEach((val, i) => {
+      if (i >= width) return; // Don't exceed graph width
+
+      // Each data point gets exactly one column (no spacing)
+      const px = x + i;
+
+      // Calculate Y position (0 = bottom, height-2 = top, leave room for axis)
+      const normalizedVal = (val - min) / range;
+      const py = y + (height - 2) - Math.round(normalizedVal * (height - 2));
+
+      // Draw the point
+      this.buffer.writeText(px, py, "*", Palette.NEON_CYAN, Palette.BLACK);
+    });
   }
 
   renderLogTab() {
