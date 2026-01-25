@@ -796,12 +796,12 @@ export class UI {
     ];
 
     const periodDefs = [
-      { id: 'second', name: '1s', duration: 1000 },
-      { id: 'minute', name: '1m', duration: 938 },
-      { id: 'fiveMin', name: '5m', duration: 4688 },
-      { id: 'hour', name: '1h', duration: 56250 },
-      { id: 'day', name: '1d', duration: 1350000 },
-      { id: 'month', name: '1mo', duration: 40500000 }
+      { id: 'second', name: '1sec', duration: 64000 },      // 64 seconds total
+      { id: 'minute', name: '1min', duration: 60000 },      // ~64 minutes total
+      { id: 'fiveMin', name: '5min', duration: 300000 },    // 5 minutes total
+      { id: 'hour', name: '1hr', duration: 3600000 },       // 1 hour total
+      { id: 'day', name: '1day', duration: 86400000 },      // 1 day total
+      { id: 'month', name: '1month', duration: 2592000000 } // 30 days total
     ];
 
     // Get selection state
@@ -899,25 +899,22 @@ export class UI {
       this.renderRollingGraph(data, graphX, graphY, graphWidth, graphHeight, statDef, useLogScale);
     }
 
-    // Time axis labels: show exact past time on left, "now" on right
+    // Time axis labels: left = "now", right = calculated past time
+    this.buffer.writeText(graphX, graphY + graphHeight, "now", Palette.DIM_GRAY, Palette.BLACK);
     const pastTimeLabel = this.formatPastTime(periodDef.duration);
-    this.buffer.writeText(graphX, graphY + graphHeight, pastTimeLabel, Palette.DIM_GRAY, Palette.BLACK);
-    this.buffer.writeText(graphX + graphWidth - 3, graphY + graphHeight, "now", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(graphX + graphWidth - pastTimeLabel.length, graphY + graphHeight, pastTimeLabel, Palette.DIM_GRAY, Palette.BLACK);
   }
 
   formatPastTime(durationMs) {
-    // Format the time period as "64s ago", "64m ago", etc.
-    const totalSeconds = Math.floor(durationMs / 1000);
+    // Calculate the actual local time in the past
+    const pastTime = new Date(Date.now() - durationMs);
 
-    if (totalSeconds < 120) {
-      return totalSeconds + "s ago";
-    } else if (totalSeconds < 7200) {
-      return Math.floor(totalSeconds / 60) + "m ago";
-    } else if (totalSeconds < 172800) {
-      return Math.floor(totalSeconds / 3600) + "h ago";
-    } else {
-      return Math.floor(totalSeconds / 86400) + "d ago";
-    }
+    // Format as HH:MM:SS
+    const hours = String(pastTime.getHours()).padStart(2, '0');
+    const minutes = String(pastTime.getMinutes()).padStart(2, '0');
+    const seconds = String(pastTime.getSeconds()).padStart(2, '0');
+
+    return `${hours}:${minutes}:${seconds}`;
   }
 
   renderRollingGraph(data, x, y, width, height, statDef, useLogScale) {
