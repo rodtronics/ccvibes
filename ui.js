@@ -663,7 +663,122 @@ export class UI {
   renderResourcesTab() {
     const top = 4;
     this.buffer.writeText(2, top - 1, "RESOURCES", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(2, top + 1, "Resources view coming soon.", Palette.DIM_GRAY, Palette.BLACK);
+
+    // Get all visible resources (revealed or has amount > 0)
+    const visibleResources = this.engine.data.resources.filter(res => {
+      const revealed = this.engine.state.reveals.resources[res.id];
+      const amount = this.engine.state.resources[res.id] || 0;
+      return revealed || amount > 0;
+    });
+
+    if (visibleResources.length === 0) {
+      this.buffer.writeText(2, top + 1, "No resources discovered yet.", Palette.DIM_GRAY, Palette.BLACK);
+      return;
+    }
+
+    // List area calculations
+    const listTop = top + 1;
+    const listBottom = Layout.HEIGHT - 5; // Leave room for description at bottom
+    const visibleRows = Math.max(0, listBottom - listTop);
+    const totalResources = visibleResources.length;
+    const scrollOffset = this.clampScrollOffset("resources", totalResources, visibleRows);
+
+    // Get selected index from UI state
+    const selectedIndex = this.ui.resourceSelection?.selectedIndex || 0;
+
+    // Render visible resources
+    const visibleSlice = visibleResources.slice(scrollOffset, scrollOffset + visibleRows);
+    visibleSlice.forEach((res, idx) => {
+      const absoluteIndex = scrollOffset + idx;
+      const y = listTop + idx;
+      const isSelected = absoluteIndex === selectedIndex;
+
+      // Selection indicator
+      const prefix = isSelected ? ">" : " ";
+      const prefixColor = isSelected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
+
+      // Get amount
+      const amount = this.engine.state.resources[res.id] || 0;
+
+      // Get branch color if applicable
+      let nameColor = isSelected ? Palette.NEON_CYAN : Palette.LIGHT_GRAY;
+      if (res.branchId) {
+        const branch = this.engine.data.branches.find(b => b.id === res.branchId);
+        if (branch?.ui?.color && isSelected) {
+          nameColor = Palette[branch.ui.color] || nameColor;
+        }
+      }
+
+      // Category color for the category tag
+      const categoryColors = {
+        currency: Palette.SUCCESS_GREEN,
+        material: Palette.ELECTRIC_ORANGE,
+        equipment: Palette.ELECTRIC_BLUE,
+        intel: Palette.HOT_PINK,
+        reputation: Palette.BRIGHT_YELLOW,
+        risk: Palette.HEAT_RED,
+        territory: Palette.GOLD,
+        influence: Palette.NEON_PURPLE,
+        infrastructure: Palette.NEON_TEAL,
+        document: Palette.MID_GRAY
+      };
+      const catColor = categoryColors[res.category] || Palette.DIM_GRAY;
+
+      // Format amount (show 0 as dash for cleaner look)
+      const amountStr = amount > 0 ? this.fmtNum(amount) : "-";
+      const amountColor = amount > 0 ? Palette.WHITE : Palette.DIM_GRAY;
+
+      // Row format: "> NAME                    AMOUNT  [CATEGORY]"
+      let x = 2;
+
+      // Prefix
+      this.buffer.writeText(x, y, prefix, prefixColor, Palette.BLACK);
+      x += 2;
+
+      // Name (truncate if needed)
+      const maxNameLen = 30;
+      const displayName = res.name.length > maxNameLen ? res.name.substring(0, maxNameLen - 2) + ".." : res.name;
+      this.buffer.writeText(x, y, displayName, nameColor, Palette.BLACK);
+      x += maxNameLen + 2;
+
+      // Amount (right-aligned in a 10-char field)
+      const amountField = amountStr.padStart(10);
+      this.buffer.writeText(x, y, amountField, amountColor, Palette.BLACK);
+      x += 12;
+
+      // Category tag
+      const catTag = `[${(res.category || "misc").substring(0, 8)}]`;
+      this.buffer.writeText(x, y, catTag, catColor, Palette.BLACK);
+    });
+
+    // Scrollbar
+    this.renderScrollBar(Layout.WIDTH - 3, listTop, visibleRows, totalResources, scrollOffset, Palette.DIM_GRAY, Palette.BLACK, visibleRows);
+
+    // Description area at bottom
+    const descY = Layout.HEIGHT - 4;
+    this.buffer.drawHLine(2, descY, Layout.WIDTH - 4, "─", Palette.DIM_GRAY, Palette.BLACK);
+
+    // Show description of selected resource
+    const selectedResource = visibleResources[selectedIndex];
+    if (selectedResource) {
+      // Resource name
+      this.buffer.writeText(2, descY + 1, selectedResource.name.toUpperCase(), Palette.NEON_CYAN, Palette.BLACK);
+
+      // Branch tag if applicable
+      if (selectedResource.branchId) {
+        const branch = this.engine.data.branches.find(b => b.id === selectedResource.branchId);
+        if (branch) {
+          const branchColor = Palette[branch.ui?.color] || Palette.MID_GRAY;
+          this.buffer.writeText(2 + selectedResource.name.length + 2, descY + 1, `[${branch.name}]`, branchColor, Palette.BLACK);
+        }
+      }
+
+      // Description (wrap if needed)
+      const descLines = this.wrapText(selectedResource.description || "", Layout.WIDTH - 6);
+      descLines.slice(0, 2).forEach((line, idx) => {
+        this.buffer.writeText(2, descY + 2 + idx, line, Palette.MID_GRAY, Palette.BLACK);
+      });
+    }
   }
 
   renderStatsTab() {

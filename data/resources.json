@@ -2,37 +2,298 @@
   {
     "id": "cash",
     "name": "cash",
-    "description": "liquid assets.",
-    "revealedByDefault": true
+    "description": "liquid assets. the lifeblood of any operation.",
+    "revealedByDefault": true,
+    "category": "currency"
   },
   {
     "id": "dirtyMoney",
     "name": "dirty money",
-    "description": "money that feels slightly wet.",
-    "revealedByDefault": false
+    "description": "money that feels slightly wet. needs laundering before it's useful.",
+    "revealedByDefault": false,
+    "category": "currency"
   },
   {
     "id": "cleanMoney",
     "name": "clean money",
-    "description": "taxed and usable.",
-    "revealedByDefault": false
+    "description": "taxed and usable. no questions asked.",
+    "revealedByDefault": false,
+    "category": "currency"
   },
   {
     "id": "cred",
     "name": "cred",
-    "description": "reputation gate for crew and activities.",
-    "revealedByDefault": true
+    "description": "reputation gate for crew and activities. respect in the underworld.",
+    "revealedByDefault": true,
+    "category": "reputation"
   },
   {
     "id": "heat",
     "name": "heat",
-    "description": "police attention.",
-    "revealedByDefault": true
+    "description": "police attention. too much and someone goes down.",
+    "revealedByDefault": true,
+    "category": "risk"
   },
   {
     "id": "notoriety",
     "name": "notoriety",
-    "description": "how well known you are in the underworld.",
-    "revealedByDefault": false
+    "description": "how well known you are in the underworld. opens doors, draws eyes.",
+    "revealedByDefault": false,
+    "category": "reputation"
+  },
+
+  {
+    "id": "scraps",
+    "name": "scraps",
+    "description": "salvaged materials. useful for repairs and trades.",
+    "revealedByDefault": true,
+    "branchId": "primordial",
+    "category": "material"
+  },
+  {
+    "id": "rations",
+    "name": "rations",
+    "description": "food and water. keeps the crew moving.",
+    "revealedByDefault": true,
+    "branchId": "primordial",
+    "category": "material"
+  },
+  {
+    "id": "fuel",
+    "name": "fuel",
+    "description": "gasoline and diesel. powers vehicles and generators.",
+    "revealedByDefault": true,
+    "branchId": "primordial",
+    "category": "material"
+  },
+  {
+    "id": "tools",
+    "name": "tools",
+    "description": "basic hand tools. essential for any job.",
+    "revealedByDefault": false,
+    "branchId": "primordial",
+    "category": "equipment"
+  },
+
+  {
+    "id": "stolenGoods",
+    "name": "stolen goods",
+    "description": "hot merchandise. needs a fence to move.",
+    "revealedByDefault": false,
+    "branchId": "street",
+    "category": "material"
+  },
+  {
+    "id": "contraband",
+    "name": "contraband",
+    "description": "illegal items with no paper trail. worth more to the right buyer.",
+    "revealedByDefault": false,
+    "branchId": "street",
+    "category": "material"
+  },
+  {
+    "id": "weapons",
+    "name": "weapons",
+    "description": "firearms and blades. muscle needs tools.",
+    "revealedByDefault": false,
+    "branchId": "street",
+    "category": "equipment"
+  },
+  {
+    "id": "vehicles",
+    "name": "vehicles",
+    "description": "cars and trucks. getaway rides and supply runs.",
+    "revealedByDefault": false,
+    "branchId": "street",
+    "category": "equipment"
+  },
+  {
+    "id": "turf",
+    "name": "turf",
+    "description": "controlled territory. passive income and protection.",
+    "revealedByDefault": false,
+    "branchId": "street",
+    "category": "territory"
+  },
+
+  {
+    "id": "product",
+    "name": "product",
+    "description": "finished drugs ready to sell. pure profit.",
+    "revealedByDefault": false,
+    "branchId": "drugs",
+    "category": "material"
+  },
+  {
+    "id": "precursors",
+    "name": "precursors",
+    "description": "chemical ingredients. the building blocks of product.",
+    "revealedByDefault": false,
+    "branchId": "drugs",
+    "category": "material"
+  },
+  {
+    "id": "labEquipment",
+    "name": "lab equipment",
+    "description": "beakers, burners, and condensers. cook cleaner, cook faster.",
+    "revealedByDefault": false,
+    "branchId": "drugs",
+    "category": "equipment"
+  },
+  {
+    "id": "stash",
+    "name": "stash",
+    "description": "hidden storage capacity. keeps product safe from raids.",
+    "revealedByDefault": false,
+    "branchId": "drugs",
+    "category": "infrastructure"
+  },
+
+  {
+    "id": "fakeIds",
+    "name": "fake IDs",
+    "description": "forged identification. new names, new lives.",
+    "revealedByDefault": false,
+    "branchId": "grift",
+    "category": "document"
+  },
+  {
+    "id": "counterfeits",
+    "name": "counterfeits",
+    "description": "fake bills and goods. pass them before they're checked.",
+    "revealedByDefault": false,
+    "branchId": "grift",
+    "category": "material"
+  },
+  {
+    "id": "marks",
+    "name": "marks",
+    "description": "identified targets. suckers lined up and ready.",
+    "revealedByDefault": false,
+    "branchId": "grift",
+    "category": "intel"
+  },
+  {
+    "id": "props",
+    "name": "props",
+    "description": "costumes and disguises. look the part, play the part.",
+    "revealedByDefault": false,
+    "branchId": "grift",
+    "category": "equipment"
+  },
+
+  {
+    "id": "blackmail",
+    "name": "blackmail",
+    "description": "compromising material. leverage over the powerful.",
+    "revealedByDefault": false,
+    "branchId": "corruption",
+    "category": "intel"
+  },
+  {
+    "id": "favors",
+    "name": "favors",
+    "description": "political IOUs. call them in when needed.",
+    "revealedByDefault": false,
+    "branchId": "corruption",
+    "category": "influence"
+  },
+  {
+    "id": "insiderInfo",
+    "name": "insider info",
+    "description": "tips from the inside. know before anyone else.",
+    "revealedByDefault": false,
+    "branchId": "corruption",
+    "category": "intel"
+  },
+  {
+    "id": "influence",
+    "name": "influence",
+    "description": "pull with officials. make problems disappear.",
+    "revealedByDefault": false,
+    "branchId": "corruption",
+    "category": "influence"
+  },
+
+  {
+    "id": "hardware",
+    "name": "hardware",
+    "description": "computers and devices. the tools of digital crime.",
+    "revealedByDefault": false,
+    "branchId": "tech",
+    "category": "equipment"
+  },
+  {
+    "id": "data",
+    "name": "data",
+    "description": "stolen records. names, numbers, secrets.",
+    "revealedByDefault": false,
+    "branchId": "tech",
+    "category": "intel"
+  },
+  {
+    "id": "exploits",
+    "name": "exploits",
+    "description": "software vulnerabilities. keys to locked doors.",
+    "revealedByDefault": false,
+    "branchId": "tech",
+    "category": "intel"
+  },
+  {
+    "id": "crypto",
+    "name": "crypto",
+    "description": "digital currency. untraceable wealth.",
+    "revealedByDefault": false,
+    "branchId": "tech",
+    "category": "currency"
+  },
+  {
+    "id": "bandwidth",
+    "name": "bandwidth",
+    "description": "network capacity. more connections, more ops.",
+    "revealedByDefault": false,
+    "branchId": "tech",
+    "category": "infrastructure"
+  },
+
+  {
+    "id": "artifacts",
+    "name": "artifacts",
+    "description": "objects of power. handle with extreme care.",
+    "revealedByDefault": false,
+    "branchId": "forbidden",
+    "category": "material"
+  },
+  {
+    "id": "ritualComponents",
+    "name": "ritual components",
+    "description": "candles, bones, and stranger things. fuel for the dark arts.",
+    "revealedByDefault": false,
+    "branchId": "forbidden",
+    "category": "material"
+  },
+  {
+    "id": "forbiddenKnowledge",
+    "name": "forbidden knowledge",
+    "description": "things man was not meant to know. power at a price.",
+    "revealedByDefault": false,
+    "branchId": "forbidden",
+    "category": "intel"
+  },
+  {
+    "id": "souls",
+    "name": "souls",
+    "description": "currency of the damned. trade carefully.",
+    "revealedByDefault": false,
+    "branchId": "forbidden",
+    "category": "currency"
+  },
+  {
+    "id": "corruption",
+    "name": "corruption",
+    "description": "spiritual taint. grows with each dark act.",
+    "revealedByDefault": false,
+    "branchId": "forbidden",
+    "category": "risk"
   }
 ]

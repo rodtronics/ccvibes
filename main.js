@@ -42,11 +42,15 @@ const ui = {
   settings: loadSettings(),
   scroll: {
     crew: 0, // vertical scroll offset for crew roster
+    resources: 0, // vertical scroll offset for resources list
   },
   crewSelection: {
     selectedIndex: 0,      // Currently highlighted crew member index
     detailView: false,     // Whether we're viewing a single crew member
     perkChoiceIndex: 0,    // 0 = first perk option, 1+ = other options
+  },
+  resourceSelection: {
+    selectedIndex: 0,      // Currently highlighted resource index
   },
   modal: {
     active: false,
@@ -501,8 +505,82 @@ function handleActiveInput(e) {
 }
 
 function handleResourcesInput(e) {
-  // Placeholder for future resources management
+  // Get visible resources list (same logic as renderResourcesTab)
+  const visibleResources = engine.data.resources.filter(res => {
+    const revealed = engine.state.reveals.resources[res.id];
+    const amount = engine.state.resources[res.id] || 0;
+    return revealed || amount > 0;
+  });
+
+  const totalResources = visibleResources.length;
+  if (totalResources === 0) {
+    if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
+    return;
+  }
+
+  // Layout calculations (must match renderResourcesTab)
+  const top = 4;
+  const listTop = top + 1;
+  const listBottom = Layout.HEIGHT - 5;
+  const visibleRows = Math.max(0, listBottom - listTop);
+  const pageStep = Math.max(1, visibleRows - 1);
+
+  // Clamp selection index to valid range
+  if (ui.resourceSelection.selectedIndex >= totalResources) {
+    ui.resourceSelection.selectedIndex = Math.max(0, totalResources - 1);
+  }
+
+  // Arrow up/down moves selection one at a time
+  if (e.key === 'ArrowUp') {
+    ui.resourceSelection.selectedIndex = Math.max(0, ui.resourceSelection.selectedIndex - 1);
+    updateResourcesScroll(ui.resourceSelection.selectedIndex, visibleRows, totalResources);
+  }
+  if (e.key === 'ArrowDown') {
+    ui.resourceSelection.selectedIndex = Math.min(totalResources - 1, ui.resourceSelection.selectedIndex + 1);
+    updateResourcesScroll(ui.resourceSelection.selectedIndex, visibleRows, totalResources);
+  }
+
+  // Page up/down for faster navigation
+  if (e.key === 'PageUp') {
+    ui.resourceSelection.selectedIndex = Math.max(0, ui.resourceSelection.selectedIndex - pageStep);
+    updateResourcesScroll(ui.resourceSelection.selectedIndex, visibleRows, totalResources);
+  }
+  if (e.key === 'PageDown') {
+    ui.resourceSelection.selectedIndex = Math.min(totalResources - 1, ui.resourceSelection.selectedIndex + pageStep);
+    updateResourcesScroll(ui.resourceSelection.selectedIndex, visibleRows, totalResources);
+  }
+
+  // Home/End to jump to start/end
+  if (e.key === 'Home') {
+    ui.resourceSelection.selectedIndex = 0;
+    updateResourcesScroll(ui.resourceSelection.selectedIndex, visibleRows, totalResources);
+  }
+  if (e.key === 'End') {
+    ui.resourceSelection.selectedIndex = Math.max(0, totalResources - 1);
+    updateResourcesScroll(ui.resourceSelection.selectedIndex, visibleRows, totalResources);
+  }
+
   if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
+}
+
+// Smart scroll helper for resources - keeps selection in "comfort zone" (5 rows from edges)
+function updateResourcesScroll(selectedIndex, visibleRows, totalResources) {
+  const COMFORT_ZONE = 5;
+  const maxOffset = Math.max(0, totalResources - visibleRows);
+  let scrollOffset = ui.scroll?.resources || 0;
+
+  // If selection is too close to top, scroll up
+  if (selectedIndex < scrollOffset + COMFORT_ZONE) {
+    scrollOffset = Math.max(0, selectedIndex - COMFORT_ZONE);
+  }
+
+  // If selection is too close to bottom, scroll down
+  if (selectedIndex >= scrollOffset + visibleRows - COMFORT_ZONE) {
+    scrollOffset = Math.min(maxOffset, selectedIndex - visibleRows + COMFORT_ZONE + 1);
+  }
+
+  if (!ui.scroll) ui.scroll = {};
+  ui.scroll.resources = scrollOffset;
 }
 
 function handleStatsInput(e) {
