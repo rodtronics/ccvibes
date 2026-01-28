@@ -1,0 +1,11 @@
+{
+  "name": "ccvibes",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev:builder": "node data-builder/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

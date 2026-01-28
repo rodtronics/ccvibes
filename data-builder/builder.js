@@ -1,6 +1,7 @@
 let optionUid = 1;
 let notes = { problems: '', solutions: '' };
 const state = createActivity();
+const fileState = { activities: [], selectedId: '' };
 
 document.addEventListener('DOMContentLoaded', () => {
   wireMetaInputs();
@@ -9,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderActivityReveals();
   renderOptions();
   refreshOutputs();
+  initFileControls();
 });
 
 function createActivity() {
@@ -147,6 +149,130 @@ function wireNotes() {
 function refreshOutputs() {
   renderJson();
   renderSummary();
+}
+
+function initFileControls() {
+  renderActivitySelect();
+  setFileStatus('Connect to the local builder server to enable save/load.', 'muted');
+  if (!isServerContext()) return;
+  refreshFileData();
+}
+
+function isServerContext() {
+  return location.protocol === 'http:' || location.protocol === 'https:';
+}
+
+function setFileStatus(message, kind) {
+  const el = document.getElementById('fileStatus');
+  if (!el) return;
+  el.textContent = message;
+
+  if (kind === 'error') el.style.color = '#f87171';
+  else if (kind === 'success') el.style.color = '#34d399';
+  else el.style.color = '';
+}
+
+function renderActivitySelect(selectedId = '') {
+  const select = document.getElementById('activitySelect');
+  if (!select) return;
+
+  const current = selectedId || fileState.selectedId || select.value;
+  const options = [
+    { value: '', label: 'Select an activity' },
+    ...fileState.activities
+      .slice()
+      .sort((a, b) => (a.id || '').localeCompare(b.id || ''))
+      .map((activity) => ({
+        value: activity.id || '',
+        label: `${activity.id || 'untitled'}${activity.name ? ` - ${activity.name}` : ''}`
+      }))
+  ];
+
+  select.innerHTML = options
+    .map(opt => `<option value="${safe(opt.value)}">${safe(opt.label)}</option>`)
+    .join('');
+  select.value = current;
+  fileState.selectedId = select.value;
+}
+
+async function refreshFileData() {
+  if (!isServerContext()) {
+    setFileStatus('Open this page from the builder server to use save/load.', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/data/activities.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('Expected an array of activities');
+
+    fileState.activities = data;
+    renderActivitySelect();
+    setFileStatus(`Loaded ${data.length} activities.`, 'success');
+  } catch (err) {
+    setFileStatus(`Failed to load activities.json: ${err.message}`, 'error');
+  }
+}
+
+function loadSelectedActivity() {
+  const select = document.getElementById('activitySelect');
+  if (!select) return;
+  const selectedId = select.value;
+  if (!selectedId) {
+    setFileStatus('Pick an activity to load.', 'error');
+    return;
+  }
+
+  const activity = fileState.activities.find((act) => act.id === selectedId);
+  if (!activity) {
+    setFileStatus('Activity not found in file cache.', 'error');
+    return;
+  }
+
+  applyActivityData(activity);
+  fileState.selectedId = selectedId;
+  setFileStatus(`Loaded ${selectedId}.`, 'success');
+}
+
+function startNewActivity() {
+  clearBuilder();
+  fileState.selectedId = '';
+  renderActivitySelect();
+  setFileStatus('New activity started.', 'success');
+}
+
+async function saveActivityToFile() {
+  if (!isServerContext()) {
+    setFileStatus('Open this page from the builder server to use save/load.', 'error');
+    return;
+  }
+
+  const activity = buildActivityJson();
+  if (!activity.id) {
+    setFileStatus('Activity ID is required before saving.', 'error');
+    return;
+  }
+
+  const existingIndex = fileState.activities.findIndex((act) => act.id === activity.id);
+  const nextActivities = fileState.activities.slice();
+  if (existingIndex >= 0) nextActivities[existingIndex] = activity;
+  else nextActivities.push(activity);
+
+  try {
+    const res = await fetch('/api/data/activities.json', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nextActivities)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    fileState.activities = nextActivities;
+    renderActivitySelect(activity.id);
+    setFileStatus(existingIndex >= 0 ? `Updated ${activity.id}.` : `Saved ${activity.id}.`, 'success');
+  } catch (err) {
+    setFileStatus(`Failed to save activities.json: ${err.message}`, 'error');
+  }
 }
 
 function safe(value) {
@@ -1156,6 +1282,170 @@ function clearBuilder() {
   renderActivityReveals();
   renderOptions();
   refreshOutputs();
+}
+
+function applyActivityData(activity) {
+  optionUid = 1;
+  const meta = activity.meta || {};
+  const tags = Array.isArray(meta.tags) ? meta.tags.join(', ') : '';
+
+  state.id = activity.id || '';
+  state.name = activity.name || '';
+  state.description = activity.description || '';
+  state.branchId = activity.branchId || 'street';
+  state.icon = meta.icon || '';
+  state.tags = tags;
+  state.visibleIf = cloneJson(activity.visibleIf || []);
+  state.unlockIf = cloneJson(activity.unlockIf || []);
+  state.reveals = {
+    onReveal: cloneJson(activity.reveals?.onReveal || []),
+    onUnlock: cloneJson(activity.reveals?.onUnlock || [])
+  };
+
+  const options = (activity.options || []).map(inflateOption);
+  state.options = options.length ? options : [createOption()];
+
+  notes = { problems: '', solutions: '' };
+
+  syncMetaInputs();
+  renderActivityConditions();
+  renderActivityReveals();
+  renderOptions();
+  refreshOutputs();
+}
+
+function syncMetaInputs() {
+  const setValue = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  };
+
+  setValue('activityId', state.id);
+  setValue('activityName', state.name);
+  setValue('activityDescription', state.description);
+  setValue('branchId', state.branchId);
+  setValue('icon', state.icon);
+  setValue('tags', state.tags);
+  setValue('problemsNote', notes.problems);
+  setValue('solutionsNote', notes.solutions);
+}
+
+function inflateOption(opt) {
+  const option = createOption();
+  const reqs = opt.requirements || {};
+
+  option.optionId = opt.id || '';
+  option.name = opt.name || '';
+  option.description = opt.description || '';
+  option.repeatable = !!opt.repeatable;
+  option.maxConcurrentRuns = opt.maxConcurrentRuns ?? '';
+  option.visibleIf = cloneJson(opt.visibleIf || []);
+  option.unlockIf = cloneJson(opt.unlockIf || []);
+  option.requirements = {
+    staff: inflateStaffRequirements(reqs.staff),
+    items: inflateRequirementList(reqs.items, 'itemId'),
+    buildings: inflateRequirementList(reqs.buildings, 'buildingId')
+  };
+  option.inputs = {
+    resources: kvListFromObject(opt.inputs?.resources, 'amount'),
+    items: kvListFromObject(opt.inputs?.items, 'amount', 'itemId')
+  };
+  option.durationMs = numberOrDefault(opt.durationMs, 10000);
+  option.xp = numberOrDefault(opt.xpRewards?.onComplete ?? opt.xpReward ?? opt.xp, 0);
+  option.cooldownMs = numberOrDefault(opt.cooldownMs, 0);
+  option.resolution = inflateResolution(opt.resolution);
+  option.modifiersText = Array.isArray(opt.modifiers) && opt.modifiers.length
+    ? JSON.stringify(opt.modifiers, null, 2)
+    : '';
+
+  return option;
+}
+
+function inflateStaffRequirements(list) {
+  const staff = (list || []).map((req) => ({
+    roleId: req.roleId || 'player',
+    count: numberOrDefault(req.count, 1),
+    starsMin: numberOrDefault(req.starsMin, 0),
+    required: req.required !== false,
+    bonus: req.bonus || ''
+  }));
+
+  return staff.length ? staff : [{ roleId: 'player', count: 1, starsMin: 0, required: true, bonus: '' }];
+}
+
+function inflateRequirementList(list, key) {
+  return (list || []).map((entry) => ({
+    [key]: entry[key] || '',
+    count: numberOrDefault(entry.count, 1)
+  }));
+}
+
+function inflateResolution(resolution) {
+  if (!resolution || !resolution.type) return createResolution('weighted_outcomes');
+
+  if (resolution.type === 'weighted_outcomes') {
+    const base = createResolution('weighted_outcomes');
+    if (Array.isArray(resolution.outcomes) && resolution.outcomes.length) {
+      base.outcomes = resolution.outcomes.map((outcome) => {
+        const heat = toRangeFields(outcome.heatDelta);
+        const cred = toRangeFields(outcome.credDelta);
+        return {
+          id: outcome.id || 'outcome',
+          weight: numberOrDefault(outcome.weight, 0),
+          outputs: {
+            resources: kvListFromObject(outcome.outputs?.resources, 'range'),
+            items: kvListFromObject(outcome.outputs?.items, 'amount', 'itemId')
+          },
+          heatDelta: { min: heat.min, max: heat.max },
+          credDelta: { min: cred.min, max: cred.max },
+          jailMs: outcome.jail?.durationMs ? Number(outcome.jail.durationMs) : '',
+          effects: cloneJson(outcome.effects || [])
+        };
+      });
+    }
+    return base;
+  }
+
+  const base = createResolution(resolution.type);
+  const heat = toRangeFields(resolution.heatDelta);
+  const cred = toRangeFields(resolution.credDelta);
+  base.outputs = {
+    resources: kvListFromObject(resolution.outputs?.resources, 'range'),
+    items: kvListFromObject(resolution.outputs?.items, 'amount', 'itemId')
+  };
+  base.heatDelta = { min: heat.min, max: heat.max };
+  base.credDelta = { min: cred.min, max: cred.max };
+  base.effects = cloneJson(resolution.effects || []);
+  return base;
+}
+
+function kvListFromObject(obj, mode, keyLabel) {
+  if (!obj) return [];
+  return Object.entries(obj).map(([id, value]) => {
+    if (mode === 'range') {
+      const range = toRangeFields(value);
+      return { id, min: range.min, max: range.max };
+    }
+
+    const amount = typeof value === 'object' ? (value.amount ?? value.count ?? '') : value;
+    const entry = { id, amount };
+    if (keyLabel === 'itemId') entry.itemId = id;
+    return entry;
+  });
+}
+
+function toRangeFields(value) {
+  if (value === undefined || value === null || value === '') return { min: '', max: '' };
+  if (typeof value === 'object') {
+    return { min: value.min ?? '', max: value.max ?? '' };
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) return { min: '', max: '' };
+  return { min: num, max: num };
+}
+
+function cloneJson(value) {
+  return value ? JSON.parse(JSON.stringify(value)) : value;
 }
 
 function renderSummary() {

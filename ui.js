@@ -70,10 +70,10 @@ export class UI {
   }
 
   renderStatusRail() {
-    const x = 2;
+    const x = 0;
     const y = 0;
 
-    // Title (overwrites box border)
+    // Title (leftmost position)
     this.buffer.writeText(x, y, "CRIME COMMITTER VI", Palette.NEON_CYAN, Palette.BLACK);
 
     // Resources
@@ -405,6 +405,13 @@ export class UI {
         this.renderRunCard(run, 2, y, Layout.WIDTH - 4);
       }
     });
+
+    // Stop all hint at bottom
+    if (this.ui.confirmStopAll) {
+      this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] CONFIRM STOP ALL RUNS", Palette.HEAT_RED, Palette.BLACK);
+    } else {
+      this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] Stop all runs", Palette.DIM_GRAY, Palette.BLACK);
+    }
   }
 
   renderCrewTab() {
@@ -908,13 +915,28 @@ export class UI {
   formatPastTime(durationMs) {
     // Calculate the actual local time in the past
     const pastTime = new Date(Date.now() - durationMs);
+    const now = new Date();
 
-    // Format as HH:MM:SS
-    const hours = String(pastTime.getHours()).padStart(2, '0');
-    const minutes = String(pastTime.getMinutes()).padStart(2, '0');
-    const seconds = String(pastTime.getSeconds()).padStart(2, '0');
+    // Check if the past time is on a different day
+    const isDifferentDay = pastTime.getDate() !== now.getDate() ||
+                          pastTime.getMonth() !== now.getMonth() ||
+                          pastTime.getFullYear() !== now.getFullYear();
 
-    return `${hours}:${minutes}:${seconds}`;
+    // For periods >= 1 hour, include date if it's a different day
+    if (durationMs >= 3600000 && isDifferentDay) {
+      // Format as MM/DD HH:MM
+      const month = String(pastTime.getMonth() + 1).padStart(2, '0');
+      const day = String(pastTime.getDate()).padStart(2, '0');
+      const hours = String(pastTime.getHours()).padStart(2, '0');
+      const minutes = String(pastTime.getMinutes()).padStart(2, '0');
+      return `${month}/${day} ${hours}:${minutes}`;
+    } else {
+      // Format as HH:MM:SS for same-day or short periods
+      const hours = String(pastTime.getHours()).padStart(2, '0');
+      const minutes = String(pastTime.getMinutes()).padStart(2, '0');
+      const seconds = String(pastTime.getSeconds()).padStart(2, '0');
+      return `${hours}:${minutes}:${seconds}`;
+    }
   }
 
   renderRollingGraph(data, x, y, width, height, statDef, useLogScale) {
@@ -1107,11 +1129,22 @@ export class UI {
       this.buffer.writeText(Layout.WIDTH - 20, aboutRow, "<ENTER> VIEW INFO", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 7. Reset progress
-    const resetRow = top + 9;
-    const resetSelected = selectedSetting === 6;
+    // 7. Debug mode
+    const debugRow = top + 9;
+    const debugSelected = selectedSetting === 6;
+    const debugOn = !!this.engine.state.debugMode;
+    this.buffer.writeText(3, debugRow, debugSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, debugRow, "7. Debug - unlock all", debugSelected ? Palette.BRIGHT_YELLOW : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(valueCol + 4, debugRow, debugOn ? "ON" : "OFF", debugOn ? Palette.BRIGHT_YELLOW : Palette.DIM_GRAY, Palette.BLACK);
+    if (debugSelected) {
+      this.buffer.writeText(Layout.WIDTH - 18, debugRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
+    }
+
+    // 8. Reset progress
+    const resetRow = top + 10;
+    const resetSelected = selectedSetting === 7;
     this.buffer.writeText(3, resetRow, resetSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, resetRow, "7. Reset progress", resetSelected ? Palette.HEAT_RED : Palette.HEAT_ORANGE, Palette.BLACK);
+    this.buffer.writeText(4, resetRow, "8. Reset progress", resetSelected ? Palette.HEAT_RED : Palette.HEAT_ORANGE, Palette.BLACK);
     if (resetSelected) {
       if (this.ui.confirmReset) {
         this.buffer.writeText(Layout.WIDTH - 28, resetRow, "<ENTER> CONFIRM RESET", Palette.HEAT_RED, Palette.BLACK);
@@ -1125,7 +1158,7 @@ export class UI {
     }
 
     // Help text
-    this.buffer.writeText(4, top + 12, "Arrows to move | 1-7 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(4, top + 13, "Arrows to move | 1-8 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
   }
 
   renderFontSubMenu() {
@@ -1352,6 +1385,9 @@ export class UI {
   }
 
   getVisibleBranches() {
+    if (this.engine.state.debugMode) {
+      return this.engine.data.branches.sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
     return this.engine.data.branches.filter((b) => this.engine.state.reveals.branches[b.id]).sort((a, b) => (a.order || 0) - (b.order || 0));
   }
 
@@ -1364,6 +1400,7 @@ export class UI {
 
   getVisibleOptions(activity) {
     if (!activity) return [];
+    if (this.engine.state.debugMode) return activity.options || [];
     return (activity.options || []).filter((opt) => this.engine.checkConditions(opt.visibleIf || [])).filter((opt) => this.engine.isOptionUnlocked(opt));
   }
 
@@ -1386,11 +1423,7 @@ export class UI {
 
   formatMs(ms) {
     if (!ms) return "instant";
-    const seconds = Math.round(ms / 1000);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${minutes}m ${secs}s`;
+    return this.engine.formatDuration(ms);
   }
 
   wrapText(text, width) {

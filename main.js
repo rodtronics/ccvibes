@@ -232,6 +232,11 @@ function handleJobsInput(e) {
       ui.focus = 'option';
       ui.optionIndex = 0;
     }
+
+    // Q for quick start from activity level (uses first available option)
+    if (key === 'q' && activity && options.length > 0) {
+      startSelectedRun(activity, options[0]);
+    }
   } else if (ui.focus === 'option') {
     if (e.key === 'ArrowUp') ui.optionIndex = Math.max(0, ui.optionIndex - 1);
     if (e.key === 'ArrowDown') ui.optionIndex = Math.min(Math.max(0, options.length - 1), ui.optionIndex + 1);
@@ -246,7 +251,12 @@ function handleJobsInput(e) {
 
     // Q for quick start (skip detail window)
     if (key === 'q') {
-      startSelectedRun(activity, options[ui.optionIndex]);
+      const opt = options[ui.optionIndex];
+      if (opt) {
+        startSelectedRun(activity, opt);
+      } else {
+        engine.log('No option available to quick start', 'warning');
+      }
     }
 
     // RIGHT arrow switches to runs column
@@ -505,7 +515,22 @@ function startRunFromDetail(activity, option, repeatMode) {
 }
 
 function handleActiveInput(e) {
-  // Placeholder for future run management
+  const key = e.key.toLowerCase();
+
+  // X to stop all runs
+  if (key === 'x') {
+    if (ui.confirmStopAll) {
+      engine.stopAllRuns();
+      ui.confirmStopAll = false;
+    } else {
+      ui.confirmStopAll = true;
+    }
+    return;
+  }
+
+  // Any other key clears stop-all confirmation
+  ui.confirmStopAll = false;
+
   if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
 }
 
@@ -803,23 +828,23 @@ function handleOptionsInput(e) {
     ui.confirmReset = false;
   }
 
-  // Arrow navigation for settings list (7 options: 0-6)
+  // Arrow navigation for settings list (8 options: 0-7)
   if (e.key === 'ArrowUp') {
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.selectedSetting = Math.min(6, ui.selectedSetting + 1);
+    ui.selectedSetting = Math.min(7, ui.selectedSetting + 1);
   }
 
-  // Number key selection (1-7)
-  if (e.key >= '1' && e.key <= '7') {
+  // Number key selection (1-8)
+  if (e.key >= '1' && e.key <= '8') {
     const newSetting = parseInt(e.key) - 1;
     if (newSetting !== ui.selectedSetting) ui.confirmReset = false;
     ui.selectedSetting = newSetting;
   }
 
   // Enter/space to toggle or cycle
-  // Options: 0=Font..., 1=Bloom, 2=Funny names, 3=Show intro, 4=Skip tutorials, 5=About, 6=Reset
+  // Options: 0=Font..., 1=Bloom, 2=Funny names, 3=Show intro, 4=Skip tutorials, 5=About, 6=Debug, 7=Reset
   if (e.key === 'Enter' || e.key === ' ') {
     if (ui.selectedSetting === 0) {
       ui.inFontSubMenu = true;
@@ -840,6 +865,8 @@ function handleOptionsInput(e) {
     } else if (ui.selectedSetting === 5) {
       showModal('about');
     } else if (ui.selectedSetting === 6) {
+      engine.state.debugMode = !engine.state.debugMode;
+    } else if (ui.selectedSetting === 7) {
       // Reset progress with confirmation
       if (ui.confirmReset) {
         engine.resetProgress();

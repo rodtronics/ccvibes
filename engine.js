@@ -31,7 +31,8 @@ export class Engine {
         lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
         series: {},
         totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
-      }
+      },
+      debugMode: false
     };
     this.data = {
       activities: [],
@@ -105,13 +106,23 @@ export class Engine {
         }));
       }
 
-      // Migrate stats if missing
+      // Migrate stats if missing or incomplete
       if (!this.state.stats) {
         this.state.stats = {
           lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
           series: {},
           totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
         };
+      }
+      // Ensure all sub-objects exist
+      if (!this.state.stats.lastRecorded) {
+        this.state.stats.lastRecorded = { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 };
+      }
+      if (!this.state.stats.series) {
+        this.state.stats.series = {};
+      }
+      if (!this.state.stats.totals) {
+        this.state.stats.totals = { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 };
       }
 
       // Process any runs that should have completed while offline
@@ -174,7 +185,8 @@ export class Engine {
         lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
         series: {},
         totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
-      }
+      },
+      debugMode: false
     };
     this.applyDefaultReveals();
     this.log("Progress reset. Starting fresh.", "info");
@@ -454,6 +466,21 @@ export class Engine {
     return { ok: true };
   }
 
+  stopAllRuns() {
+    if (this.state.runs.length === 0) return { ok: false, reason: 'No active runs' };
+    const count = this.state.runs.length;
+    this.state.runs.forEach((run) => {
+      run.assignedStaffIds.forEach((id) => {
+        const staff = this.state.crew.staff.find((s) => s.id === id);
+        if (staff && staff.status === 'busy') staff.status = 'available';
+      });
+    });
+    this.state.runs = [];
+    this.log(`Stopped all ${count} runs (progress forfeited)`, 'warning');
+    this.saveState();
+    return { ok: true, count };
+  }
+
   stopRepeat(runId) {
     const run = this.state.runs.find((r) => r.runId === runId);
     if (!run) return { ok: false, reason: 'Run not found' };
@@ -646,10 +673,14 @@ export class Engine {
   }
 
   formatDuration(ms) {
-    const seconds = Math.max(0, Math.round(ms / 1000));
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    ms = Math.max(0, ms);
+    const totalSeconds = Math.floor(ms / 1000);
+    if (totalSeconds < 60) {
+      const millis = Math.floor((ms % 1000) / 10);
+      return `${totalSeconds}.${String(millis).padStart(2, '0')}s`;
+    }
+    const minutes = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
     return `${minutes}m ${secs}s`;
   }
 
@@ -752,12 +783,14 @@ export class Engine {
   }
 
   isActivityVisible(activity) {
+    if (this.state.debugMode) return true;
     const revealed = this.state.reveals.activities[activity.id];
     const conds = activity.visibleIf || [];
     return (revealed || conds.length === 0) && this.checkConditions(conds);
   }
 
   isOptionUnlocked(option) {
+    if (this.state.debugMode) return true;
     const conds = option.unlockIf || [];
     return conds.length === 0 || this.checkConditions(conds);
   }

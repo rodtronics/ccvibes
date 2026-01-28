@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCVibes Data Builder</title>
+  <style>
+    :root {
+      --bg: #0c101a;
+      --panel: #111827;
+      --panel-strong: #0f1724;
+      --border: #1f2937;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #7dd3fc;
+      --accent-2: #a5b4fc;
+      --success: #34d399;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 32px;
+      background: radial-gradient(circle at 15% 10%, rgba(125,211,252,0.08), transparent 40%),
+        radial-gradient(circle at 85% 10%, rgba(165,180,252,0.08), transparent 45%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Space Grotesk", "DM Sans", "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    h1, h2 {
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    p { margin: 0; }
+
+    .hero {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .card {
+      display: grid;
+      gap: 8px;
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(17,24,39,0.9), rgba(17,24,39,0.6));
+      text-decoration: none;
+      color: var(--text);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(125,211,252,0.5);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    .card .label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .card .title {
+      font-size: 1.2rem;
+      color: var(--accent);
+    }
+
+    .card .desc {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .panel {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+    }
+
+    .panel h2 {
+      font-size: 1rem;
+      color: var(--accent-2);
+      margin-bottom: 8px;
+    }
+
+    .panel p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .accent {
+      color: var(--success);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="eyebrow">crime committer vi</div>
+    <h1>Data Builder Hub</h1>
+    <p class="muted">Local tools that edit game data via the builder server.</p>
+  </header>
+
+  <main class="grid">
+    <a class="card" href="activity-options-builder.html">
+      <div class="label">activities.json</div>
+      <div class="title">Activity + Crime Builder</div>
+      <div class="desc">Design activities, options, gating, and outcomes.</div>
+    </a>
+    <a class="card" href="branches-designer.html">
+      <div class="label">branches.json</div>
+      <div class="title">Branch Designer</div>
+      <div class="desc">Edit branch metadata and UI hints.</div>
+    </a>
+    <a class="card" href="modal-editor.html">
+      <div class="label">modal.json</div>
+      <div class="title">Modal Editor</div>
+      <div class="desc">Sketch modal layouts and content.</div>
+    </a>
+  </main>
+
+  <section class="panel">
+    <h2>Server Notes</h2>
+    <p>Run <span class="accent">npm run dev:builder</span> and open this page from the server URL so save/load works.</p>
+  </section>
+</body>
+</html>

@@ -407,6 +407,25 @@
     <div class="stacked">
       <section class="panel">
         <div class="panel__header">
+          <h2>File Controls</h2>
+          <button class="ghost small" onclick="refreshFileData()">Refresh</button>
+        </div>
+        <div class="input-grid">
+          <div>
+            <label for="activitySelect">activities.json</label>
+            <select id="activitySelect"></select>
+          </div>
+          <div class="flex">
+            <button class="small" onclick="loadSelectedActivity()">Load</button>
+            <button class="small" onclick="saveActivityToFile()">Save</button>
+            <button class="ghost small" onclick="startNewActivity()">New</button>
+          </div>
+          <p id="fileStatus" class="hint">Connect to the local builder server to enable save/load.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel__header">
           <h2>JSON Output</h2>
           <button class="ghost small" onclick="copyJSON()">Copy</button>
         </div>

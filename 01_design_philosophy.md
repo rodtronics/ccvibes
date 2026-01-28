@@ -63,19 +63,25 @@ Purpose: single source for mechanics philosophy and intent. Pair with `02_ui_spe
 - **Strategic planning (mid/late)**: Optional specialists, slower, safer, positive cred, sustainable.
 - Trade-offs: Opportunity cost of crew versus improved outcomes; players discover optimal compositions through experimentation.
 
-## 13. Design Constraints (Do Not Break)
+## 13. Pacing and Impatience
+- Provide tools for impatient players; never force idle waiting without alternatives.
+- Parallel runs, auto-repeat, and quick-start exist to respect the player's time.
+- If a player wants to brute-force through content faster, let them — at a cost (heat, resources, risk).
+- Depth rewards patience; speed rewards engagement. Both are valid play styles.
+
+## 14. Design Constraints (Do Not Break)
 - No irreversible punishment or permanent dead ends.
 - No mandatory waiting without player choice; no single linear progression path.
 - No full system map or completion percentage.
 - When in doubt, preserve curiosity over clarity.
 
-## 14. Authoring Guidelines
+## 15. Authoring Guidelines
 - Respect the Activity + Option + Run structure; no custom per-activity code.
 - Use conditions and effects, not bespoke logic; prefer adding Options over creating new Activities.
 - Prefer flags and reveals over explicit unlocks; all content must be data-driven and expressible in the schema.
 - Tone: dry, understated, cynical, never congratulatory.
 
-## 15. Technical Architecture Principles
+## 16. Technical Architecture Principles
 - **Event-driven design**: Engine emits events; UI subscribes and responds. No direct coupling between Engine and UI layers.
 - **Unified repeat architecture**: All runs use a single `runsLeft` field (0 = single, N = countdown, -1 = infinite) rather than separate queue structures.
 - **Smooth updates**: 50ms tick interval (20 updates/sec) for fluid countdown timers and progress bars.
@@ -88,7 +94,7 @@ Purpose: single source for mechanics philosophy and intent. Pair with `02_ui_spe
   - `gradients.js`: Color interpolation and gradient definitions
   - Target: main.js reduced from 942 to ~820 lines through extraction
 
-## 16. Visual Aesthetic Philosophy
+## 17. Visual Aesthetic Philosophy
 
 The game should look "pretty", not just functional or modern:
 - Use gradients throughout for visual interest (branch tabs, UI elements)
