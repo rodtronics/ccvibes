@@ -113,11 +113,11 @@ async function main() {
   // Reveal the game now that everything is ready
   if (container) container.style.visibility = 'visible';
 
-  // Game loop: tick engine and render at 5fps (200ms)
+  // Game loop: tick engine and render at 20fps (50ms)
   setInterval(() => {
     engine.tick();
     render();
-  }, 200);
+  }, 50);
 }
 
 // Input handling by tab
@@ -180,6 +180,7 @@ function handleJobsInput(e) {
     return;
   }
 
+  const key = (e.key || '').toLowerCase();
   const branches = uiLayer.getVisibleBranches();
   const branch = branches[ui.branchIndex] || branches[0];
   const activities = uiLayer.getVisibleActivities(branch?.id);
@@ -205,18 +206,17 @@ function handleJobsInput(e) {
 
   // Backspace/Escape to go back
   if (e.key === 'Backspace' || e.key === 'Escape') {
-    if (ui.focus === 'option') {
+    if (ui.focus === 'branch') {
+      ui.focus = 'activity';
+    } else if (ui.focus === 'option') {
       ui.focus = 'activity';
       ui.optionIndex = 0;
     }
   }
 
   // Arrow key navigation
-  if (ui.focus === 'activity') {
-    if (e.key === 'ArrowUp') ui.activityIndex = Math.max(0, ui.activityIndex - 1);
-    if (e.key === 'ArrowDown') ui.activityIndex = Math.min(Math.max(0, activities.length - 1), ui.activityIndex + 1);
-
-    // Left/right to switch branches
+  if (ui.focus === 'branch') {
+    // BRANCH TAB FOCUS - left/right to switch branches, down to enter activity list
     if (e.key === 'ArrowLeft') {
       ui.branchIndex = Math.max(0, ui.branchIndex - 1);
       ui.activityIndex = 0;
@@ -226,6 +226,32 @@ function handleJobsInput(e) {
       ui.branchIndex = Math.min(branches.length - 1, ui.branchIndex + 1);
       ui.activityIndex = 0;
       ui.optionIndex = 0;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'Enter') {
+      ui.focus = 'activity';
+    }
+  } else if (ui.focus === 'activity') {
+    if (e.key === 'ArrowUp') {
+      if (ui.activityIndex === 0) {
+        // At top of list — move focus to branch tabs
+        ui.focus = 'branch';
+      } else {
+        ui.activityIndex = Math.max(0, ui.activityIndex - 1);
+      }
+    }
+    if (e.key === 'ArrowDown') ui.activityIndex = Math.min(Math.max(0, activities.length - 1), ui.activityIndex + 1);
+
+    // Right to enter runs panel
+    if (e.key === 'ArrowRight') {
+      const branch = branches[ui.branchIndex] || branches[0];
+      const branchRuns = engine.state.runs.filter(r => {
+        const a = engine.data.activities.find(act => act.id === r.activityId);
+        return a && a.branchId === branch?.id;
+      });
+      if (branchRuns.length > 0) {
+        ui.focus = 'runs';
+        ui.selectedRun = 0;
+      }
     }
 
     if (e.key === 'Enter' && activity) {
@@ -238,7 +264,15 @@ function handleJobsInput(e) {
       startSelectedRun(activity, options[0]);
     }
   } else if (ui.focus === 'option') {
-    if (e.key === 'ArrowUp') ui.optionIndex = Math.max(0, ui.optionIndex - 1);
+    if (e.key === 'ArrowUp') {
+      if (ui.optionIndex === 0) {
+        // At top of options — go back to activity list
+        ui.focus = 'activity';
+        ui.optionIndex = 0;
+      } else {
+        ui.optionIndex = Math.max(0, ui.optionIndex - 1);
+      }
+    }
     if (e.key === 'ArrowDown') ui.optionIndex = Math.min(Math.max(0, options.length - 1), ui.optionIndex + 1);
 
     // ENTER opens crime detail window
@@ -287,19 +321,32 @@ function handleJobsInput(e) {
       }
     }
   } else if (ui.focus === 'runs') {
-    // NEW FOCUS STATE for navigating runs
-    const activityRuns = engine.state.runs.filter(r => r.activityId === activity.id);
-    if (activityRuns.length === 0) {
-      ui.focus = 'option';
+    // RUNS PANEL FOCUS - navigate and manage runs
+    // Determine which runs to show based on context
+    let contextRuns;
+    if (activity) {
+      // In options view: show activity-filtered runs
+      contextRuns = engine.state.runs.filter(r => r.activityId === activity.id);
+    } else {
+      // In activity list view: show branch-filtered runs
+      const branch = branches[ui.branchIndex] || branches[0];
+      contextRuns = engine.state.runs.filter(r => {
+        const a = engine.data.activities.find(act => act.id === r.activityId);
+        return a && a.branchId === branch?.id;
+      });
+    }
+
+    if (contextRuns.length === 0) {
+      ui.focus = activity ? 'option' : 'activity';
       ui.selectedRun = 0;
       return;
     }
 
     if (ui.selectedRun === undefined) ui.selectedRun = 0;
 
-    // LEFT arrow switches back to options
-    if (e.key === 'ArrowLeft') {
-      ui.focus = 'option';
+    // LEFT arrow or ESCAPE switches back to left panel
+    if (e.key === 'ArrowLeft' || e.key === 'Escape') {
+      ui.focus = activity ? 'option' : 'activity';
     }
 
     // UP/DOWN navigate runs
@@ -307,18 +354,18 @@ function handleJobsInput(e) {
       ui.selectedRun = Math.max(0, ui.selectedRun - 1);
     }
     if (e.key === 'ArrowDown') {
-      ui.selectedRun = Math.min(activityRuns.length - 1, ui.selectedRun + 1);
+      ui.selectedRun = Math.min(contextRuns.length - 1, ui.selectedRun + 1);
     }
 
     // X key stops selected run immediately
     if (e.key === 'x' || e.key === 'X') {
-      const run = activityRuns[ui.selectedRun];
+      const run = contextRuns[ui.selectedRun];
       if (run) engine.stopRun(run.runId);
     }
 
     // Z key stops repeat (lets current finish)
     if (e.key === 'z' || e.key === 'Z') {
-      const run = activityRuns[ui.selectedRun];
+      const run = contextRuns[ui.selectedRun];
       if (run && run.runsLeft !== 0) {
         engine.stopRepeat(run.runId);
       }
@@ -517,19 +564,99 @@ function startRunFromDetail(activity, option, repeatMode) {
 function handleActiveInput(e) {
   const key = e.key.toLowerCase();
 
-  // X to stop all runs
-  if (key === 'x') {
-    if (ui.confirmStopAll) {
-      engine.stopAllRuns();
-      ui.confirmStopAll = false;
-    } else {
-      ui.confirmStopAll = true;
-    }
-    return;
-  }
+  // Initialize filter state if missing
+  if (ui.activeFilter === undefined) ui.activeFilter = 0;
+  if (ui.activeBranchFilter === undefined) ui.activeBranchFilter = 0;
 
-  // Any other key clears stop-all confirmation
-  ui.confirmStopAll = false;
+  const filterCount = 4; // all, ending soon, by branch, completed
+
+  // Handle focus switching between filter list and runs panel
+  if (ui.focus === 'runs') {
+    // In runs panel - same handling as jobs tab
+    if (e.key === 'ArrowLeft' || e.key === 'Escape') {
+      ui.focus = 'filter';
+      return;
+    }
+
+    // Arrow Up/Down to navigate runs
+    if (e.key === 'ArrowUp') {
+      ui.selectedRun = Math.max(0, (ui.selectedRun || 0) - 1);
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      const maxRuns = engine.state.runs.length; // Simplified - actual depends on filter
+      ui.selectedRun = Math.min(maxRuns - 1, (ui.selectedRun || 0) + 1);
+      return;
+    }
+
+    // X to stop selected run
+    if (key === 'x') {
+      const run = engine.state.runs[ui.selectedRun || 0];
+      if (run) engine.stopRun(run.runId);
+      return;
+    }
+
+    // Z to stop repeat
+    if (key === 'z') {
+      const run = engine.state.runs[ui.selectedRun || 0];
+      if (run && run.runsLeft !== 0) {
+        engine.stopRepeat(run.runId);
+      }
+      return;
+    }
+  } else {
+    // In filter list (default focus)
+    ui.focus = 'filter'; // Ensure focus state is set
+
+    // Arrow Up/Down to navigate filters
+    if (e.key === 'ArrowUp') {
+      ui.activeFilter = Math.max(0, ui.activeFilter - 1);
+      ui.confirmStopAll = false;
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      ui.activeFilter = Math.min(filterCount - 1, ui.activeFilter + 1);
+      ui.confirmStopAll = false;
+      return;
+    }
+
+    // Number keys 1-4 to select filter
+    if (key >= '1' && key <= '4') {
+      ui.activeFilter = parseInt(key) - 1;
+      ui.confirmStopAll = false;
+      return;
+    }
+
+    // B to cycle branches when "By branch" filter is selected
+    if (key === 'b' && ui.activeFilter === 2) {
+      const branches = uiLayer.getVisibleBranches();
+      ui.activeBranchFilter = ((ui.activeBranchFilter || 0) + 1) % branches.length;
+      return;
+    }
+
+    // Right arrow to enter runs panel
+    if (e.key === 'ArrowRight') {
+      if (engine.state.runs.length > 0) {
+        ui.focus = 'runs';
+        ui.selectedRun = 0;
+      }
+      return;
+    }
+
+    // X to stop all runs (with confirmation)
+    if (key === 'x') {
+      if (ui.confirmStopAll) {
+        engine.stopAllRuns();
+        ui.confirmStopAll = false;
+      } else {
+        ui.confirmStopAll = true;
+      }
+      return;
+    }
+
+    // Any other key clears stop-all confirmation
+    ui.confirmStopAll = false;
+  }
 
   if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
 }

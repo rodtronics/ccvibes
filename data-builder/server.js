@@ -42,6 +42,22 @@ app.get("/api/data", async (req, res) => {
   }
 });
 
+app.get("/api/data-meta", async (req, res) => {
+  try {
+    const files = await listJsonFiles();
+    const meta = await Promise.all(
+      files.map(async (file) => {
+        const filePath = resolveDataPath(file);
+        const stat = await fs.stat(filePath);
+        return { file, size: stat.size, mtimeMs: stat.mtimeMs };
+      })
+    );
+    res.json({ files: meta });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to stat data files", detail: err.message });
+  }
+});
+
 app.get("/api/data/:file", async (req, res) => {
   const filePath = resolveDataPath(req.params.file);
   if (!filePath) {
@@ -75,6 +91,29 @@ app.put("/api/data/:file", async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "Failed to write data file", detail: err.message });
+  }
+});
+
+const DOC_ALLOWLIST = new Set([
+  "00_agent_readme.md",
+  "01_design_philosophy.md",
+  "02_ui_spec.md",
+  "03_schema_engine.md",
+  "04_lexicon.md"
+]);
+
+app.get("/api/docs/:doc", async (req, res) => {
+  const fileName = req.params.doc;
+  if (!DOC_ALLOWLIST.has(fileName)) {
+    return res.status(404).type("text/plain").send("Not found");
+  }
+
+  try {
+    const filePath = path.join(rootDir, fileName);
+    const raw = await fs.readFile(filePath, "utf8");
+    res.type("text/plain").send(raw);
+  } catch (err) {
+    res.status(500).type("text/plain").send(`Failed to read doc: ${err.message}`);
   }
 });
 

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCVibes Builder Docs</title>
+  <style>
+    :root {
+      --bg: #0c101a;
+      --panel: #111827;
+      --panel-strong: #0f1724;
+      --border: #1f2937;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #7dd3fc;
+      --accent-2: #a5b4fc;
+      --success: #34d399;
+      --danger: #f87171;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 22px;
+      background: radial-gradient(circle at 20% 20%, rgba(125,211,252,0.05), transparent 35%),
+        radial-gradient(circle at 80% 10%, rgba(165,180,252,0.06), transparent 35%),
+        var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", "Space Grotesk", system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    h1 { margin: 0; font-size: 1.2rem; letter-spacing: 0.02em; }
+    .muted { color: var(--muted); }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    select, button {
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.2);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 700;
+    }
+
+    button {
+      cursor: pointer;
+      background: linear-gradient(135deg, rgba(125,211,252,0.14), rgba(165,180,252,0.10));
+      transition: all 0.15s ease;
+    }
+
+    button:hover { border-color: rgba(125,211,252,0.55); transform: translateY(-1px); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .panel {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+
+    pre {
+      margin: 0;
+      padding: 16px;
+      color: var(--text);
+      font-size: 0.9rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: "DM Mono", "JetBrains Mono", "Consolas", monospace;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      display: none;
+    }
+    .status.show { display: block; }
+    .status.error { border-color: rgba(248,113,113,0.6); color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>Builder Docs</h1>
+      <div class="muted">Curated docs served by the local builder server.</div>
+    </div>
+    <div class="actions">
+      <select id="docSelect">
+        <option value="02_ui_spec.md">UI Spec</option>
+        <option value="03_schema_engine.md">Schema Engine</option>
+        <option value="04_lexicon.md">Lexicon</option>
+        <option value="01_design_philosophy.md">Design Philosophy</option>
+        <option value="00_agent_readme.md">Agent Readme</option>
+      </select>
+      <button id="copyBtn">Copy</button>
+      <button id="backBtn">← Back</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <pre id="docBody">Loading…</pre>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <script>
+    const select = document.getElementById('docSelect');
+    const body = document.getElementById('docBody');
+    const status = document.getElementById('status');
+    const copyBtn = document.getElementById('copyBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    function setStatus(message, kind = '') {
+      status.className = `status show ${kind}`.trim();
+      status.textContent = message;
+    }
+
+    function clearStatus() {
+      status.className = 'status';
+      status.textContent = '';
+    }
+
+    function getDocFromQuery() {
+      const url = new URL(location.href);
+      return url.searchParams.get('doc');
+    }
+
+    function setDocInQuery(doc) {
+      const url = new URL(location.href);
+      url.searchParams.set('doc', doc);
+      history.replaceState(null, '', url.toString());
+    }
+
+    async function loadDoc(doc) {
+      clearStatus();
+      body.textContent = 'Loading…';
+      try {
+        const res = await fetch(`/api/docs/${encodeURIComponent(doc)}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        body.textContent = text;
+      } catch (err) {
+        body.textContent = '';
+        setStatus(`Failed to load doc: ${err.message}`, 'error');
+      }
+    }
+
+    select.addEventListener('change', () => {
+      const doc = select.value;
+      setDocInQuery(doc);
+      loadDoc(doc);
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(body.textContent || '');
+        setStatus('Copied to clipboard.');
+        setTimeout(clearStatus, 1200);
+      } catch {
+        setStatus('Could not copy.', 'error');
+      }
+    });
+
+    backBtn.addEventListener('click', () => {
+      location.href = 'index.html';
+    });
+
+    const initial = getDocFromQuery();
+    if (initial) select.value = initial;
+    loadDoc(select.value);
+  </script>
+</body>
+</html>
+

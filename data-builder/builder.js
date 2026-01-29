@@ -1,7 +1,9 @@
 let optionUid = 1;
 let notes = { problems: '', solutions: '' };
 const state = createActivity();
-const fileState = { activities: [], selectedId: '' };
+const fileState = { activities: [], selectedId: '', lastSavedState: null, loaded: false };
+let serverOnline = false;
+const HUB_FILE = 'activities.json';
 
 document.addEventListener('DOMContentLoaded', () => {
   wireMetaInputs();
@@ -11,6 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderOptions();
   refreshOutputs();
   initFileControls();
+  checkServerStatus();
+  wireKeyboardShortcuts();
+  wireHubEvents();
 });
 
 function createActivity() {
@@ -149,6 +154,9 @@ function wireNotes() {
 function refreshOutputs() {
   renderJson();
   renderSummary();
+  renderDataTree();
+  updateSaveIndicator();
+  syncHubStatus();
 }
 
 function initFileControls() {
@@ -156,6 +164,139 @@ function initFileControls() {
   setFileStatus('Connect to the local builder server to enable save/load.', 'muted');
   if (!isServerContext()) return;
   refreshFileData();
+}
+
+async function checkServerStatus() {
+  if (!isServerContext()) {
+    serverOnline = false;
+    updateServerIndicator();
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/health');
+    serverOnline = res.ok;
+  } catch (err) {
+    serverOnline = false;
+  }
+  updateServerIndicator();
+}
+
+function updateServerIndicator() {
+  const statusEl = document.getElementById('serverStatus');
+  if (!statusEl) return;
+
+  if (serverOnline) {
+    statusEl.textContent = '● Online';
+    statusEl.style.color = '#34d399';
+  } else {
+    statusEl.textContent = '● Offline';
+    statusEl.style.color = '#f87171';
+  }
+}
+
+function updateSaveIndicator() {
+  const indicator = document.getElementById('saveIndicator');
+  if (!indicator) return;
+
+  const hasChanges = checkForUnsavedChanges();
+  if (hasChanges) {
+    indicator.textContent = '● Unsaved changes';
+    indicator.style.color = '#fbbf24';
+    indicator.style.display = 'inline';
+  } else {
+    indicator.style.display = 'none';
+  }
+}
+
+function checkForUnsavedChanges() {
+  if (!state.id) return false;
+
+  if (fileState.lastSavedState && state.id === fileState.selectedId) {
+    const current = JSON.stringify(buildActivityJson());
+    const saved = JSON.stringify(fileState.lastSavedState);
+    return current !== saved;
+  }
+
+  return true;
+}
+
+function buildDraftActivitiesPayload() {
+  if (!fileState.loaded) return null;
+  if (!Array.isArray(fileState.activities)) return null;
+  const activity = buildActivityJson();
+  if (!activity.id) return null;
+
+  const existingIndex = fileState.activities.findIndex((act) => act.id === activity.id);
+  const nextActivities = fileState.activities.slice();
+  if (existingIndex >= 0) nextActivities[existingIndex] = activity;
+  else nextActivities.push(activity);
+  return nextActivities;
+}
+
+function syncHubStatus() {
+  const hub = window.CcvibesHubStorage;
+  if (!hub) return;
+
+  const dirty = checkForUnsavedChanges();
+  const modifiedCount = dirty ? 1 : 0;
+  hub.setStatus(HUB_FILE, { dirty, modifiedCount, updatedAt: Date.now() });
+
+  if (!dirty) {
+    hub.clearDraft(HUB_FILE);
+    return;
+  }
+
+  const draft = buildDraftActivitiesPayload();
+  if (draft) hub.setDraft(HUB_FILE, draft);
+}
+
+function wireHubEvents() {
+  const hub = window.CcvibesHubStorage;
+  if (!hub) return;
+
+  async function handleExternalSave() {
+    await refreshFileData();
+
+    const currentId = state.id;
+    if (currentId) {
+      const found = fileState.activities.find((act) => act.id === currentId);
+      if (found) {
+        fileState.selectedId = currentId;
+        fileState.lastSavedState = JSON.parse(JSON.stringify(found));
+      }
+    }
+
+    updateSaveIndicator();
+    syncHubStatus();
+    setFileStatus('Saved externally. Reloaded file cache.', 'success');
+  }
+
+  window.addEventListener('storage', (e) => {
+    if (e.key === hub.savedKey(HUB_FILE)) {
+      void handleExternalSave();
+    }
+  });
+}
+
+function wireKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Ctrl+S or Cmd+S: Save
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveActivityToFile();
+    }
+    // Ctrl+N or Cmd+N: New
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+      e.preventDefault();
+      startNewActivity();
+    }
+    // Ctrl+D or Cmd+D: Duplicate
+    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+      e.preventDefault();
+      duplicateActivity();
+    }
+  });
 }
 
 function isServerContext() {
@@ -195,6 +336,233 @@ function renderActivitySelect(selectedId = '') {
   fileState.selectedId = select.value;
 }
 
+function loadActivityById(activityId) {
+  if (!activityId) return;
+  if ((state.id || '').trim() === activityId) return;
+
+  const select = document.getElementById('activitySelect');
+  if (select) select.value = activityId;
+  loadSelectedActivity();
+}
+
+function renderDataTree(filterText = '') {
+  const container = document.getElementById('dataTree');
+  if (!container) return;
+
+  let activities = getWorkingActivities();
+  if (!activities.length) {
+    container.innerHTML = '<div class="tree-empty">No activity data loaded.</div>';
+    return;
+  }
+
+  // Apply filter
+  if (filterText) {
+    const search = filterText.toLowerCase();
+    activities = activities.filter(act => {
+      const matchId = (act.id || '').toLowerCase().includes(search);
+      const matchName = (act.name || '').toLowerCase().includes(search);
+      const matchBranch = (act.branchId || '').toLowerCase().includes(search);
+      return matchId || matchName || matchBranch;
+    });
+  }
+
+  if (!activities.length) {
+    container.innerHTML = '<div class="tree-empty">No activities match the filter.</div>';
+    return;
+  }
+
+  const grouped = groupActivitiesByBranch(activities);
+  const branchBlocks = grouped.map(({ branchId, activities: branchActivities }) => {
+    const items = branchActivities.map(renderActivityTreeItem).join('');
+    return `
+      <div class="tree-group">
+        <div class="tree-branch">${safe(branchId)}</div>
+        <div class="tree-list">${items}</div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = branchBlocks.join('');
+}
+
+function filterDataTree(text) {
+  renderDataTree(text);
+}
+
+function getWorkingActivities() {
+  const list = Array.isArray(fileState.activities) ? fileState.activities.slice() : [];
+  const draft = getDraftActivity();
+  if (draft) {
+    const idx = list.findIndex((act) => act.id === draft.id);
+    if (idx >= 0) list[idx] = draft;
+    else list.push(draft);
+  }
+  return list;
+}
+
+function getDraftActivity() {
+  const id = (state.id || '').trim();
+  if (!id) return null;
+  return buildActivityJson();
+}
+
+function groupActivitiesByBranch(activities) {
+  const map = new Map();
+  activities.forEach((activity) => {
+    const branchId = activity.branchId || 'unassigned';
+    if (!map.has(branchId)) map.set(branchId, []);
+    map.get(branchId).push(activity);
+  });
+
+  return Array.from(map.entries())
+    .map(([branchId, list]) => ({
+      branchId,
+      activities: list.slice().sort((a, b) => (a.id || '').localeCompare(b.id || ''))
+    }))
+    .sort((a, b) => a.branchId.localeCompare(b.branchId));
+}
+
+function renderActivityTreeItem(activity) {
+  const activityId = activity.id || 'untitled';
+  const name = activity.name || '';
+  const isSelected = (state.id || '').trim() === activityId;
+  const visibleCount = (activity.visibleIf || []).length;
+  const unlockCount = (activity.unlockIf || []).length;
+
+  const badges = renderGateBadges(visibleCount, unlockCount);
+  const conditions = [
+    formatConditionList('visible', activity.visibleIf),
+    formatConditionList('unlock', activity.unlockIf)
+  ].filter(Boolean);
+  const conditionLine = conditions.length ? `<div class="tree-meta">${safe(conditions.join(' | '))}</div>` : '';
+
+  const links = formatEffectLinks(activity);
+  const linkLine = links ? `<div class="tree-meta">${safe(links)}</div>` : '';
+
+  const options = (activity.options || []).map(renderOptionTreeItem).join('');
+  const optionsLine = options ? `<div class="tree-options">${options}</div>` : '';
+
+  return `
+    <div class="tree-activity ${isSelected ? 'selected' : ''}">
+      <div class="tree-row">
+        <button class="tree-link" onclick="loadActivityById('${safe(activityId)}')">${safe(activityId)}</button>
+        ${name ? `<span class="muted">${safe(name)}</span>` : ''}
+        ${badges}
+      </div>
+      ${conditionLine}
+      ${linkLine}
+      ${optionsLine}
+    </div>
+  `;
+}
+
+function renderOptionTreeItem(option) {
+  const optionId = option.id || 'option';
+  const name = option.name || '';
+  const visibleCount = (option.visibleIf || []).length;
+  const unlockCount = (option.unlockIf || []).length;
+  const badges = renderGateBadges(visibleCount, unlockCount);
+
+  const conditions = [
+    formatConditionList('visible', option.visibleIf),
+    formatConditionList('unlock', option.unlockIf)
+  ].filter(Boolean);
+  const conditionLine = conditions.length ? `<div class="tree-meta">${safe(conditions.join(' | '))}</div>` : '';
+
+  return `
+    <div class="tree-option">
+      <div class="tree-row">
+        <span>${safe(optionId)}</span>
+        ${name ? `<span class="muted">${safe(name)}</span>` : ''}
+        ${badges}
+      </div>
+      ${conditionLine}
+    </div>
+  `;
+}
+
+function renderGateBadges(visibleCount, unlockCount) {
+  const badges = [];
+  if (visibleCount) badges.push(`<span class="tree-badge">V:${visibleCount}</span>`);
+  if (unlockCount) badges.push(`<span class="tree-badge">U:${unlockCount}</span>`);
+  return badges.join('');
+}
+
+function formatConditionList(label, list) {
+  if (!list || !list.length) return '';
+  const formatted = summarizeList(list.map(formatCondition), 3);
+  if (!formatted) return '';
+  return `${label}: ${formatted}`;
+}
+
+function formatCondition(cond) {
+  if (!cond || !cond.type) return 'unknown';
+  if (cond.type === 'resourceGte') {
+    return `resourceGte:${cond.resourceId || 'resource'}>=${formatValue(cond.value)}`;
+  }
+  if (cond.type === 'itemGte') {
+    return `itemGte:${cond.itemId || 'item'}>=${formatValue(cond.value)}`;
+  }
+  if (cond.type === 'flagIs') {
+    const value = cond.value !== undefined ? cond.value : cond.bool;
+    return `flagIs:${cond.key || 'flag'}=${value === undefined ? 'true' : value}`;
+  }
+  if (cond.type === 'roleRevealed') {
+    return `roleRevealed:${cond.roleId || 'role'}`;
+  }
+  if (cond.type === 'activityRevealed') {
+    return `activityRevealed:${cond.activityId || 'activity'}`;
+  }
+  return cond.type;
+}
+
+function formatValue(value) {
+  if (value === undefined || value === null || value === '') return '?';
+  return value;
+}
+
+function summarizeList(items, limit = 3) {
+  const cleaned = items.filter(Boolean);
+  if (!cleaned.length) return '';
+  if (cleaned.length <= limit) return cleaned.join(', ');
+  return `${cleaned.slice(0, limit).join(', ')} +${cleaned.length - limit}`;
+}
+
+function formatEffectLinks(activity) {
+  const links = collectActivityEffectLinks(activity);
+  const parts = [];
+  if (links.reveals.length) parts.push(`reveals: ${summarizeList(links.reveals, 3)}`);
+  if (links.unlocks.length) parts.push(`unlocks: ${summarizeList(links.unlocks, 3)}`);
+  return parts.join(' | ');
+}
+
+function collectActivityEffectLinks(activity) {
+  const reveals = new Set();
+  const unlocks = new Set();
+
+  const addEffect = (effect) => {
+    if (!effect || !effect.type) return;
+    if (effect.type === 'revealActivity' && effect.activityId) reveals.add(effect.activityId);
+    if (effect.type === 'unlockActivity' && effect.activityId) unlocks.add(effect.activityId);
+  };
+
+  (activity.reveals?.onReveal || []).forEach(addEffect);
+  (activity.reveals?.onUnlock || []).forEach(addEffect);
+
+  (activity.options || []).forEach((option) => {
+    const resolution = option.resolution || {};
+    (resolution.effects || []).forEach(addEffect);
+    (resolution.outcomes || []).forEach((outcome) => {
+      (outcome.effects || []).forEach(addEffect);
+    });
+  });
+
+  return {
+    reveals: Array.from(reveals).sort(),
+    unlocks: Array.from(unlocks).sort()
+  };
+}
+
 async function refreshFileData() {
   if (!isServerContext()) {
     setFileStatus('Open this page from the builder server to use save/load.', 'error');
@@ -208,8 +576,11 @@ async function refreshFileData() {
     if (!Array.isArray(data)) throw new Error('Expected an array of activities');
 
     fileState.activities = data;
+    fileState.loaded = true;
     renderActivitySelect();
+    renderDataTree();
     setFileStatus(`Loaded ${data.length} activities.`, 'success');
+    syncHubStatus();
   } catch (err) {
     setFileStatus(`Failed to load activities.json: ${err.message}`, 'error');
   }
@@ -232,12 +603,14 @@ function loadSelectedActivity() {
 
   applyActivityData(activity);
   fileState.selectedId = selectedId;
+  fileState.lastSavedState = JSON.parse(JSON.stringify(activity));
   setFileStatus(`Loaded ${selectedId}.`, 'success');
 }
 
 function startNewActivity() {
   clearBuilder();
   fileState.selectedId = '';
+  fileState.lastSavedState = null;
   renderActivitySelect();
   setFileStatus('New activity started.', 'success');
 }
@@ -251,6 +624,13 @@ async function saveActivityToFile() {
   const activity = buildActivityJson();
   if (!activity.id) {
     setFileStatus('Activity ID is required before saving.', 'error');
+    return;
+  }
+
+  // Validate before saving
+  const validation = validateActivity(activity);
+  if (!validation.valid) {
+    setFileStatus(`Validation failed: ${validation.errors.join(', ')}`, 'error');
     return;
   }
 
@@ -268,11 +648,100 @@ async function saveActivityToFile() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     fileState.activities = nextActivities;
+    fileState.selectedId = activity.id;
+    fileState.lastSavedState = JSON.parse(JSON.stringify(activity));
     renderActivitySelect(activity.id);
+    renderDataTree();
+    updateSaveIndicator();
+    syncHubStatus();
+    window.CcvibesHubStorage?.broadcastSaved(HUB_FILE);
     setFileStatus(existingIndex >= 0 ? `Updated ${activity.id}.` : `Saved ${activity.id}.`, 'success');
   } catch (err) {
     setFileStatus(`Failed to save activities.json: ${err.message}`, 'error');
   }
+}
+
+function validateActivity(activity) {
+  const errors = [];
+
+  if (!activity.id || !activity.id.trim()) {
+    errors.push('Activity ID is required');
+  }
+
+  if (!activity.name || !activity.name.trim()) {
+    errors.push('Activity name is required');
+  }
+
+  // Check for duplicate option IDs
+  const optionIds = new Set();
+  activity.options.forEach((opt, idx) => {
+    if (!opt.id || !opt.id.trim()) {
+      errors.push(`Option ${idx + 1} has no ID`);
+    } else if (optionIds.has(opt.id)) {
+      errors.push(`Duplicate option ID: ${opt.id}`);
+    } else {
+      optionIds.add(opt.id);
+    }
+
+    // Check staff requirements
+    if (!opt.requirements.staff.length) {
+      errors.push(`Option ${opt.id || idx + 1} has no staff requirements`);
+    }
+
+    // Check weighted outcomes sum
+    if (opt.resolution.type === 'weighted_outcomes') {
+      const totalWeight = opt.resolution.outcomes.reduce((sum, out) => sum + (out.weight || 0), 0);
+      if (totalWeight === 0) {
+        errors.push(`Option ${opt.id || idx + 1} has outcomes with zero total weight`);
+      }
+    }
+  });
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
+function duplicateActivity() {
+  if (!state.id) {
+    setFileStatus('Load an activity first before duplicating.', 'error');
+    return;
+  }
+
+  const currentId = state.id;
+  const baseName = currentId.replace(/_copy\d*$/, '');
+
+  // Find next available copy number
+  let copyNum = 1;
+  let newId = `${baseName}_copy`;
+  while (fileState.activities.some(act => act.id === newId)) {
+    copyNum++;
+    newId = `${baseName}_copy${copyNum}`;
+  }
+
+  state.id = newId;
+  state.name = `${state.name} (copy)`;
+  fileState.selectedId = '';
+  fileState.lastSavedState = null;
+
+  // Update option IDs to match new activity ID
+  state.options.forEach((opt, idx) => {
+    const oldOptionId = opt.optionId || '';
+    if (oldOptionId.startsWith(currentId)) {
+      opt.optionId = oldOptionId.replace(currentId, newId);
+    } else {
+      opt.optionId = `${newId}_option_${idx + 1}`;
+    }
+  });
+
+  document.getElementById('activityId').value = state.id;
+  document.getElementById('activityName').value = state.name;
+
+  renderOptions();
+  refreshOutputs();
+  renderActivitySelect();
+  setFileStatus(`Duplicated as ${newId}. Remember to save!`, 'success');
 }
 
 function safe(value) {
@@ -1532,4 +2001,3 @@ function formatRange(val) {
   }
   return val;
 }
-

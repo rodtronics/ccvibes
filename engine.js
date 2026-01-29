@@ -26,6 +26,7 @@ export class Engine {
         ]
       },
       runs: [],
+      completedRuns: [], // Last 20 completed runs for "Completed" filter
       log: [],
       stats: {
         lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
@@ -180,6 +181,7 @@ export class Engine {
         ]
       },
       runs: [],
+      completedRuns: [], // Last 20 completed runs for "Completed" filter
       log: [],
       stats: {
         lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
@@ -416,6 +418,20 @@ export class Engine {
     this.resolveOutcome(option, run, staff);
     if (!run.snapshot?.botched) {
       this.log(`Completed: ${activity.name} / ${option.name}`, "success");
+    }
+
+    // Track completed run (keep last 20)
+    const completedRun = {
+      ...run,
+      completedAt: this.state.now,
+      activityName: activity.name,
+      optionName: option.name,
+      wasSuccess: !run.snapshot?.botched
+    };
+    if (!this.state.completedRuns) this.state.completedRuns = [];
+    this.state.completedRuns.unshift(completedRun);
+    if (this.state.completedRuns.length > 20) {
+      this.state.completedRuns = this.state.completedRuns.slice(0, 20);
     }
 
     // Handle repeat runs

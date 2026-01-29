@@ -1,25 +1,24 @@
 THIS TO DO LIST relates the index.html, related files, and the founding documents starting with 00_agent_readme.md
 
-in the log menu, have some toggles to display or not display things like successes and failures etc
+BUGS
+- auto repeat doesnt seem to work if crime fails
+- when on jobs/branch/options, pressing Q doesnt start a quick run
+- when selecting criminals for a crime, ones that dont meet requirements shouldnt be an option. and if quick selection is chosen, it should choose a random member who meets requirements
+- no Y axis labels on stats
 
-overall more space efficiency. for example, the top row is just a straight bar. I only have 25 to work with so that means 4% of my realestate is doing nothing. the title and that basic info should be on the 1st row. the menu items on the 2nd row, and the large context window starting from the 3rd row down all the way to the bottom, but the tabs under jobs for example? they're laid over the top of the top bar on row 3. and if there is info to tell the player immediately that can be laid over the bottom of the very bottom row.
+SMALL / EASY
+- in the log menu, have some toggles to display or not display things like successes and failures etc
+- crew menu should have a tab for visiting jail
+- in crew you can select a crew member and "go to" the active job, which will basically go to jobs/branch/option and open the job
+- future ideas: can sort crew
+- check for code redundancy (ongoing)
 
-some kind of way of bringing showing information about a job. maybe pressing k for example tells you about the option, what it costs, what you reap. in fact this screen will take up the whole of the normal content screen, and this is where you can choose criminals for the job too, and so will have ins and outs, and then modifiers that the chosen criminal(s) give to the crime. one can also select the number of runs or etc. its a bit like without going into this window its quick start, but you can go into this window to make a controlled run.
+MEDIUM
+- some kind of way of showing information about a job. maybe pressing k tells you about the option, what it costs, what you reap. this screen takes up the whole content area and is where you choose criminals for the job, see ins and outs, modifiers from chosen crew. can select number of runs. like a detailed launch screen vs quick start.
+- overall more space efficiency. title and basic info on 1st row, menu on 2nd row, content from 3rd row down. tabs laid over top bar on row 3. immediate info on bottom row.
+- future idea: when a new option is unlocked, a star or indicator shows something new. branch with new option has different colour.
 
-a RPG system to an extent. I want to be able to manage crew more, crew can earn stars and when they get a new star they are eligible for a new skill and those skills will do things like speed up the crime, or give better outcomes, or lower heat, etc. I like the idea of the skill tree where you can choose this skill OR that one, and so any one player can't be everything amazing.
-
-future ideas: on the crew menu, if you select a crew member who is doing a job, it'll take you to that job
-
-future ideas: can sort crew
-
-future idea: when a new option is unlocked, there is a star or something to show that there is a new option to look at. perhaps even the branch that has a new option has a different colour to make it stand out that there is something new to look at.
-
-idea: the number of players on the crew increases heat just by virtue of existing, encouraging perhaps a smaller group of more skilled crew. when heat reaches an internal threshold (which the player doesnt know, it'll just be a gradient), someone randomly goes to jail and heat comes down a bit
-
-crew menu should have a tab for visiting jail
-
-auto repeat doesnt seem to work if crime fails
-
-when selecting criminals for a crime, ones that dont meet requirements shouldnt be an option. and if quick selection is chosen, it should choose a random member who meets requirements
-
-illegal gambling
+LARGE / FUTURE
+- a RPG system. crew earn stars, eligible for new skills (speed up crime, better outcomes, lower heat). skill tree where you choose this skill OR that one, so no crew member can be everything.
+- idea: number of crew increases heat passively, encouraging smaller skilled crew. when heat hits hidden threshold, someone goes to jail and heat drops.
+- illegal gambling (new branch/activity)

@@ -272,6 +272,101 @@
       font-size: 0.95rem;
     }
 
+    .tree {
+      display: grid;
+      gap: 12px;
+    }
+
+    .tree-group {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: #0b1220;
+      display: grid;
+      gap: 10px;
+    }
+
+    .tree-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .tree-branch {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+    }
+
+    .tree-activity {
+      border-left: 2px solid rgba(125,211,252,0.25);
+      padding-left: 10px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .tree-activity.selected {
+      border-left-color: var(--accent);
+      background: rgba(125,211,252,0.06);
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    .tree-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .tree-link {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      font-family: "DM Mono", "JetBrains Mono", "Fira Code", monospace;
+    }
+
+    .tree-link:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    .tree-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.3);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .tree-meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .tree-options {
+      display: grid;
+      gap: 4px;
+    }
+
+    .tree-option {
+      border-left: 1px dashed var(--border);
+      padding-left: 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .tree-empty {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
     .flex {
       display: flex;
       gap: 8px;
@@ -288,6 +383,11 @@
       <div class="eyebrow">crime committer vi</div>
       <h1>Activity + Crime Data Builder</h1>
       <p class="muted">Start with one crime, capture blockers, keep iterating. Output matches the schema for fast copy/paste.</p>
+      <div style="margin-top: 8px; display: flex; gap: 12px; align-items: center; font-size: 0.85rem;">
+        <span id="serverStatus" style="color: var(--muted);">● Checking...</span>
+        <span id="saveIndicator" style="color: var(--warning); display: none;">● Unsaved changes</span>
+        <span class="muted">Ctrl+S: Save | Ctrl+N: New | Ctrl+D: Duplicate</span>
+      </div>
     </div>
     <div class="actions">
       <button class="ghost small" onclick="refreshOutputs()">Refresh JSON</button>
@@ -419,8 +519,22 @@
             <button class="small" onclick="loadSelectedActivity()">Load</button>
             <button class="small" onclick="saveActivityToFile()">Save</button>
             <button class="ghost small" onclick="startNewActivity()">New</button>
+            <button class="ghost small" onclick="duplicateActivity()">Duplicate</button>
           </div>
           <p id="fileStatus" class="hint">Connect to the local builder server to enable save/load.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel__header">
+          <h2>Data Tree</h2>
+          <span class="muted">branch > crime > option</span>
+        </div>
+        <div style="margin-bottom: 12px;">
+          <input type="text" id="treeFilter" placeholder="Filter by activity ID or branch..." oninput="filterDataTree(this.value)" style="width: 100%; font-size: 0.9rem;">
+        </div>
+        <div id="dataTree" class="tree">
+          <div class="tree-empty">No activity data loaded.</div>
         </div>
       </section>
 
@@ -446,6 +560,7 @@
     </div>
   </div>
 
+  <script src="hub-storage.js"></script>
   <script src="builder.js"></script>
 </body>
 </html>

@@ -1,0 +1,1356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CC6 Progression Designer</title>
+  <style>
+    :root {
+      --bg: #0c101a;
+      --panel: #111827;
+      --panel-strong: #0f1724;
+      --border: #1f2937;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #7dd3fc;
+      --accent-2: #a5b4fc;
+      --success: #34d399;
+      --danger: #f87171;
+      --warning: #fbbf24;
+      --code: #d1d5db;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", "Space Grotesk", "Inter", system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: 0.02em; }
+    p { margin: 0; }
+
+    .app-container {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* Left sidebar */
+    .sidebar {
+      width: 320px;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-header h1 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .sidebar-header p {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .sidebar-section {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-section h3 {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 12px;
+    }
+
+    .node-palette {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .node-btn {
+      padding: 12px;
+      background: var(--panel-strong);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.15s ease;
+      text-align: center;
+    }
+
+    .node-btn:hover {
+      background: #1a2332;
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .node-btn.active {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+
+    .audit-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+    }
+
+    .audit-item {
+      padding: 10px 12px;
+      background: var(--panel-strong);
+      border-left: 3px solid var(--warning);
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+    }
+
+    .audit-item.error {
+      border-left-color: var(--danger);
+    }
+
+    .audit-item.info {
+      border-left-color: var(--accent);
+    }
+
+    .audit-item.success {
+      border-left-color: var(--success);
+    }
+
+    .toolbar {
+      padding: 12px 20px;
+      background: var(--panel-strong);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: var(--accent-2);
+      transform: translateY(-1px);
+    }
+
+    .btn.secondary {
+      background: var(--panel-strong);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn.secondary:hover {
+      border-color: var(--accent);
+      background: #1a2332;
+    }
+
+    /* Canvas area */
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: radial-gradient(circle at 20% 20%, rgba(125,211,252,0.03), transparent 35%),
+                  radial-gradient(circle at 80% 10%, rgba(165,180,252,0.04), transparent 35%),
+                  var(--bg);
+    }
+
+    #canvas {
+      cursor: grab;
+    }
+
+    #canvas.dragging {
+      cursor: grabbing;
+    }
+
+    .canvas-toolbar {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 8px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+    }
+
+    .canvas-btn {
+      padding: 8px 12px;
+      background: transparent;
+      color: var(--text);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.15s ease;
+    }
+
+    .canvas-btn:hover {
+      background: var(--panel-strong);
+    }
+
+    .status-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      display: flex;
+      gap: 24px;
+    }
+
+    /* Node editor modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-content h2 {
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      background: var(--panel-strong);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(125,211,252,0.2);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .modal-actions button {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- Left sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>Progression Designer</h1>
+      <p>design the progression web, then fill in activities</p>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Add Node</h3>
+      <div class="node-palette">
+        <button class="node-btn" data-type="resource">Resource</button>
+        <button class="node-btn" data-type="branch">Branch</button>
+        <button class="node-btn" data-type="activity">Activity</button>
+        <button class="node-btn" data-type="milestone">Milestone</button>
+      </div>
+      <p style="font-size: 0.75rem; color: var(--muted); margin-top: 12px;">
+        Click a type, then click on canvas to place
+      </p>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Connection Mode</h3>
+      <div class="node-palette">
+        <button class="node-btn" data-conn="produces">Produces</button>
+        <button class="node-btn" data-conn="consumes">Consumes</button>
+        <button class="node-btn" data-conn="reveals">Reveals</button>
+        <button class="node-btn" data-conn="unlocks">Unlocks</button>
+        <button class="node-btn" data-conn="requires">Requires</button>
+      </div>
+      <p style="font-size: 0.75rem; color: var(--muted); margin-top: 12px;">
+        Select mode, then click source node → target node
+      </p>
+    </div>
+
+    <div class="audit-panel">
+      <h3 style="font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 12px;">Design Audit</h3>
+      <div id="auditResults">
+        <div class="audit-item info">
+          Add nodes and connections to analyze progression
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn" onclick="importCurrentData()">Import Data</button>
+      <button class="btn secondary" onclick="runAudit()">Audit</button>
+      <button class="btn secondary" onclick="clearGraph()">Clear</button>
+    </div>
+  </div>
+
+  <!-- Main canvas -->
+  <div class="canvas-container">
+    <canvas id="canvas"></canvas>
+
+    <div class="canvas-toolbar">
+      <button class="canvas-btn" onclick="importCurrentData()">Import Data</button>
+      <button class="canvas-btn" onclick="zoomIn()">Zoom In</button>
+      <button class="canvas-btn" onclick="zoomOut()">Zoom Out</button>
+      <button class="canvas-btn" onclick="resetView()">Reset View</button>
+      <button class="canvas-btn" onclick="autoLayout()">Auto Layout</button>
+      <button class="canvas-btn" onclick="spreadOut()">Spread Out</button>
+    </div>
+
+    <div class="status-bar">
+      <span>Nodes: <strong id="nodeCount">0</strong></span>
+      <span>Connections: <strong id="connCount">0</strong></span>
+      <span id="modeIndicator">Mode: Select</span>
+    </div>
+  </div>
+</div>
+
+<!-- Node editor modal -->
+<div class="modal" id="nodeModal">
+  <div class="modal-content">
+    <h2 id="modalTitle">Edit Node</h2>
+
+    <div class="form-group">
+      <label>ID</label>
+      <input type="text" id="nodeId" placeholder="resource_id">
+    </div>
+
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="nodeName" placeholder="Display Name">
+    </div>
+
+    <div class="form-group">
+      <label>Type</label>
+      <select id="nodeType">
+        <option value="resource">Resource</option>
+        <option value="branch">Branch</option>
+        <option value="activity">Activity</option>
+        <option value="milestone">Milestone</option>
+      </select>
+    </div>
+
+    <div class="form-group" id="thresholdGroup" style="display: none;">
+      <label>Threshold (for gates)</label>
+      <input type="number" id="nodeThreshold" placeholder="5">
+    </div>
+
+    <div class="form-group" id="productionGroup" style="display: none;">
+      <label>Production Rate (min-max per run)</label>
+      <div style="display: flex; gap: 8px;">
+        <input type="number" id="nodeMinProduction" placeholder="Min" style="width: 50%;">
+        <input type="number" id="nodeMaxProduction" placeholder="Max" style="width: 50%;">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="nodeNotes" rows="3" placeholder="Design notes..."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeNodeModal()">Cancel</button>
+      <button class="btn" onclick="saveNodeEdits()">Save</button>
+      <button class="btn" style="background: var(--danger);" onclick="deleteNode()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="hub-storage.js"></script>
+<script>
+  // State
+  const graph = {
+    nodes: [],
+    connections: []
+  };
+
+  let camera = { x: 0, y: 0, zoom: 1 };
+  let selectedNodeType = null;
+  let connectionMode = null;
+  let connectionStart = null;
+  let draggingNode = null;
+  let dragOffset = { x: 0, y: 0 };
+  let isPanning = false;
+  let panStart = { x: 0, y: 0 };
+  let editingNode = null;
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Node type colors
+  const nodeColors = {
+    resource: '#7dd3fc',
+    branch: '#a5b4fc',
+    activity: '#34d399',
+    milestone: '#fbbf24'
+  };
+
+  // Connection type colors
+  const connColors = {
+    produces: '#34d399',
+    consumes: '#f87171',
+    reveals: '#a5b4fc',
+    unlocks: '#fbbf24',
+    requires: '#7dd3fc'
+  };
+
+  // Initialize
+  function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('wheel', onWheel);
+    canvas.addEventListener('dblclick', onDoubleClick);
+
+    // Node type buttons
+    document.querySelectorAll('.node-btn[data-type]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.node-btn[data-type]').forEach(b => b.classList.remove('active'));
+        if (selectedNodeType === btn.dataset.type) {
+          selectedNodeType = null;
+          connectionMode = null;
+          updateModeIndicator();
+        } else {
+          selectedNodeType = btn.dataset.type;
+          connectionMode = null;
+          btn.classList.add('active');
+          updateModeIndicator();
+        }
+      });
+    });
+
+    // Connection mode buttons
+    document.querySelectorAll('.node-btn[data-conn]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.node-btn[data-conn]').forEach(b => b.classList.remove('active'));
+        if (connectionMode === btn.dataset.conn) {
+          connectionMode = null;
+          selectedNodeType = null;
+          updateModeIndicator();
+        } else {
+          connectionMode = btn.dataset.conn;
+          selectedNodeType = null;
+          btn.classList.add('active');
+          updateModeIndicator();
+        }
+      });
+    });
+
+    render();
+  }
+
+  function resizeCanvas() {
+    const container = canvas.parentElement;
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    render();
+  }
+
+  function updateModeIndicator() {
+    const indicator = document.getElementById('modeIndicator');
+    if (selectedNodeType) {
+      indicator.textContent = `Mode: Place ${selectedNodeType}`;
+    } else if (connectionMode) {
+      indicator.textContent = `Mode: Draw ${connectionMode} connection`;
+    } else {
+      indicator.textContent = 'Mode: Select/Move';
+    }
+  }
+
+  function updateCounts() {
+    document.getElementById('nodeCount').textContent = graph.nodes.length;
+    document.getElementById('connCount').textContent = graph.connections.length;
+  }
+
+  // Mouse events
+  function onMouseDown(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const worldPos = screenToWorld(mouseX, mouseY);
+
+    if (selectedNodeType) {
+      // Place new node
+      addNode(selectedNodeType, worldPos.x, worldPos.y);
+      return;
+    }
+
+    if (connectionMode) {
+      // Start or complete connection
+      const node = getNodeAt(worldPos.x, worldPos.y);
+      if (node) {
+        if (!connectionStart) {
+          connectionStart = node;
+        } else {
+          addConnection(connectionStart, node, connectionMode);
+          connectionStart = null;
+        }
+      }
+      return;
+    }
+
+    // Check if clicking on a node
+    const node = getNodeAt(worldPos.x, worldPos.y);
+    if (node) {
+      draggingNode = node;
+      dragOffset.x = worldPos.x - node.x;
+      dragOffset.y = worldPos.y - node.y;
+    } else {
+      // Start panning
+      isPanning = true;
+      panStart.x = mouseX;
+      panStart.y = mouseY;
+      canvas.classList.add('dragging');
+    }
+  }
+
+  function onMouseMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const worldPos = screenToWorld(mouseX, mouseY);
+
+    if (draggingNode) {
+      draggingNode.x = worldPos.x - dragOffset.x;
+      draggingNode.y = worldPos.y - dragOffset.y;
+      render();
+    } else if (isPanning) {
+      const dx = mouseX - panStart.x;
+      const dy = mouseY - panStart.y;
+      camera.x += dx;
+      camera.y += dy;
+      panStart.x = mouseX;
+      panStart.y = mouseY;
+      render();
+    }
+  }
+
+  function onMouseUp(e) {
+    draggingNode = null;
+    isPanning = false;
+    canvas.classList.remove('dragging');
+  }
+
+  function onWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.3, Math.min(3, camera.zoom * delta));
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Zoom towards mouse position
+    const worldBefore = screenToWorld(mouseX, mouseY);
+    camera.zoom = newZoom;
+    const worldAfter = screenToWorld(mouseX, mouseY);
+
+    camera.x += (worldAfter.x - worldBefore.x) * camera.zoom;
+    camera.y += (worldAfter.y - worldBefore.y) * camera.zoom;
+
+    render();
+  }
+
+  function onDoubleClick(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const worldPos = screenToWorld(mouseX, mouseY);
+
+    const node = getNodeAt(worldPos.x, worldPos.y);
+    if (node) {
+      openNodeEditor(node);
+    }
+  }
+
+  // Coordinate transforms
+  function screenToWorld(screenX, screenY) {
+    return {
+      x: (screenX - camera.x) / camera.zoom,
+      y: (screenY - camera.y) / camera.zoom
+    };
+  }
+
+  function worldToScreen(worldX, worldY) {
+    return {
+      x: worldX * camera.zoom + camera.x,
+      y: worldY * camera.zoom + camera.y
+    };
+  }
+
+  // Node operations
+  function addNode(type, x, y) {
+    const id = `${type}_${graph.nodes.length + 1}`;
+    const node = {
+      id,
+      name: id.replace(/_/g, ' '),
+      type,
+      x,
+      y,
+      threshold: null,
+      production: { min: null, max: null },
+      notes: ''
+    };
+    graph.nodes.push(node);
+    updateCounts();
+    render();
+  }
+
+  function getNodeAt(x, y) {
+    const radius = 40;
+    for (let i = graph.nodes.length - 1; i >= 0; i--) {
+      const node = graph.nodes[i];
+      const dx = node.x - x;
+      const dy = node.y - y;
+      if (Math.sqrt(dx * dx + dy * dy) < radius) {
+        return node;
+      }
+    }
+    return null;
+  }
+
+  function addConnection(from, to, type) {
+    if (from === to) return;
+
+    // Check if connection already exists
+    const exists = graph.connections.some(c =>
+      c.from === from && c.to === to && c.type === type
+    );
+
+    if (!exists) {
+      graph.connections.push({ from, to, type, threshold: null });
+      updateCounts();
+      render();
+    }
+  }
+
+  // Rendering
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw connections
+    graph.connections.forEach(conn => {
+      drawConnection(conn);
+    });
+
+    // Draw connection in progress
+    if (connectionStart && connectionMode) {
+      // Draw temp line to mouse (would need mouse tracking)
+    }
+
+    // Draw nodes
+    graph.nodes.forEach(node => {
+      drawNode(node);
+    });
+
+    // Draw connection start indicator
+    if (connectionStart) {
+      const pos = worldToScreen(connectionStart.x, connectionStart.y);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 45, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  function drawNode(node) {
+    const pos = worldToScreen(node.x, node.y);
+    const radius = 40 * camera.zoom;
+
+    // Shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 10 * camera.zoom;
+    ctx.shadowOffsetY = 2 * camera.zoom;
+
+    // Circle
+    ctx.fillStyle = nodeColors[node.type] || '#7dd3fc';
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.shadowColor = 'transparent';
+
+    // Border
+    ctx.strokeStyle = '#0c101a';
+    ctx.lineWidth = 2 * camera.zoom;
+    ctx.stroke();
+
+    // Text
+    ctx.fillStyle = '#0c101a';
+    ctx.font = `${12 * camera.zoom}px "DM Sans", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Type label
+    ctx.fillText(node.type.toUpperCase(), pos.x, pos.y - 8 * camera.zoom);
+
+    // Name
+    ctx.font = `bold ${14 * camera.zoom}px "DM Sans", sans-serif`;
+    ctx.fillText(node.name.substring(0, 12), pos.x, pos.y + 8 * camera.zoom);
+  }
+
+  function drawConnection(conn) {
+    const from = worldToScreen(conn.from.x, conn.from.y);
+    const to = worldToScreen(conn.to.x, conn.to.y);
+
+    const color = connColors[conn.type] || '#7dd3fc';
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2 * camera.zoom;
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+
+    // Arrowhead
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    const arrowSize = 10 * camera.zoom;
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(to.x, to.y);
+    ctx.lineTo(
+      to.x - arrowSize * Math.cos(angle - Math.PI / 6),
+      to.y - arrowSize * Math.sin(angle - Math.PI / 6)
+    );
+    ctx.lineTo(
+      to.x - arrowSize * Math.cos(angle + Math.PI / 6),
+      to.y - arrowSize * Math.sin(angle + Math.PI / 6)
+    );
+    ctx.closePath();
+    ctx.fill();
+
+    // Label
+    const midX = (from.x + to.x) / 2;
+    const midY = (from.y + to.y) / 2;
+
+    ctx.fillStyle = color;
+    ctx.font = `${11 * camera.zoom}px "DM Sans", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(conn.type, midX, midY - 10 * camera.zoom);
+  }
+
+  // Camera controls
+  function zoomIn() {
+    camera.zoom = Math.min(3, camera.zoom * 1.2);
+    render();
+  }
+
+  function zoomOut() {
+    camera.zoom = Math.max(0.3, camera.zoom / 1.2);
+    render();
+  }
+
+  function resetView() {
+    camera.x = canvas.width / 2;
+    camera.y = canvas.height / 2;
+    camera.zoom = 1;
+    render();
+  }
+
+  function autoLayout() {
+    if (graph.nodes.length === 0) return;
+
+    // Simple force-directed layout
+    const iterations = 100;
+    const repulsion = 5000;
+    const attraction = 0.1;
+
+    for (let iter = 0; iter < iterations; iter++) {
+      // Apply repulsion between all nodes
+      for (let i = 0; i < graph.nodes.length; i++) {
+        for (let j = i + 1; j < graph.nodes.length; j++) {
+          const n1 = graph.nodes[i];
+          const n2 = graph.nodes[j];
+
+          const dx = n2.x - n1.x;
+          const dy = n2.y - n1.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) + 0.01;
+
+          const force = repulsion / (dist * dist);
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+
+          n1.x -= fx;
+          n1.y -= fy;
+          n2.x += fx;
+          n2.y += fy;
+        }
+      }
+
+      // Apply attraction along connections
+      graph.connections.forEach(conn => {
+        const dx = conn.to.x - conn.from.x;
+        const dy = conn.to.y - conn.from.y;
+
+        const fx = dx * attraction;
+        const fy = dy * attraction;
+
+        conn.from.x += fx;
+        conn.from.y += fy;
+        conn.to.x -= fx;
+        conn.to.y -= fy;
+      });
+    }
+
+    // Center the graph
+    if (graph.nodes.length > 0) {
+      let minX = Infinity, maxX = -Infinity;
+      let minY = Infinity, maxY = -Infinity;
+
+      graph.nodes.forEach(node => {
+        minX = Math.min(minX, node.x);
+        maxX = Math.max(maxX, node.x);
+        minY = Math.min(minY, node.y);
+        maxY = Math.max(maxY, node.y);
+      });
+
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      graph.nodes.forEach(node => {
+        node.x -= centerX;
+        node.y -= centerY;
+      });
+
+      camera.x = canvas.width / 2;
+      camera.y = canvas.height / 2;
+    }
+
+    render();
+  }
+
+  function clearGraph() {
+    if (confirm('Clear all nodes and connections?')) {
+      graph.nodes = [];
+      graph.connections = [];
+      updateCounts();
+      runAudit();
+      render();
+    }
+  }
+
+  function spreadOut() {
+    if (graph.nodes.length === 0) return;
+
+    const minDistance = 120; // Minimum desired distance between nodes
+    const pushStrength = 20; // How much to push nodes apart
+
+    let movedCount = 0;
+
+    // Check each pair of nodes
+    for (let i = 0; i < graph.nodes.length; i++) {
+      for (let j = i + 1; j < graph.nodes.length; j++) {
+        const n1 = graph.nodes[i];
+        const n2 = graph.nodes[j];
+
+        const dx = n2.x - n1.x;
+        const dy = n2.y - n1.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Only push apart if too close
+        if (dist < minDistance && dist > 0) {
+          const pushX = (dx / dist) * pushStrength;
+          const pushY = (dy / dist) * pushStrength;
+
+          n1.x -= pushX;
+          n1.y -= pushY;
+          n2.x += pushX;
+          n2.y += pushY;
+
+          movedCount++;
+        }
+      }
+    }
+
+    render();
+
+    // Show feedback
+    if (movedCount === 0) {
+      const container = document.getElementById('auditResults');
+      const msg = `<div class="audit-item info">No overlapping nodes detected</div>`;
+      container.innerHTML = msg + container.innerHTML;
+    }
+  }
+
+  // Node editor
+  function openNodeEditor(node) {
+    editingNode = node;
+
+    document.getElementById('nodeId').value = node.id;
+    document.getElementById('nodeName').value = node.name;
+    document.getElementById('nodeType').value = node.type;
+    document.getElementById('nodeThreshold').value = node.threshold || '';
+    document.getElementById('nodeMinProduction').value = node.production.min || '';
+    document.getElementById('nodeMaxProduction').value = node.production.max || '';
+    document.getElementById('nodeNotes').value = node.notes || '';
+
+    document.getElementById('nodeModal').classList.add('show');
+  }
+
+  function closeNodeModal() {
+    document.getElementById('nodeModal').classList.remove('show');
+    editingNode = null;
+  }
+
+  function saveNodeEdits() {
+    if (!editingNode) return;
+
+    editingNode.id = document.getElementById('nodeId').value;
+    editingNode.name = document.getElementById('nodeName').value;
+    editingNode.type = document.getElementById('nodeType').value;
+    editingNode.threshold = parseFloat(document.getElementById('nodeThreshold').value) || null;
+    editingNode.production.min = parseFloat(document.getElementById('nodeMinProduction').value) || null;
+    editingNode.production.max = parseFloat(document.getElementById('nodeMaxProduction').value) || null;
+    editingNode.notes = document.getElementById('nodeNotes').value;
+
+    closeNodeModal();
+    render();
+  }
+
+  function deleteNode() {
+    if (!editingNode) return;
+    if (!confirm('Delete this node and all its connections?')) return;
+
+    // Remove node
+    const index = graph.nodes.indexOf(editingNode);
+    if (index > -1) {
+      graph.nodes.splice(index, 1);
+    }
+
+    // Remove all connections to/from this node
+    graph.connections = graph.connections.filter(conn =>
+      conn.from !== editingNode && conn.to !== editingNode
+    );
+
+    updateCounts();
+    closeNodeModal();
+    render();
+  }
+
+  // Audit
+  function runAudit() {
+    const results = [];
+
+    // Check for orphaned nodes
+    const connected = new Set();
+    graph.connections.forEach(conn => {
+      connected.add(conn.from);
+      connected.add(conn.to);
+    });
+
+    graph.nodes.forEach(node => {
+      if (!connected.has(node)) {
+        results.push({
+          type: 'error',
+          message: `"${node.name}" has no connections (orphaned)`
+        });
+      }
+    });
+
+    // Check for resources consumed but not produced
+    const resourceProducers = new Map();
+    const resourceConsumers = new Map();
+
+    graph.connections.forEach(conn => {
+      if (conn.type === 'produces') {
+        if (conn.to.type === 'resource') {
+          if (!resourceProducers.has(conn.to)) {
+            resourceProducers.set(conn.to, []);
+          }
+          resourceProducers.get(conn.to).push(conn.from);
+        }
+      }
+      if (conn.type === 'consumes' || conn.type === 'requires') {
+        if (conn.from.type === 'activity' || conn.from.type === 'milestone') {
+          if (!resourceConsumers.has(conn.to)) {
+            resourceConsumers.set(conn.to, []);
+          }
+          resourceConsumers.get(conn.to).push(conn.from);
+        }
+      }
+    });
+
+    resourceConsumers.forEach((consumers, resource) => {
+      if (!resourceProducers.has(resource)) {
+        results.push({
+          type: 'error',
+          message: `Resource "${resource.name}" is consumed but never produced`
+        });
+      }
+    });
+
+    // Check for dead-end activities
+    graph.nodes.forEach(node => {
+      if (node.type === 'activity') {
+        const hasOutgoing = graph.connections.some(conn => conn.from === node);
+        if (!hasOutgoing) {
+          results.push({
+            type: 'warning',
+            message: `Activity "${node.name}" produces nothing (dead end)`
+          });
+        }
+      }
+    });
+
+    // Check for unreachable branches
+    graph.nodes.forEach(node => {
+      if (node.type === 'branch') {
+        const hasReveal = graph.connections.some(conn =>
+          conn.to === node && (conn.type === 'reveals' || conn.type === 'unlocks')
+        );
+        if (!hasReveal) {
+          results.push({
+            type: 'warning',
+            message: `Branch "${node.name}" has no reveal path`
+          });
+        }
+      }
+    });
+
+    // Success message if no issues
+    if (results.length === 0) {
+      results.push({
+        type: 'success',
+        message: 'No issues found! Progression looks good.'
+      });
+    }
+
+    // Display results
+    const container = document.getElementById('auditResults');
+    container.innerHTML = results.map(r =>
+      `<div class="audit-item ${r.type}">${r.message}</div>`
+    ).join('');
+  }
+
+  // Import existing data
+  async function importCurrentData() {
+    try {
+      // Fetch all data files
+      const [activitiesRes, resourcesRes, branchesRes] = await Promise.all([
+        fetch('/api/data/activities.json'),
+        fetch('/api/data/resources.json'),
+        fetch('/api/data/branches.json')
+      ]);
+
+      if (!activitiesRes.ok || !resourcesRes.ok || !branchesRes.ok) {
+        throw new Error('Failed to fetch data files');
+      }
+
+      const activities = await activitiesRes.json();
+      const resources = await resourcesRes.json();
+      const branches = await branchesRes.json();
+
+      // Clear existing graph
+      graph.nodes = [];
+      graph.connections = [];
+
+      // Node registry to avoid duplicates
+      const nodeRegistry = new Map();
+
+      // Helper to get or create node
+      function getOrCreateNode(id, name, type) {
+        if (nodeRegistry.has(id)) {
+          return nodeRegistry.get(id);
+        }
+
+        const node = {
+          id,
+          name: name || id,
+          type,
+          x: (Math.random() - 0.5) * 800,
+          y: (Math.random() - 0.5) * 600,
+          threshold: null,
+          production: { min: null, max: null },
+          notes: ''
+        };
+
+        graph.nodes.push(node);
+        nodeRegistry.set(id, node);
+        return node;
+      }
+
+      // Import resources
+      resources.forEach(resource => {
+        getOrCreateNode(resource.id, resource.name, 'resource');
+      });
+
+      // Import branches
+      branches.forEach(branch => {
+        getOrCreateNode(branch.id, branch.name, 'branch');
+      });
+
+      // Import activities and their connections
+      activities.forEach(activity => {
+        const activityNode = getOrCreateNode(activity.id, activity.name, 'activity');
+
+        // Parse visibleIf conditions
+        if (activity.visibleIf && activity.visibleIf.length > 0) {
+          activity.visibleIf.forEach(cond => {
+            if (cond.type === 'resourceGte') {
+              const resourceNode = getOrCreateNode(cond.resourceId, cond.resourceId, 'resource');
+              graph.connections.push({
+                from: resourceNode,
+                to: activityNode,
+                type: 'unlocks',
+                threshold: cond.value
+              });
+            }
+          });
+        }
+
+        // Parse unlockIf conditions
+        if (activity.unlockIf && activity.unlockIf.length > 0) {
+          activity.unlockIf.forEach(cond => {
+            if (cond.type === 'resourceGte') {
+              const resourceNode = getOrCreateNode(cond.resourceId, cond.resourceId, 'resource');
+              graph.connections.push({
+                from: resourceNode,
+                to: activityNode,
+                type: 'requires',
+                threshold: cond.value
+              });
+            }
+          });
+        }
+
+        // Parse reveals
+        if (activity.reveals) {
+          if (activity.reveals.onReveal) {
+            activity.reveals.onReveal.forEach(effect => {
+              if (effect.type === 'revealBranch') {
+                const branchNode = getOrCreateNode(effect.branchId, effect.branchId, 'branch');
+                graph.connections.push({
+                  from: activityNode,
+                  to: branchNode,
+                  type: 'reveals',
+                  threshold: null
+                });
+              } else if (effect.type === 'revealResource') {
+                const resourceNode = getOrCreateNode(effect.resourceId, effect.resourceId, 'resource');
+                graph.connections.push({
+                  from: activityNode,
+                  to: resourceNode,
+                  type: 'reveals',
+                  threshold: null
+                });
+              } else if (effect.type === 'revealActivity' || effect.type === 'unlockActivity') {
+                const targetActivity = getOrCreateNode(effect.activityId, effect.activityId, 'activity');
+                graph.connections.push({
+                  from: activityNode,
+                  to: targetActivity,
+                  type: 'reveals',
+                  threshold: null
+                });
+              }
+            });
+          }
+        }
+
+        // Parse options for resource production/consumption
+        if (activity.options) {
+          activity.options.forEach(option => {
+            // Check inputs (resources consumed)
+            if (option.inputs && option.inputs.resources) {
+              Object.keys(option.inputs.resources).forEach(resourceId => {
+                const resourceNode = getOrCreateNode(resourceId, resourceId, 'resource');
+                graph.connections.push({
+                  from: activityNode,
+                  to: resourceNode,
+                  type: 'consumes',
+                  threshold: option.inputs.resources[resourceId]
+                });
+              });
+            }
+
+            // Check resolution outputs (resources produced)
+            if (option.resolution) {
+              const outputs = [];
+
+              if (option.resolution.type === 'deterministic' && option.resolution.outputs) {
+                outputs.push(option.resolution.outputs);
+              } else if (option.resolution.type === 'ranged_outputs' && option.resolution.outputs) {
+                outputs.push(option.resolution.outputs);
+              } else if (option.resolution.type === 'weighted_outcomes' && option.resolution.outcomes) {
+                option.resolution.outcomes.forEach(outcome => {
+                  if (outcome.outputs) {
+                    outputs.push(outcome.outputs);
+                  }
+                });
+              }
+
+              outputs.forEach(output => {
+                if (output.resources) {
+                  Object.keys(output.resources).forEach(resourceId => {
+                    const resourceNode = getOrCreateNode(resourceId, resourceId, 'resource');
+                    const value = output.resources[resourceId];
+
+                    // Check if connection already exists
+                    const exists = graph.connections.some(c =>
+                      c.from === activityNode && c.to === resourceNode && c.type === 'produces'
+                    );
+
+                    if (!exists) {
+                      graph.connections.push({
+                        from: activityNode,
+                        to: resourceNode,
+                        type: 'produces',
+                        threshold: typeof value === 'object' ? value : null
+                      });
+                    }
+                  });
+                }
+              });
+
+              // Check for outcome-based reveals/effects
+              if (option.resolution.type === 'weighted_outcomes' && option.resolution.outcomes) {
+                option.resolution.outcomes.forEach(outcome => {
+                  if (outcome.effects) {
+                    outcome.effects.forEach(effect => {
+                      if (effect.type === 'revealResource') {
+                        const resourceNode = getOrCreateNode(effect.resourceId, effect.resourceId, 'resource');
+                        const exists = graph.connections.some(c =>
+                          c.from === activityNode && c.to === resourceNode && c.type === 'reveals'
+                        );
+                        if (!exists) {
+                          graph.connections.push({
+                            from: activityNode,
+                            to: resourceNode,
+                            type: 'reveals',
+                            threshold: null
+                          });
+                        }
+                      } else if (effect.type === 'revealBranch') {
+                        const branchNode = getOrCreateNode(effect.branchId, effect.branchId, 'branch');
+                        const exists = graph.connections.some(c =>
+                          c.from === activityNode && c.to === branchNode && c.type === 'reveals'
+                        );
+                        if (!exists) {
+                          graph.connections.push({
+                            from: activityNode,
+                            to: branchNode,
+                            type: 'reveals',
+                            threshold: null
+                          });
+                        }
+                      }
+                    });
+                  }
+                });
+              }
+            }
+          });
+        }
+      });
+
+      // Auto-layout the imported graph
+      updateCounts();
+      autoLayout();
+      runAudit();
+
+      const container = document.getElementById('auditResults');
+      const importMsg = `<div class="audit-item success">Imported ${graph.nodes.length} nodes and ${graph.connections.length} connections from game data</div>`;
+      container.innerHTML = importMsg + container.innerHTML;
+
+    } catch (err) {
+      const container = document.getElementById('auditResults');
+      container.innerHTML = `<div class="audit-item error">Failed to import data: ${err.message}</div>` + container.innerHTML;
+    }
+  }
+
+  // Start
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resources Designer</title>
+  <style>
+    :root {
+      --bg: #0c101a;
+      --panel: #111827;
+      --panel-strong: #0f1724;
+      --border: #1f2937;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #7dd3fc;
+      --accent-2: #a5b4fc;
+      --success: #34d399;
+      --danger: #f87171;
+      --warning: #fbbf24;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: radial-gradient(circle at 20% 20%, rgba(125,211,252,0.04), transparent 35%), radial-gradient(circle at 80% 10%, rgba(165,180,252,0.05), transparent 35%), var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", "Space Grotesk", "Inter", "SF Pro Text", system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+    }
+
+    h1, h2 { margin: 0; font-weight: 700; letter-spacing: 0.02em; }
+    p { margin: 0; }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: #0b1220;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: "DM Mono", "JetBrains Mono", "Fira Code", monospace;
+      transition: border-color 0.15s ease;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(125,211,252,0.2);
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(125,211,252,0.14), rgba(165,180,252,0.10));
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      transition: all 0.15s ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+    }
+
+    button.ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
+    }
+
+    button.danger {
+      background: rgba(248,113,113,0.12);
+      border-color: rgba(248,113,113,0.6);
+      color: var(--danger);
+    }
+
+    button.small { padding: 6px 10px; font-size: 0.85rem; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .topbar .eyebrow {
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.16em;
+      font-size: 0.75rem;
+      margin-bottom: 4px;
+    }
+
+    .topbar h1 { font-size: 1.8rem; }
+
+    .topbar .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    }
+
+    .panel__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .input-grid { display: grid; gap: 12px; }
+    .two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .resource-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .resource-card:hover {
+      border-color: var(--accent);
+      background: rgba(125,211,252,0.06);
+    }
+
+    .resource-card.selected {
+      border-color: var(--accent);
+      background: rgba(125,211,252,0.1);
+    }
+
+    .resource-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .resource-name {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1rem;
+    }
+
+    .category-badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(125,211,252,0.15);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .json-output {
+      background: #0a0f18;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+      max-height: 70vh;
+    }
+
+    pre {
+      margin: 0;
+      color: var(--text);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .flex { display: flex; gap: 8px; align-items: center; }
+    .stacked { display: grid; gap: 12px; }
+
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-bar input {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .filter-bar select {
+      width: auto;
+      min-width: 150px;
+    }
+
+    .category-group {
+      margin-bottom: 16px;
+    }
+
+    .category-header {
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">crime committer vi</div>
+      <h1>Resources Designer</h1>
+      <p class="hint">Design resources: currency, materials, intel, and more.</p>
+      <div style="margin-top: 8px; display: flex; gap: 12px; align-items: center; font-size: 0.85rem;">
+        <span id="serverStatus" style="color: var(--muted);">● Checking...</span>
+        <span id="saveIndicator" style="color: var(--warning); display: none;">● Unsaved changes</span>
+        <span class="hint">Ctrl+S: Save | Ctrl+N: New | Ctrl+D: Duplicate</span>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="small" onclick="saveResources()">Save All</button>
+      <button class="ghost small" onclick="addNewResource()">+ New Resource</button>
+      <button class="ghost small" onclick="window.location.href='index.html'">← Back</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="stacked">
+      <section class="panel">
+        <div class="panel__header">
+          <h2>Resource List</h2>
+          <span class="hint"><span id="resourceCount">0</span> resources</span>
+        </div>
+        <div class="filter-bar">
+          <input type="text" id="searchFilter" placeholder="Search by name or ID..." oninput="applyFilters()">
+          <select id="categoryFilter" onchange="applyFilters()">
+            <option value="">All Categories</option>
+          </select>
+          <select id="branchFilter" onchange="applyFilters()">
+            <option value="">All Branches</option>
+          </select>
+        </div>
+        <div id="resourceList"></div>
+      </section>
+
+      <section class="panel" id="editorPanel" style="display: none;">
+        <div class="panel__header">
+          <h2>Edit Resource</h2>
+          <button class="ghost small" onclick="duplicateResource()">Duplicate</button>
+          <button class="danger small" onclick="deleteResource()">Delete</button>
+        </div>
+        <div class="input-grid two-col">
+          <div>
+            <label for="resourceId">Resource ID</label>
+            <input type="text" id="resourceId" placeholder="cash">
+          </div>
+          <div>
+            <label for="resourceName">Name</label>
+            <input type="text" id="resourceName" placeholder="cash">
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label for="resourceDescription">Description</label>
+            <textarea id="resourceDescription" placeholder="liquid assets. the lifeblood of any operation." rows="2"></textarea>
+          </div>
+          <div>
+            <label for="resourceCategory">Category</label>
+            <select id="resourceCategory">
+              <option value="currency">Currency</option>
+              <option value="reputation">Reputation</option>
+              <option value="risk">Risk</option>
+              <option value="material">Material</option>
+              <option value="equipment">Equipment</option>
+              <option value="infrastructure">Infrastructure</option>
+              <option value="intel">Intel</option>
+              <option value="influence">Influence</option>
+              <option value="document">Document</option>
+              <option value="territory">Territory</option>
+            </select>
+          </div>
+          <div>
+            <label for="resourceBranch">Branch (optional)</label>
+            <select id="resourceBranch">
+              <option value="">Core / Global</option>
+              <option value="primordial">Primordial</option>
+              <option value="street">Street</option>
+              <option value="drugs">Drugs</option>
+              <option value="grift">Grift</option>
+              <option value="corruption">Corruption</option>
+              <option value="tech">Tech</option>
+              <option value="forbidden">Forbidden</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top: 12px;">
+          <label>
+            <input type="checkbox" id="revealedByDefault"> Revealed by default
+          </label>
+        </div>
+      </section>
+    </div>
+
+    <div class="stacked">
+      <section class="panel">
+        <div class="panel__header">
+          <h2>File Status</h2>
+          <button class="ghost small" onclick="loadResources()">Refresh</button>
+        </div>
+        <p id="fileStatus" class="hint">Loading...</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel__header">
+          <h2>JSON Output</h2>
+          <button class="ghost small" onclick="copyJSON()">Copy</button>
+        </div>
+        <div class="json-output">
+          <pre id="jsonOutput">[]</pre>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="hub-storage.js"></script>
+  <script>
+    let resources = [];
+    let selectedIndex = -1;
+    let serverOnline = false;
+    let lastSavedState = null;
+    let filters = { search: '', category: '', branch: '' };
+    const HUB_FILE = 'resources.json';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadResources();
+      checkServerStatus();
+      wireKeyboardShortcuts();
+      wireInputs();
+      wireHubEvents();
+    });
+
+    async function checkServerStatus() {
+      try {
+        const res = await fetch('/api/health');
+        serverOnline = res.ok;
+      } catch (err) {
+        serverOnline = false;
+      }
+      updateServerIndicator();
+    }
+
+    function updateServerIndicator() {
+      const el = document.getElementById('serverStatus');
+      if (serverOnline) {
+        el.textContent = '● Online';
+        el.style.color = '#34d399';
+      } else {
+        el.textContent = '● Offline';
+        el.style.color = '#f87171';
+      }
+    }
+
+    function wireHubEvents() {
+      const hub = window.CcvibesHubStorage;
+      if (!hub) return;
+      window.addEventListener('storage', (e) => {
+        if (e.key === hub.savedKey(HUB_FILE)) {
+          loadResources();
+          setStatus('Saved externally. Reloaded.', 'success');
+        }
+      });
+    }
+
+    function wireKeyboardShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+          e.preventDefault();
+          saveResources();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+          e.preventDefault();
+          addNewResource();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+          e.preventDefault();
+          duplicateResource();
+        }
+      });
+    }
+
+    function wireInputs() {
+      const inputs = ['resourceId', 'resourceName', 'resourceDescription', 'resourceCategory', 'resourceBranch'];
+      inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateCurrentResource);
+      });
+
+      const checkbox = document.getElementById('revealedByDefault');
+      if (checkbox) checkbox.addEventListener('change', updateCurrentResource);
+    }
+
+    function updateCurrentResource() {
+      if (selectedIndex < 0 || selectedIndex >= resources.length) return;
+
+      const resource = resources[selectedIndex];
+      resource.id = document.getElementById('resourceId').value || '';
+      resource.name = document.getElementById('resourceName').value || '';
+      resource.description = document.getElementById('resourceDescription').value || '';
+      resource.category = document.getElementById('resourceCategory').value || 'material';
+      resource.revealedByDefault = document.getElementById('revealedByDefault').checked;
+
+      const branchValue = document.getElementById('resourceBranch').value;
+      if (branchValue) {
+        resource.branchId = branchValue;
+      } else {
+        delete resource.branchId;
+      }
+
+      applyFilters();
+      renderJSON();
+      updateSaveIndicator();
+    }
+
+    async function loadResources() {
+      try {
+        const res = await fetch('/api/data/resources.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        resources = Array.isArray(data) ? data : [];
+        lastSavedState = JSON.stringify(resources);
+        populateFilterDropdowns();
+        applyFilters();
+        renderJSON();
+        updateSaveIndicator();
+        setStatus(`Loaded ${resources.length} resources.`, 'success');
+      } catch (err) {
+        setStatus(`Failed to load: ${err.message}`, 'error');
+        resources = [];
+      }
+    }
+
+    function populateFilterDropdowns() {
+      const categories = new Set();
+      const branches = new Set();
+
+      resources.forEach(res => {
+        if (res.category) categories.add(res.category);
+        if (res.branchId) branches.add(res.branchId);
+      });
+
+      const categoryFilter = document.getElementById('categoryFilter');
+      const currentCategory = categoryFilter.value;
+      categoryFilter.innerHTML = '<option value="">All Categories</option>' +
+        Array.from(categories).sort().map(cat =>
+          `<option value="${cat}">${cat.charAt(0).toUpperCase() + cat.slice(1)}</option>`
+        ).join('');
+      categoryFilter.value = currentCategory;
+
+      const branchFilter = document.getElementById('branchFilter');
+      const currentBranch = branchFilter.value;
+      branchFilter.innerHTML = '<option value="">All Branches</option>' +
+        Array.from(branches).sort().map(branch =>
+          `<option value="${branch}">${branch.charAt(0).toUpperCase() + branch.slice(1)}</option>`
+        ).join('');
+      branchFilter.value = currentBranch;
+    }
+
+    function applyFilters() {
+      filters.search = document.getElementById('searchFilter').value.toLowerCase();
+      filters.category = document.getElementById('categoryFilter').value;
+      filters.branch = document.getElementById('branchFilter').value;
+
+      let filtered = resources.slice();
+
+      if (filters.search) {
+        filtered = filtered.filter(res => {
+          const matchId = (res.id || '').toLowerCase().includes(filters.search);
+          const matchName = (res.name || '').toLowerCase().includes(filters.search);
+          const matchDesc = (res.description || '').toLowerCase().includes(filters.search);
+          return matchId || matchName || matchDesc;
+        });
+      }
+
+      if (filters.category) {
+        filtered = filtered.filter(res => res.category === filters.category);
+      }
+
+      if (filters.branch) {
+        filtered = filtered.filter(res => res.branchId === filters.branch);
+      }
+
+      renderResourceList(filtered);
+    }
+
+    function renderResourceList(filtered) {
+      const container = document.getElementById('resourceList');
+      const countEl = document.getElementById('resourceCount');
+
+      countEl.textContent = filtered.length;
+
+      if (!filtered.length) {
+        container.innerHTML = '<div class="hint">No resources match the filters.</div>';
+        return;
+      }
+
+      // Group by category
+      const grouped = new Map();
+      filtered.forEach(res => {
+        const category = res.category || 'uncategorized';
+        if (!grouped.has(category)) grouped.set(category, []);
+        grouped.get(category).push(res);
+      });
+
+      const sortedCategories = Array.from(grouped.keys()).sort();
+
+      container.innerHTML = sortedCategories.map(category => {
+        const items = grouped.get(category).map(res => {
+          const actualIndex = resources.indexOf(res);
+          const isSelected = actualIndex === selectedIndex;
+          const branchText = res.branchId ? ` • ${res.branchId}` : '';
+          const revealedText = res.revealedByDefault ? ' • Revealed' : '';
+
+          return `
+            <div class="resource-card ${isSelected ? 'selected' : ''}" onclick="selectResource(${actualIndex})">
+              <div class="resource-header">
+                <span class="resource-name">${safe(res.name || res.id)}</span>
+                <span class="category-badge">${safe(category)}</span>
+              </div>
+              <div class="hint" style="font-size: 0.85rem;">${safe(res.description || 'No description')}</div>
+              <div class="hint" style="font-size: 0.75rem; margin-top: 4px;">
+                ID: ${safe(res.id)}${branchText}${revealedText}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="category-group">
+            <div class="category-header">${safe(category)}</div>
+            ${items}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function saveResources() {
+      if (!serverOnline) {
+        setStatus('Server offline. Cannot save.', 'error');
+        return;
+      }
+
+      const errors = validateResources();
+      if (errors.length) {
+        setStatus(`Validation failed: ${errors.join(', ')}`, 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/data/resources.json', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(resources)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        lastSavedState = JSON.stringify(resources);
+        updateSaveIndicator();
+        window.CcvibesHubStorage?.broadcastSaved(HUB_FILE);
+        setStatus(`Saved ${resources.length} resources.`, 'success');
+      } catch (err) {
+        setStatus(`Failed to save: ${err.message}`, 'error');
+      }
+    }
+
+    function validateResources() {
+      const errors = [];
+      const ids = new Set();
+
+      resources.forEach((res, idx) => {
+        if (!res.id || !res.id.trim()) {
+          errors.push(`Resource ${idx + 1} has no ID`);
+        } else if (ids.has(res.id)) {
+          errors.push(`Duplicate ID: ${res.id}`);
+        } else {
+          ids.add(res.id);
+        }
+
+        if (!res.name || !res.name.trim()) {
+          errors.push(`Resource ${res.id || idx + 1} has no name`);
+        }
+
+        if (!res.category) {
+          errors.push(`Resource ${res.id || idx + 1} has no category`);
+        }
+      });
+
+      return errors;
+    }
+
+    function addNewResource() {
+      const newResource = {
+        id: `resource_${Date.now()}`,
+        name: 'New Resource',
+        description: '',
+        revealedByDefault: false,
+        category: 'material'
+      };
+
+      resources.push(newResource);
+      selectResource(resources.length - 1);
+      populateFilterDropdowns();
+      applyFilters();
+      renderJSON();
+      updateSaveIndicator();
+      setStatus('New resource added. Fill in details and save.', 'success');
+    }
+
+    function duplicateResource() {
+      if (selectedIndex < 0 || selectedIndex >= resources.length) {
+        setStatus('Select a resource to duplicate.', 'error');
+        return;
+      }
+
+      const original = resources[selectedIndex];
+      const duplicate = JSON.parse(JSON.stringify(original));
+      duplicate.id = `${duplicate.id}_copy`;
+      duplicate.name = `${duplicate.name} (copy)`;
+
+      resources.push(duplicate);
+      selectResource(resources.length - 1);
+      populateFilterDropdowns();
+      applyFilters();
+      renderJSON();
+      updateSaveIndicator();
+      setStatus(`Duplicated as ${duplicate.id}. Remember to save!`, 'success');
+    }
+
+    function deleteResource() {
+      if (selectedIndex < 0 || selectedIndex >= resources.length) return;
+      if (!confirm(`Delete resource "${resources[selectedIndex].id}"?`)) return;
+
+      resources.splice(selectedIndex, 1);
+      selectedIndex = -1;
+      document.getElementById('editorPanel').style.display = 'none';
+      populateFilterDropdowns();
+      applyFilters();
+      renderJSON();
+      updateSaveIndicator();
+      setStatus('Resource deleted. Save to persist.', 'warning');
+    }
+
+    function selectResource(index) {
+      selectedIndex = index;
+      const resource = resources[index];
+
+      document.getElementById('resourceId').value = resource.id || '';
+      document.getElementById('resourceName').value = resource.name || '';
+      document.getElementById('resourceDescription').value = resource.description || '';
+      document.getElementById('resourceCategory').value = resource.category || 'material';
+      document.getElementById('resourceBranch').value = resource.branchId || '';
+      document.getElementById('revealedByDefault').checked = resource.revealedByDefault || false;
+
+      document.getElementById('editorPanel').style.display = 'block';
+      applyFilters();
+    }
+
+    function renderJSON() {
+      const el = document.getElementById('jsonOutput');
+      el.textContent = JSON.stringify(resources, null, 2);
+    }
+
+    function updateSaveIndicator() {
+      const indicator = document.getElementById('saveIndicator');
+      const current = JSON.stringify(resources);
+      const hasChanges = current !== lastSavedState;
+
+      if (hasChanges) {
+        indicator.textContent = '● Unsaved changes';
+        indicator.style.display = 'inline';
+      } else {
+        indicator.style.display = 'none';
+      }
+
+      syncHubStatus(hasChanges);
+    }
+
+    function countModifiedEntries(current, baseline) {
+      const baselineMap = new Map();
+      baseline.forEach((item, idx) => {
+        const key = (item && item.id) ? item.id : `__idx_${idx}`;
+        baselineMap.set(key, JSON.stringify(item));
+      });
+
+      let modified = 0;
+      const seen = new Set();
+
+      current.forEach((item, idx) => {
+        const key = (item && item.id) ? item.id : `__idx_${idx}`;
+        const currentJson = JSON.stringify(item);
+        const baselineJson = baselineMap.get(key);
+        if (!baselineJson || baselineJson !== currentJson) modified += 1;
+        seen.add(key);
+      });
+
+      baselineMap.forEach((_, key) => {
+        if (!seen.has(key)) modified += 1;
+      });
+
+      return modified;
+    }
+
+    function syncHubStatus(hasChanges) {
+      const hub = window.CcvibesHubStorage;
+      if (!hub) return;
+
+      let modifiedCount = 0;
+      if (hasChanges && lastSavedState) {
+        try {
+          const baseline = JSON.parse(lastSavedState);
+          modifiedCount = countModifiedEntries(resources, Array.isArray(baseline) ? baseline : []);
+        } catch {
+          modifiedCount = 1;
+        }
+      }
+
+      hub.setStatus(HUB_FILE, { dirty: !!hasChanges, modifiedCount, updatedAt: Date.now() });
+
+      const canDraft = lastSavedState !== null;
+      if (hasChanges && canDraft) hub.setDraft(HUB_FILE, resources);
+      else hub.clearDraft(HUB_FILE);
+    }
+
+    function copyJSON() {
+      const text = document.getElementById('jsonOutput').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        setStatus('JSON copied to clipboard', 'success');
+      }).catch(() => {
+        setStatus('Could not copy', 'error');
+      });
+    }
+
+    function setStatus(message, kind) {
+      const el = document.getElementById('fileStatus');
+      el.textContent = message;
+
+      if (kind === 'error') el.style.color = '#f87171';
+      else if (kind === 'success') el.style.color = '#34d399';
+      else if (kind === 'warning') el.style.color = '#fbbf24';
+      else el.style.color = '';
+    }
+
+    function safe(value) {
+      if (value === undefined || value === null) return '';
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

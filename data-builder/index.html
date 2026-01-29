@@ -15,6 +15,8 @@
       --accent: #7dd3fc;
       --accent-2: #a5b4fc;
       --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
     }
 
     * { box-sizing: border-box; }
@@ -38,11 +40,9 @@
 
     p { margin: 0; }
 
-    .hero {
-      display: grid;
-      gap: 10px;
-      margin-bottom: 24px;
-    }
+    a { color: inherit; }
+
+    .hero { display: grid; gap: 10px; margin-bottom: 18px; }
 
     .eyebrow {
       text-transform: uppercase;
@@ -50,6 +50,107 @@
       color: var(--muted);
       font-size: 0.7rem;
     }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(125,211,252,0.14), rgba(165,180,252,0.10));
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      transition: all 0.15s ease;
+    }
+
+    button:hover {
+      border-color: rgba(125,211,252,0.55);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    button.primary {
+      border-color: rgba(52, 211, 153, 0.6);
+      background: linear-gradient(135deg, rgba(52,211,153,0.16), rgba(125,211,252,0.10));
+    }
+
+    button.ghost {
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .stats {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(17,24,39,0.85), rgba(17,24,39,0.55));
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: grid;
+      gap: 6px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    }
+
+    .stat .k {
+      color: var(--muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .stat .v {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .pill {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 99px;
+      background: var(--muted);
+      box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.12);
+    }
+
+    .dot.ok { background: var(--success); box-shadow: 0 0 0 4px rgba(52,211,153,0.12); }
+    .dot.warn { background: var(--warning); box-shadow: 0 0 0 4px rgba(251,191,36,0.12); }
+    .dot.bad { background: var(--danger); box-shadow: 0 0 0 4px rgba(248,113,113,0.12); }
 
     .grid {
       display: grid;
@@ -68,12 +169,32 @@
       color: var(--text);
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
       transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      position: relative;
+      overflow: hidden;
     }
 
     .card:hover {
       transform: translateY(-2px);
       border-color: rgba(125,211,252,0.5);
       box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    .card:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(125,211,252,0.25), 0 14px 28px rgba(0, 0, 0, 0.35);
+      border-color: rgba(125,211,252,0.55);
+    }
+
+    .card .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .card .icon {
+      font-size: 1.3rem;
+      filter: drop-shadow(0 6px 18px rgba(0,0,0,0.35));
     }
 
     .card .label {
@@ -91,6 +212,35 @@
     .card .desc {
       color: var(--muted);
       font-size: 0.95rem;
+    }
+
+    .card .meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 4px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.2);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .badge.warn {
+      border-color: rgba(251,191,36,0.55);
+      color: var(--warning);
+      background: rgba(251,191,36,0.10);
     }
 
     .muted {
@@ -120,36 +270,504 @@
       color: var(--success);
       font-weight: 600;
     }
+
+    .panel__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .file-list {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: rgba(0,0,0,0.15);
+      max-height: 320px;
+      overflow-y: auto;
+      font-family: "DM Mono", "JetBrains Mono", "Consolas", monospace;
+      font-size: 0.85rem;
+    }
+
+    .file-row {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(31,41,55,0.8);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .file-row:last-child { border-bottom: none; }
+
+    .file-row .name { color: var(--text); }
+    .file-row .time { color: var(--muted); white-space: nowrap; }
+
+    .status {
+      margin-top: 12px;
+      border-radius: 14px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+      color: var(--muted);
+      display: none;
+    }
+
+    .status.show { display: block; }
+    .status.success { border-color: rgba(52,211,153,0.5); color: var(--success); }
+    .status.error { border-color: rgba(248,113,113,0.6); color: var(--danger); }
+    .status.warning { border-color: rgba(251,191,36,0.6); color: var(--warning); }
   </style>
 </head>
 <body>
   <header class="hero">
     <div class="eyebrow">crime committer vi</div>
     <h1>Data Builder Hub</h1>
-    <p class="muted">Local tools that edit game data via the builder server.</p>
+    <p class="muted">Local tools for editing game data through the builder server.</p>
   </header>
 
-  <main class="grid">
-    <a class="card" href="activity-options-builder.html">
-      <div class="label">activities.json</div>
-      <div class="title">Activity + Crime Builder</div>
-      <div class="desc">Design activities, options, gating, and outcomes.</div>
-    </a>
-    <a class="card" href="branches-designer.html">
-      <div class="label">branches.json</div>
-      <div class="title">Branch Designer</div>
-      <div class="desc">Edit branch metadata and UI hints.</div>
-    </a>
-    <a class="card" href="modal-editor.html">
-      <div class="label">modal.json</div>
-      <div class="title">Modal Editor</div>
-      <div class="desc">Sketch modal layouts and content.</div>
-    </a>
-  </main>
+  <div class="topbar">
+    <div class="pill" id="serverPill">
+      <span class="dot" id="serverDot"></span>
+      <span id="serverText">Checking server…</span>
+    </div>
+    <div class="actions">
+      <button class="ghost" id="refreshAllBtn">Refresh All</button>
+      <button class="primary" id="saveAllBtn" disabled>Save All</button>
+    </div>
+  </div>
+
+  <section class="stats">
+    <div class="stat">
+      <div class="k">Data Files</div>
+      <div class="v" id="dataFilesStat">&mdash;</div>
+      <div class="muted" id="dataFilesSub">Connect to the server for live status.</div>
+    </div>
+    <div class="stat">
+      <div class="k">Unsaved</div>
+      <div class="v" id="unsavedStat">&mdash;</div>
+      <div class="muted" id="unsavedSub">Drafts are stored in this browser.</div>
+    </div>
+    <div class="stat">
+      <div class="k">Last Refresh</div>
+      <div class="v" id="refreshedStat">&mdash;</div>
+      <div class="muted">Click “Refresh All” to rescan.</div>
+    </div>
+  </section>
+
+  <main class="grid" id="builderGrid"></main>
+
+  <section class="panel">
+    <div class="panel__head">
+      <h2>Data Files</h2>
+      <div class="actions">
+        <button class="ghost" id="openFilesBtn">Open /api/data</button>
+      </div>
+    </div>
+    <div class="file-list" id="fileList">
+      <div class="file-row">
+        <span class="name">Waiting for server…</span>
+        <span class="time">&mdash;</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Quick Links</h2>
+    <p>
+      <a href="docs.html?doc=02_ui_spec.md" target="_blank" rel="noopener">UI Spec</a>
+      <span class="muted">&bull;</span>
+      <a href="docs.html?doc=03_schema_engine.md" target="_blank" rel="noopener">Schema Engine</a>
+      <span class="muted">&bull;</span>
+      <a href="docs.html?doc=04_lexicon.md" target="_blank" rel="noopener">Lexicon</a>
+    </p>
+  </section>
 
   <section class="panel">
     <h2>Server Notes</h2>
     <p>Run <span class="accent">npm run dev:builder</span> and open this page from the server URL so save/load works.</p>
   </section>
+
+  <div class="status" id="actionStatus"></div>
+
+  <script src="hub-storage.js"></script>
+  <script>
+    const BUILDERS = [
+      {
+        id: 'activities',
+        href: 'activity-options-builder.html',
+        title: 'Activity + Crime Builder',
+        desc: 'Design activities, options, gating, and outcomes.',
+        icon: '⚡',
+        file: 'activities.json',
+        noun: 'activities'
+      },
+      {
+        id: 'branches',
+        href: 'branches-designer.html',
+        title: 'Branch Designer',
+        desc: 'Edit branch metadata, UI hints, ordering, colors, hotkeys.',
+        icon: '🌿',
+        file: 'branches.json',
+        noun: 'branches'
+      },
+      {
+        id: 'resources',
+        href: 'resources-designer.html',
+        title: 'Resources Designer',
+        desc: 'Balance currencies, stats, reveal rules, and categories.',
+        icon: '💠',
+        file: 'resources.json',
+        noun: 'resources'
+      },
+      {
+        id: 'modals',
+        href: 'modal-editor.html',
+        title: 'Modal Editor',
+        desc: 'Draft modal content blocks (copy/paste into modals.json).',
+        icon: '🪟',
+        file: 'modals.json',
+        noun: 'modals',
+        readOnly: true
+      }
+    ];
+
+    const els = {
+      serverDot: document.getElementById('serverDot'),
+      serverText: document.getElementById('serverText'),
+      saveAllBtn: document.getElementById('saveAllBtn'),
+      refreshAllBtn: document.getElementById('refreshAllBtn'),
+      openFilesBtn: document.getElementById('openFilesBtn'),
+      builderGrid: document.getElementById('builderGrid'),
+      fileList: document.getElementById('fileList'),
+      dataFilesStat: document.getElementById('dataFilesStat'),
+      dataFilesSub: document.getElementById('dataFilesSub'),
+      unsavedStat: document.getElementById('unsavedStat'),
+      unsavedSub: document.getElementById('unsavedSub'),
+      refreshedStat: document.getElementById('refreshedStat'),
+      actionStatus: document.getElementById('actionStatus')
+    };
+
+    function isServerContext() {
+      return location.protocol === 'http:' || location.protocol === 'https:';
+    }
+
+    function fmtTime(ms) {
+      if (!ms) return '\u2014';
+      try {
+        return new Intl.DateTimeFormat(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        }).format(new Date(ms));
+      } catch {
+        return new Date(ms).toLocaleString();
+      }
+    }
+
+    function fmtRelative(ms) {
+      if (!ms) return '';
+      const delta = Date.now() - ms;
+      const s = Math.floor(delta / 1000);
+      if (s < 10) return 'just now';
+      if (s < 60) return `${s}s ago`;
+      const m = Math.floor(s / 60);
+      if (m < 60) return `${m}m ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h}h ago`;
+      const d = Math.floor(h / 24);
+      return `${d}d ago`;
+    }
+
+    function setActionStatus(message, kind = '') {
+      els.actionStatus.className = `status show ${kind}`.trim();
+      els.actionStatus.textContent = message;
+    }
+
+    function clearActionStatus() {
+      els.actionStatus.className = 'status';
+      els.actionStatus.textContent = '';
+    }
+
+    function setServerPill(ok) {
+      els.serverDot.className = 'dot ' + (ok ? 'ok' : 'bad');
+      els.serverText.textContent = ok ? 'Server online' : 'Server offline';
+    }
+
+    function cardId(builder) {
+      return `builder-${builder.id}`;
+    }
+
+    function renderCards() {
+      els.builderGrid.innerHTML = BUILDERS.map((b) => {
+        return `
+          <a class="card" id="${cardId(b)}" href="${b.href}">
+            <div class="head">
+              <div>
+                <div class="label">${b.file}</div>
+                <div class="title">${b.title}</div>
+              </div>
+              <div class="icon" aria-hidden="true">${b.icon}</div>
+            </div>
+            <div class="desc">${b.desc}</div>
+            <div class="meta">
+              <span class="badge" data-badge>${b.readOnly ? 'manual' : 'ready'}</span>
+              <span data-summary>&mdash;</span>
+            </div>
+            <div class="muted" data-sub>&mdash;</div>
+          </a>
+        `;
+      }).join('');
+    }
+
+    async function fetchJsonCount(file) {
+      const res = await fetch(`/api/data/${file}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (Array.isArray(data)) return data.length;
+      if (data && typeof data === 'object') {
+        if (Array.isArray(data.modals)) return data.modals.length;
+        return Object.keys(data).length;
+      }
+      return 0;
+    }
+
+    async function checkHealth() {
+      if (!isServerContext()) return false;
+      try {
+        const res = await fetch('/api/health', { cache: 'no-store' });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    }
+
+    async function loadMeta() {
+      const res = await fetch('/api/data-meta', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const payload = await res.json();
+      const map = new Map();
+      (payload.files || []).forEach((entry) => {
+        map.set(entry.file, entry);
+      });
+      return map;
+    }
+
+    function computeUnsaved() {
+      let dirtyFiles = 0;
+      let dirtyItems = 0;
+      let draftFiles = 0;
+      BUILDERS.forEach((b) => {
+        if (!b.file) return;
+        const status = window.CcvibesHubStorage?.getStatus(b.file);
+        if (status?.dirty) {
+          dirtyFiles += 1;
+          dirtyItems += Math.max(0, status.modifiedCount || 0);
+        }
+        const draft = window.CcvibesHubStorage?.getDraft(b.file);
+        if (draft !== null && draft !== undefined) {
+          draftFiles += 1;
+        }
+      });
+      return { dirtyFiles, dirtyItems, draftFiles };
+    }
+
+    function updateCard(builder, { count, meta }) {
+      const el = document.getElementById(cardId(builder));
+      if (!el) return;
+
+      const badge = el.querySelector('[data-badge]');
+      const summary = el.querySelector('[data-summary]');
+      const sub = el.querySelector('[data-sub]');
+
+      const status = window.CcvibesHubStorage?.getStatus(builder.file);
+      const dirty = !!status?.dirty;
+      const modifiedCount = status?.modifiedCount || 0;
+
+      if (builder.readOnly) {
+        badge.textContent = 'manual';
+        badge.className = 'badge';
+      } else if (dirty) {
+        badge.textContent = 'unsaved';
+        badge.className = 'badge warn';
+      } else {
+        badge.textContent = 'saved';
+        badge.className = 'badge';
+      }
+
+      const primary = typeof count === 'number'
+        ? `${count} ${builder.noun}`
+        : `\u2014 ${builder.noun}`;
+      const secondary = dirty
+        ? `${Math.max(1, modifiedCount)} modified`
+        : 'All saved';
+      summary.textContent = `${primary} \u2022 ${secondary}`;
+
+      const mtimeMs = meta?.mtimeMs;
+      const savedLine = mtimeMs ? `Last saved: ${fmtTime(mtimeMs)}` : `Last saved: \u2014`;
+      const draftLine = dirty && status?.updatedAt ? `Draft: ${fmtRelative(status.updatedAt)}` : '';
+      sub.textContent = draftLine ? `${savedLine} \u2022 ${draftLine}` : savedLine;
+    }
+
+    function renderFileList(metaMap) {
+      const items = Array.from(metaMap.values())
+        .sort((a, b) => (b.mtimeMs || 0) - (a.mtimeMs || 0));
+
+      els.fileList.innerHTML = items.map((entry) => {
+        return `
+          <div class="file-row">
+            <span class="name">${entry.file}</span>
+            <span class="time">${fmtTime(entry.mtimeMs)}</span>
+          </div>
+        `;
+      }).join('') || `
+        <div class="file-row">
+          <span class="name">No .json files found</span>
+          <span class="time">&mdash;</span>
+        </div>
+      `;
+    }
+
+    async function refreshAll() {
+      clearActionStatus();
+      els.refreshAllBtn.disabled = true;
+      els.saveAllBtn.disabled = true;
+
+      const ok = await checkHealth();
+      setServerPill(ok);
+
+      if (!ok) {
+        els.dataFilesStat.textContent = '\u2014';
+        els.dataFilesSub.textContent = isServerContext()
+          ? 'Start the builder server (npm run dev:builder).'
+          : 'Open this page via http://localhost so save/load works.';
+        els.unsavedStat.textContent = '\u2014';
+        els.refreshedStat.textContent = fmtTime(Date.now());
+        els.fileList.innerHTML = `
+          <div class="file-row">
+            <span class="name">Server offline</span>
+            <span class="time">&mdash;</span>
+          </div>
+        `;
+        els.refreshAllBtn.disabled = false;
+        return;
+      }
+
+      try {
+        const metaMap = await loadMeta();
+        renderFileList(metaMap);
+
+        const countPromises = BUILDERS.map((b) => b.file ? fetchJsonCount(b.file).catch(() => null) : Promise.resolve(null));
+        const counts = await Promise.all(countPromises);
+        BUILDERS.forEach((b, idx) => {
+          updateCard(b, { count: counts[idx], meta: metaMap.get(b.file) });
+        });
+
+        els.dataFilesStat.textContent = String(metaMap.size);
+        els.dataFilesSub.textContent = 'mtime pulled from /data/*.json';
+
+        const unsaved = computeUnsaved();
+        els.unsavedStat.textContent = unsaved.dirtyFiles ? `${unsaved.dirtyFiles} file(s)` : 'All saved';
+        if (!unsaved.dirtyFiles) {
+          els.unsavedSub.textContent = 'No drafts detected.';
+        } else if (unsaved.draftFiles === unsaved.dirtyFiles) {
+          els.unsavedSub.textContent = `${Math.max(unsaved.dirtyItems, unsaved.dirtyFiles)} draft change(s)`;
+        } else {
+          els.unsavedSub.textContent = `${Math.max(unsaved.dirtyItems, unsaved.dirtyFiles)} draft change(s) \u2022 ${unsaved.draftFiles} savable`;
+        }
+
+        els.refreshedStat.textContent = fmtTime(Date.now());
+        els.saveAllBtn.disabled = unsaved.draftFiles === 0;
+      } catch (err) {
+        setActionStatus(`Refresh failed: ${err.message}`, 'error');
+      } finally {
+        els.refreshAllBtn.disabled = false;
+      }
+    }
+
+    async function saveAll() {
+      clearActionStatus();
+      els.saveAllBtn.disabled = true;
+      els.refreshAllBtn.disabled = true;
+
+      const ok = await checkHealth();
+      setServerPill(ok);
+      if (!ok) {
+        setActionStatus('Server offline. Cannot save.', 'error');
+        els.refreshAllBtn.disabled = false;
+        return;
+      }
+
+      const targets = BUILDERS.filter((b) => b.file && !b.readOnly)
+        .map((b) => ({ builder: b, draft: window.CcvibesHubStorage?.getDraft(b.file) }))
+        .filter((x) => x.draft !== null && x.draft !== undefined);
+
+      if (!targets.length) {
+        setActionStatus('No drafts found to save.', 'warning');
+        els.refreshAllBtn.disabled = false;
+        await refreshAll();
+        return;
+      }
+
+      setActionStatus(`Saving ${targets.length} file(s)…`);
+
+      const results = [];
+      for (const t of targets) {
+        try {
+          const res = await fetch(`/api/data/${t.builder.file}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(t.draft)
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+          window.CcvibesHubStorage?.clearDraft(t.builder.file);
+          window.CcvibesHubStorage?.setStatus(t.builder.file, { dirty: false, modifiedCount: 0, updatedAt: Date.now() });
+          window.CcvibesHubStorage?.broadcastSaved(t.builder.file);
+          results.push({ file: t.builder.file, ok: true });
+        } catch (err) {
+          results.push({ file: t.builder.file, ok: false, err: err.message });
+        }
+      }
+
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length) {
+        setActionStatus(`Saved with errors: ${failed.map((f) => `${f.file} (${f.err})`).join(' | ')}`, 'error');
+      } else {
+        setActionStatus(`Saved ${results.length} file(s).`, 'success');
+      }
+
+      els.refreshAllBtn.disabled = false;
+      await refreshAll();
+    }
+
+    function wireUi() {
+      els.openFilesBtn.addEventListener('click', () => {
+        if (!isServerContext()) {
+          setActionStatus('Open from the server URL to use /api.', 'warning');
+          return;
+        }
+        window.open('/api/data', '_blank', 'noopener');
+      });
+
+      els.refreshAllBtn.addEventListener('click', refreshAll);
+      els.saveAllBtn.addEventListener('click', saveAll);
+
+      window.addEventListener('storage', (e) => {
+        if (!e.key) return;
+        if (e.key.startsWith('ccvibes.builderStatus.') || e.key.startsWith('ccvibes.builderDraft.')) {
+          refreshAll();
+        }
+      });
+    }
+
+    renderCards();
+    wireUi();
+    refreshAll();
+  </script>
 </body>
 </html>

@@ -1,586 +1,640 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Branches Designer - Crime Committer VI</title>
+  <title>Branch Designer</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    :root {
+      --bg: #0c101a;
+      --panel: #111827;
+      --panel-strong: #0f1724;
+      --border: #1f2937;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #7dd3fc;
+      --accent-2: #a5b4fc;
+      --success: #34d399;
+      --danger: #f87171;
+      --warning: #fbbf24;
     }
+
+    * { box-sizing: border-box; }
 
     body {
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      background: #0a0a0a;
-      color: #00ff00;
-      padding: 20px;
-      line-height: 1.6;
+      margin: 0;
+      padding: 24px;
+      background: radial-gradient(circle at 20% 20%, rgba(125,211,252,0.04), transparent 35%), radial-gradient(circle at 80% 10%, rgba(165,180,252,0.05), transparent 35%), var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", "Space Grotesk", "Inter", "SF Pro Text", system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
     }
 
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 30px;
-      color: #00ff00;
-      text-shadow: 0 0 10px #00ff00;
-    }
-
-    .layout {
-      display: grid;
-      grid-template-columns: 300px 1fr 400px;
-      gap: 20px;
-      height: calc(100vh - 120px);
-    }
-
-    .panel {
-      background: #1a1a1a;
-      border: 2px solid #00ff00;
-      padding: 15px;
-      overflow-y: auto;
-      box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
-    }
-
-    .panel h2 {
-      margin-bottom: 15px;
-      font-size: 1.2em;
-      color: #00ff00;
-      border-bottom: 1px solid #00ff00;
-      padding-bottom: 5px;
-    }
-
-    .branch-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .branch-item {
-      background: #0f0f0f;
-      border: 1px solid #00aa00;
-      padding: 10px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .branch-item:hover {
-      background: #1a1a1a;
-      border-color: #00ff00;
-      box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-    }
-
-    .branch-item.selected {
-      background: #003300;
-      border-color: #00ff00;
-      box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
-    }
-
-    .branch-item-name {
-      font-weight: bold;
-      margin-bottom: 5px;
-    }
-
-    .branch-item-desc {
-      font-size: 0.85em;
-      color: #00cc00;
-      opacity: 0.8;
-    }
-
-    .form-group {
-      margin-bottom: 15px;
-    }
+    h1, h2 { margin: 0; font-weight: 700; letter-spacing: 0.02em; }
+    p { margin: 0; }
 
     label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
       display: block;
-      margin-bottom: 5px;
-      color: #00ff00;
-      font-size: 0.9em;
+      margin-bottom: 6px;
     }
 
-    input[type="text"],
-    input[type="number"],
-    textarea,
-    select {
+    input, select, textarea {
       width: 100%;
-      background: #0a0a0a;
-      border: 1px solid #00aa00;
-      color: #00ff00;
-      padding: 8px;
-      font-family: inherit;
-      font-size: 0.95em;
+      background: #0b1220;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: "DM Mono", "JetBrains Mono", "Fira Code", monospace;
+      transition: border-color 0.15s ease;
     }
 
-    input[type="text"]:focus,
-    input[type="number"]:focus,
-    textarea:focus,
-    select:focus {
+    input:focus, select:focus, textarea:focus {
       outline: none;
-      border-color: #00ff00;
-      box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-    }
-
-    textarea {
-      resize: vertical;
-      min-height: 60px;
-    }
-
-    input[type="checkbox"] {
-      margin-right: 8px;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(125,211,252,0.2);
     }
 
     button {
-      background: #003300;
-      border: 1px solid #00ff00;
-      color: #00ff00;
-      padding: 10px 20px;
       cursor: pointer;
-      font-family: inherit;
-      font-size: 0.95em;
-      transition: all 0.2s;
-      margin-right: 10px;
-      margin-bottom: 10px;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(125,211,252,0.14), rgba(165,180,252,0.10));
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      transition: all 0.15s ease;
     }
 
     button:hover {
-      background: #004400;
-      box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+      border-color: var(--accent);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.25);
     }
 
-    button:active {
-      background: #002200;
+    button.ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
     }
 
     button.danger {
-      border-color: #ff0000;
-      color: #ff0000;
-      background: #330000;
+      background: rgba(248,113,113,0.12);
+      border-color: rgba(248,113,113,0.6);
+      color: var(--danger);
     }
 
-    button.danger:hover {
-      background: #440000;
-      box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-    }
+    button.small { padding: 6px 10px; font-size: 0.85rem; }
 
-    .button-group {
+    .topbar {
       display: flex;
-      gap: 10px;
-      margin-top: 20px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
       flex-wrap: wrap;
     }
 
-    pre {
-      background: #0a0a0a;
-      border: 1px solid #00aa00;
-      padding: 15px;
-      overflow-x: auto;
-      font-size: 0.85em;
-      white-space: pre-wrap;
-      word-wrap: break-word;
+    .topbar .eyebrow {
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.16em;
+      font-size: 0.75rem;
+      margin-bottom: 4px;
     }
 
-    .gradient-preview {
-      margin-top: 10px;
-      height: 40px;
-      border: 1px solid #00aa00;
+    .topbar h1 { font-size: 1.8rem; }
+
+    .topbar .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    }
+
+    .panel__header {
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      text-shadow: 0 0 5px #000;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
     }
 
-    .color-options {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 5px;
-      margin-top: 5px;
-    }
+    .input-grid { display: grid; gap: 12px; }
+    .two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-    .color-option {
-      padding: 5px;
-      border: 1px solid #00aa00;
+    .branch-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      background: rgba(255,255,255,0.02);
+      margin-bottom: 12px;
       cursor: pointer;
-      text-align: center;
-      font-size: 0.85em;
-      transition: all 0.2s;
+      transition: all 0.15s ease;
     }
 
-    .color-option:hover {
-      border-color: #00ff00;
-      box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+    .branch-card:hover {
+      border-color: var(--accent);
+      background: rgba(125,211,252,0.06);
     }
 
-    .color-option.selected {
-      background: #003300;
-      border-color: #00ff00;
+    .branch-card.selected {
+      border-color: var(--accent);
+      background: rgba(125,211,252,0.1);
     }
 
-    .help-text {
-      font-size: 0.8em;
-      color: #00aa00;
-      margin-top: 5px;
-      font-style: italic;
+    .branch-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
     }
 
-    .empty-state {
-      text-align: center;
-      color: #00aa00;
-      padding: 40px 20px;
-      opacity: 0.7;
+    .branch-name {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1.1rem;
     }
+
+    .json-output {
+      background: #0a0f18;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+      max-height: 70vh;
+    }
+
+    pre {
+      margin: 0;
+      color: var(--text);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .flex { display: flex; gap: 8px; align-items: center; }
+    .stacked { display: grid; gap: 12px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Crime Committer VI - Branches Designer</h1>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">crime committer vi</div>
+      <h1>Branch Designer</h1>
+      <p class="hint">Design crime branches: metadata, order, colors, hotkeys.</p>
+      <div style="margin-top: 8px; display: flex; gap: 12px; align-items: center; font-size: 0.85rem;">
+        <span id="serverStatus" style="color: var(--muted);">● Checking...</span>
+        <span id="saveIndicator" style="color: var(--warning); display: none;">● Unsaved changes</span>
+        <span class="hint">Ctrl+S: Save | Ctrl+N: New</span>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="small" onclick="saveBranches()">Save All</button>
+      <button class="ghost small" onclick="addNewBranch()">+ New Branch</button>
+      <button class="ghost small" onclick="window.location.href='index.html'">← Back</button>
+    </div>
+  </header>
 
-    <div class="layout">
-      <!-- Left Panel: Branch List -->
-      <div class="panel">
-        <h2>Branches</h2>
-        <div class="button-group">
-          <button onclick="addNewBranch()">+ New Branch</button>
-          <button onclick="loadFromFile()">Load JSON</button>
+  <div class="grid">
+    <div class="stacked">
+      <section class="panel">
+        <div class="panel__header">
+          <h2>Branch List</h2>
+          <span class="hint">Click to edit</span>
         </div>
-        <div id="branchList" class="branch-list"></div>
-      </div>
+        <div id="branchList"></div>
+      </section>
 
-      <!-- Middle Panel: Editor -->
-      <div class="panel">
-        <h2>Editor</h2>
-        <div id="editorContent"></div>
-      </div>
-
-      <!-- Right Panel: JSON Output -->
-      <div class="panel">
-        <h2>JSON Output</h2>
-        <div class="button-group">
-          <button onclick="copyToClipboard()">Copy JSON</button>
-          <button onclick="downloadJSON()">Download</button>
-          <button onclick="validateJSON()">Validate</button>
+      <section class="panel" id="editorPanel" style="display: none;">
+        <div class="panel__header">
+          <h2>Edit Branch</h2>
+          <button class="ghost small" onclick="deleteBranch()">Delete</button>
         </div>
-        <pre id="jsonOutput"></pre>
-      </div>
+        <div class="input-grid two-col">
+          <div>
+            <label for="branchId">Branch ID</label>
+            <input type="text" id="branchId" placeholder="street">
+          </div>
+          <div>
+            <label for="branchName">Name (UPPERCASE)</label>
+            <input type="text" id="branchName" placeholder="STREET">
+          </div>
+          <div>
+            <label for="branchDescription">Description</label>
+            <textarea id="branchDescription" placeholder="low stakes crimes" rows="2"></textarea>
+          </div>
+          <div class="input-grid">
+            <label for="branchOrder">Order (for sorting)</label>
+            <input type="number" id="branchOrder" placeholder="10" min="0">
+            <label for="branchHotkey">Hotkey (single char)</label>
+            <input type="text" id="branchHotkey" placeholder="t" maxlength="1">
+          </div>
+          <div>
+            <label for="branchColor">UI Color</label>
+            <select id="branchColor">
+              <option value="NEON_CYAN">NEON_CYAN</option>
+              <option value="NEON_TEAL">NEON_TEAL</option>
+              <option value="LAVA_RED">LAVA_RED</option>
+              <option value="ELECTRIC_BLUE">ELECTRIC_BLUE</option>
+              <option value="GOLD">GOLD</option>
+              <option value="HOT_PINK">HOT_PINK</option>
+              <option value="TERMINAL_GREEN">TERMINAL_GREEN</option>
+              <option value="SUCCESS_GREEN">SUCCESS_GREEN</option>
+            </select>
+          </div>
+          <div>
+            <label for="branchGradient">Gradient (optional)</label>
+            <input type="text" id="branchGradient" placeholder="street">
+          </div>
+        </div>
+        <div style="margin-top: 12px;">
+          <label>
+            <input type="checkbox" id="revealedByDefault"> Revealed by default
+          </label>
+        </div>
+      </section>
+    </div>
+
+    <div class="stacked">
+      <section class="panel">
+        <div class="panel__header">
+          <h2>File Status</h2>
+          <button class="ghost small" onclick="loadBranches()">Refresh</button>
+        </div>
+        <p id="fileStatus" class="hint">Loading...</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel__header">
+          <h2>JSON Output</h2>
+          <button class="ghost small" onclick="copyJSON()">Copy</button>
+        </div>
+        <div class="json-output">
+          <pre id="jsonOutput">[]</pre>
+        </div>
+      </section>
     </div>
   </div>
 
+  <script src="hub-storage.js"></script>
   <script>
-    // Data store
     let branches = [];
-    let selectedBranchIndex = null;
+    let selectedIndex = -1;
+    let serverOnline = false;
+    let lastSavedState = null;
+    const HUB_FILE = 'branches.json';
 
-    // Color constants matching the game
-    const COLORS = {
-      'TERMINAL_GREEN': '#00ff00',
-      'NEON_CYAN': '#00ffff',
-      'ELECTRIC_BLUE': '#0088ff',
-      'HOT_PINK': '#ff00ff',
-      'LAVA_RED': '#ff0044',
-      'GOLD': '#ffaa00',
-      'PURPLE': '#aa00ff',
-      'LIME': '#88ff00'
-    };
+    document.addEventListener('DOMContentLoaded', () => {
+      loadBranches();
+      checkServerStatus();
+      wireKeyboardShortcuts();
+      wireInputs();
+      wireHubEvents();
+    });
 
-    // Initialize with sample data from branches.json
-    function init() {
-      branches = [
-        {
-          id: "street",
-          name: "street",
-          description: "low stakes, high confidence",
-          order: 10,
-          hotkey: "s",
-          revealedByDefault: true,
-          ui: {
-            color: "TERMINAL_GREEN",
-            gradient: "street"
-          }
-        },
-        {
-          id: "commerce",
-          name: "commerce",
-          description: "business, but aggressive",
-          order: 20,
-          hotkey: "o",
-          revealedByDefault: true,
-          ui: {
-            color: "NEON_CYAN",
-            gradient: "commerce"
-          }
+    async function checkServerStatus() {
+      try {
+        const res = await fetch('/api/health');
+        serverOnline = res.ok;
+      } catch (err) {
+        serverOnline = false;
+      }
+      updateServerIndicator();
+    }
+
+    function updateServerIndicator() {
+      const el = document.getElementById('serverStatus');
+      if (serverOnline) {
+        el.textContent = '● Online';
+        el.style.color = '#34d399';
+      } else {
+        el.textContent = '● Offline';
+        el.style.color = '#f87171';
+      }
+    }
+
+    function wireHubEvents() {
+      const hub = window.CcvibesHubStorage;
+      if (!hub) return;
+      window.addEventListener('storage', (e) => {
+        if (e.key === hub.savedKey(HUB_FILE)) {
+          loadBranches();
+          setStatus('Saved externally. Reloaded.', 'success');
         }
-      ];
-
-      renderBranchList();
-      updateJSONOutput();
+      });
     }
 
-    function renderBranchList() {
-      const listEl = document.getElementById('branchList');
+    function wireKeyboardShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+          e.preventDefault();
+          saveBranches();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+          e.preventDefault();
+          addNewBranch();
+        }
+      });
+    }
 
-      if (branches.length === 0) {
-        listEl.innerHTML = '<div class="empty-state">No branches yet. Click "+ New Branch" to start.</div>';
+    function wireInputs() {
+      const inputs = ['branchId', 'branchName', 'branchDescription', 'branchOrder', 'branchHotkey', 'branchColor', 'branchGradient'];
+      inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateCurrentBranch);
+      });
+
+      const checkbox = document.getElementById('revealedByDefault');
+      if (checkbox) checkbox.addEventListener('change', updateCurrentBranch);
+    }
+
+    function updateCurrentBranch() {
+      if (selectedIndex < 0 || selectedIndex >= branches.length) return;
+
+      const branch = branches[selectedIndex];
+      branch.id = document.getElementById('branchId').value || '';
+      branch.name = document.getElementById('branchName').value || '';
+      branch.description = document.getElementById('branchDescription').value || '';
+      branch.order = parseInt(document.getElementById('branchOrder').value, 10) || 0;
+      branch.hotkey = document.getElementById('branchHotkey').value || '';
+      branch.revealedByDefault = document.getElementById('revealedByDefault').checked;
+      branch.ui = {
+        color: document.getElementById('branchColor').value || 'NEON_CYAN',
+        gradient: document.getElementById('branchGradient').value || ''
+      };
+
+      renderBranchList();
+      renderJSON();
+      updateSaveIndicator();
+    }
+
+    async function loadBranches() {
+      try {
+        const res = await fetch('/api/data/branches.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        branches = Array.isArray(data) ? data : [];
+        lastSavedState = JSON.stringify(branches);
+        renderBranchList();
+        renderJSON();
+        updateSaveIndicator();
+        setStatus(`Loaded ${branches.length} branches.`, 'success');
+      } catch (err) {
+        setStatus(`Failed to load: ${err.message}`, 'error');
+        branches = [];
+      }
+    }
+
+    async function saveBranches() {
+      if (!serverOnline) {
+        setStatus('Server offline. Cannot save.', 'error');
         return;
       }
 
-      listEl.innerHTML = branches.map((branch, idx) => `
-        <div class="branch-item ${selectedBranchIndex === idx ? 'selected' : ''}"
-             onclick="selectBranch(${idx})"
-             style="border-left: 3px solid ${COLORS[branch.ui?.color] || '#00aa00'}">
-          <div class="branch-item-name">${branch.name || 'Untitled'}</div>
-          <div class="branch-item-desc">${branch.description || 'No description'}</div>
-        </div>
-      `).join('');
-    }
-
-    function selectBranch(index) {
-      selectedBranchIndex = index;
-      renderBranchList();
-      renderEditor();
-    }
-
-    function renderEditor() {
-      const editorEl = document.getElementById('editorContent');
-
-      if (selectedBranchIndex === null) {
-        editorEl.innerHTML = '<div class="empty-state">Select a branch to edit</div>';
+      // Validate
+      const errors = validateBranches();
+      if (errors.length) {
+        setStatus(`Validation failed: ${errors.join(', ')}`, 'error');
         return;
       }
 
-      const branch = branches[selectedBranchIndex];
+      try {
+        const res = await fetch('/api/data/branches.json', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(branches)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      editorEl.innerHTML = `
-        <div class="form-group">
-          <label>ID (snake_case)</label>
-          <input type="text" id="field-id" value="${branch.id || ''}"
-                 onchange="updateField('id', this.value)">
-          <div class="help-text">Unique identifier, use snake_case</div>
-        </div>
-
-        <div class="form-group">
-          <label>Name</label>
-          <input type="text" id="field-name" value="${branch.name || ''}"
-                 onchange="updateField('name', this.value)">
-          <div class="help-text">Display name for UI</div>
-        </div>
-
-        <div class="form-group">
-          <label>Description</label>
-          <textarea id="field-description" onchange="updateField('description', this.value)">${branch.description || ''}</textarea>
-          <div class="help-text">Brief description, shown in UI</div>
-        </div>
-
-        <div class="form-group">
-          <label>Order</label>
-          <input type="number" id="field-order" value="${branch.order || 10}"
-                 onchange="updateField('order', parseInt(this.value))">
-          <div class="help-text">Sort order (10, 20, 30...)</div>
-        </div>
-
-        <div class="form-group">
-          <label>Hotkey</label>
-          <input type="text" id="field-hotkey" value="${branch.hotkey || ''}"
-                 maxlength="1" onchange="updateField('hotkey', this.value)">
-          <div class="help-text">Single key shortcut</div>
-        </div>
-
-        <div class="form-group">
-          <label>
-            <input type="checkbox" id="field-revealed"
-                   ${branch.revealedByDefault ? 'checked' : ''}
-                   onchange="updateField('revealedByDefault', this.checked)">
-            Revealed by Default
-          </label>
-          <div class="help-text">Show from game start</div>
-        </div>
-
-        <div class="form-group">
-          <label>UI Color</label>
-          <div class="color-options">
-            ${Object.keys(COLORS).map(colorName => `
-              <div class="color-option ${branch.ui?.color === colorName ? 'selected' : ''}"
-                   style="background: ${COLORS[colorName]}20; color: ${COLORS[colorName]}; border-color: ${COLORS[colorName]};"
-                   onclick="updateUIField('color', '${colorName}')">
-                ${colorName}
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Gradient ID</label>
-          <input type="text" id="field-gradient" value="${branch.ui?.gradient || ''}"
-                 onchange="updateUIField('gradient', this.value)">
-          <div class="help-text">References gradient definition</div>
-          <div class="gradient-preview"
-               style="background: linear-gradient(90deg, ${COLORS[branch.ui?.color] || '#00aa00'}33, ${COLORS[branch.ui?.color] || '#00aa00'}); color: ${COLORS[branch.ui?.color] || '#00aa00'}">
-            Preview
-          </div>
-        </div>
-
-        <div class="button-group">
-          <button onclick="duplicateBranch()">Duplicate</button>
-          <button class="danger" onclick="deleteBranch()">Delete Branch</button>
-        </div>
-      `;
-    }
-
-    function updateField(field, value) {
-      if (selectedBranchIndex === null) return;
-      branches[selectedBranchIndex][field] = value;
-      renderBranchList();
-      updateJSONOutput();
-    }
-
-    function updateUIField(field, value) {
-      if (selectedBranchIndex === null) return;
-      if (!branches[selectedBranchIndex].ui) {
-        branches[selectedBranchIndex].ui = {};
+        lastSavedState = JSON.stringify(branches);
+        updateSaveIndicator();
+        window.CcvibesHubStorage?.broadcastSaved(HUB_FILE);
+        setStatus(`Saved ${branches.length} branches.`, 'success');
+      } catch (err) {
+        setStatus(`Failed to save: ${err.message}`, 'error');
       }
-      branches[selectedBranchIndex].ui[field] = value;
-      renderEditor();
-      renderBranchList();
-      updateJSONOutput();
+    }
+
+    function validateBranches() {
+      const errors = [];
+      const ids = new Set();
+      const hotkeys = new Set();
+
+      branches.forEach((branch, idx) => {
+        if (!branch.id || !branch.id.trim()) {
+          errors.push(`Branch ${idx + 1} has no ID`);
+        } else if (ids.has(branch.id)) {
+          errors.push(`Duplicate ID: ${branch.id}`);
+        } else {
+          ids.add(branch.id);
+        }
+
+        if (branch.hotkey && hotkeys.has(branch.hotkey)) {
+          errors.push(`Duplicate hotkey: ${branch.hotkey}`);
+        } else if (branch.hotkey) {
+          hotkeys.add(branch.hotkey);
+        }
+      });
+
+      return errors;
     }
 
     function addNewBranch() {
       const newBranch = {
-        id: `branch_${Date.now()}`,
-        name: "New Branch",
-        description: "description here",
+        id: `branch_${branches.length + 1}`,
+        name: 'NEW BRANCH',
+        description: '',
         order: (branches.length + 1) * 10,
-        hotkey: "",
+        hotkey: '',
         revealedByDefault: false,
         ui: {
-          color: "TERMINAL_GREEN",
-          gradient: "new_branch"
+          color: 'NEON_CYAN',
+          gradient: ''
         }
       };
 
       branches.push(newBranch);
-      selectedBranchIndex = branches.length - 1;
+      selectBranch(branches.length - 1);
       renderBranchList();
-      renderEditor();
-      updateJSONOutput();
-    }
-
-    function duplicateBranch() {
-      if (selectedBranchIndex === null) return;
-
-      const original = branches[selectedBranchIndex];
-      const duplicate = JSON.parse(JSON.stringify(original));
-      duplicate.id = `${duplicate.id}_copy_${Date.now()}`;
-      duplicate.name = `${duplicate.name} (copy)`;
-
-      branches.push(duplicate);
-      selectedBranchIndex = branches.length - 1;
-      renderBranchList();
-      renderEditor();
-      updateJSONOutput();
+      renderJSON();
+      updateSaveIndicator();
+      setStatus('New branch added. Fill in details and save.', 'success');
     }
 
     function deleteBranch() {
-      if (selectedBranchIndex === null) return;
+      if (selectedIndex < 0 || selectedIndex >= branches.length) return;
+      if (!confirm(`Delete branch "${branches[selectedIndex].id}"?`)) return;
 
-      if (confirm('Delete this branch?')) {
-        branches.splice(selectedBranchIndex, 1);
-        selectedBranchIndex = branches.length > 0 ? 0 : null;
-        renderBranchList();
-        renderEditor();
-        updateJSONOutput();
+      branches.splice(selectedIndex, 1);
+      selectedIndex = -1;
+      document.getElementById('editorPanel').style.display = 'none';
+      renderBranchList();
+      renderJSON();
+      updateSaveIndicator();
+      setStatus('Branch deleted. Save to persist.', 'warning');
+    }
+
+    function selectBranch(index) {
+      selectedIndex = index;
+      const branch = branches[index];
+
+      document.getElementById('branchId').value = branch.id || '';
+      document.getElementById('branchName').value = branch.name || '';
+      document.getElementById('branchDescription').value = branch.description || '';
+      document.getElementById('branchOrder').value = branch.order || 0;
+      document.getElementById('branchHotkey').value = branch.hotkey || '';
+      document.getElementById('branchColor').value = branch.ui?.color || 'NEON_CYAN';
+      document.getElementById('branchGradient').value = branch.ui?.gradient || '';
+      document.getElementById('revealedByDefault').checked = branch.revealedByDefault || false;
+
+      document.getElementById('editorPanel').style.display = 'block';
+      renderBranchList();
+    }
+
+    function renderBranchList() {
+      const container = document.getElementById('branchList');
+      if (!branches.length) {
+        container.innerHTML = '<div class="hint">No branches loaded. Click "New Branch" to add one.</div>';
+        return;
       }
+
+      const sorted = branches.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+      container.innerHTML = sorted.map((branch, idx) => {
+        const actualIndex = branches.indexOf(branch);
+        const isSelected = actualIndex === selectedIndex;
+        return `
+          <div class="branch-card ${isSelected ? 'selected' : ''}" onclick="selectBranch(${actualIndex})">
+            <div class="branch-header">
+              <span class="branch-name">${safe(branch.name || branch.id)}</span>
+              <span class="hint">Order: ${branch.order || 0}</span>
+            </div>
+            <div class="hint">${safe(branch.description || 'No description')}</div>
+            <div class="hint" style="margin-top: 4px;">
+              ID: ${safe(branch.id)} | Hotkey: ${branch.hotkey || 'none'} | ${branch.revealedByDefault ? 'Revealed' : 'Hidden'}
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
-    function updateJSONOutput() {
-      const outputEl = document.getElementById('jsonOutput');
-      outputEl.textContent = JSON.stringify(branches, null, 2);
+    function renderJSON() {
+      const el = document.getElementById('jsonOutput');
+      el.textContent = JSON.stringify(branches, null, 2);
     }
 
-    function copyToClipboard() {
+    function updateSaveIndicator() {
+      const indicator = document.getElementById('saveIndicator');
+      const current = JSON.stringify(branches);
+      const hasChanges = current !== lastSavedState;
+
+      if (hasChanges) {
+        indicator.textContent = '● Unsaved changes';
+        indicator.style.display = 'inline';
+      } else {
+        indicator.style.display = 'none';
+      }
+
+      syncHubStatus(hasChanges);
+    }
+
+    function countModifiedEntries(current, baseline) {
+      const baselineMap = new Map();
+      baseline.forEach((item, idx) => {
+        const key = (item && item.id) ? item.id : `__idx_${idx}`;
+        baselineMap.set(key, JSON.stringify(item));
+      });
+
+      let modified = 0;
+      const seen = new Set();
+
+      current.forEach((item, idx) => {
+        const key = (item && item.id) ? item.id : `__idx_${idx}`;
+        const currentJson = JSON.stringify(item);
+        const baselineJson = baselineMap.get(key);
+        if (!baselineJson || baselineJson !== currentJson) modified += 1;
+        seen.add(key);
+      });
+
+      baselineMap.forEach((_, key) => {
+        if (!seen.has(key)) modified += 1;
+      });
+
+      return modified;
+    }
+
+    function syncHubStatus(hasChanges) {
+      const hub = window.CcvibesHubStorage;
+      if (!hub) return;
+
+      let modifiedCount = 0;
+      if (hasChanges && lastSavedState) {
+        try {
+          const baseline = JSON.parse(lastSavedState);
+          modifiedCount = countModifiedEntries(branches, Array.isArray(baseline) ? baseline : []);
+        } catch {
+          modifiedCount = 1;
+        }
+      }
+
+      hub.setStatus(HUB_FILE, { dirty: !!hasChanges, modifiedCount, updatedAt: Date.now() });
+
+      const canDraft = lastSavedState !== null;
+      if (hasChanges && canDraft) hub.setDraft(HUB_FILE, branches);
+      else hub.clearDraft(HUB_FILE);
+    }
+
+    function copyJSON() {
       const text = document.getElementById('jsonOutput').textContent;
       navigator.clipboard.writeText(text).then(() => {
-        alert('JSON copied to clipboard!');
+        setStatus('JSON copied to clipboard', 'success');
+      }).catch(() => {
+        setStatus('Could not copy', 'error');
       });
     }
 
-    function downloadJSON() {
-      const text = document.getElementById('jsonOutput').textContent;
-      const blob = new Blob([text], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'branches.json';
-      a.click();
-      URL.revokeObjectURL(url);
+    function setStatus(message, kind) {
+      const el = document.getElementById('fileStatus');
+      el.textContent = message;
+
+      if (kind === 'error') el.style.color = '#f87171';
+      else if (kind === 'success') el.style.color = '#34d399';
+      else if (kind === 'warning') el.style.color = '#fbbf24';
+      else el.style.color = '';
     }
 
-    function validateJSON() {
-      const errors = [];
-
-      branches.forEach((branch, idx) => {
-        if (!branch.id || !/^[a-z_]+$/.test(branch.id)) {
-          errors.push(`Branch ${idx + 1}: ID must be snake_case`);
-        }
-        if (!branch.name) {
-          errors.push(`Branch ${idx + 1}: Name is required`);
-        }
-        if (typeof branch.order !== 'number') {
-          errors.push(`Branch ${idx + 1}: Order must be a number`);
-        }
-        if (!branch.ui || !branch.ui.color) {
-          errors.push(`Branch ${idx + 1}: UI color is required`);
-        }
-      });
-
-      // Check for duplicate IDs
-      const ids = branches.map(b => b.id);
-      const duplicates = ids.filter((id, idx) => ids.indexOf(id) !== idx);
-      if (duplicates.length > 0) {
-        errors.push(`Duplicate IDs found: ${duplicates.join(', ')}`);
-      }
-
-      if (errors.length === 0) {
-        alert('✓ JSON is valid!');
-      } else {
-        alert('Validation errors:\n\n' + errors.join('\n'));
-      }
+    function safe(value) {
+      if (value === undefined || value === null) return '';
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
-
-    function loadFromFile() {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'application/json';
-      input.onchange = (e) => {
-        const file = e.target.files[0];
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const loaded = JSON.parse(event.target.result);
-            if (Array.isArray(loaded)) {
-              branches = loaded;
-              selectedBranchIndex = branches.length > 0 ? 0 : null;
-              renderBranchList();
-              renderEditor();
-              updateJSONOutput();
-              alert('JSON loaded successfully!');
-            } else {
-              alert('Invalid JSON: Expected an array of branches');
-            }
-          } catch (err) {
-            alert('Error parsing JSON: ' + err.message);
-          }
-        };
-        reader.readAsText(file);
-      };
-      input.click();
-    }
-
-    // Initialize on load
-    init();
   </script>
 </body>
 </html>
