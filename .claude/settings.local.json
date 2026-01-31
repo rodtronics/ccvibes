@@ -8,7 +8,9 @@
       "Bash(start \"\" \"c:\\\\Users\\\\Andrew\\\\Documents\\\\GitHub\\\\ccvibes\\\\ccvibes\\\\data-builder\\\\tui-designer-v2.html\")",
       "Bash(python -m http.server:*)",
       "Bash(node:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(ping:*)",
+      "Bash(curl:*)"
     ],
     "defaultMode": "bypassPermissions"
   }

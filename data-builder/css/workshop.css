@@ -1,0 +1,118 @@
+/* Workshop tab specific styles */
+
+.workshop-sections {
+  display: grid;
+  gap: 16px;
+}
+
+.ws-section {
+  background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+}
+
+.ws-section__title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ws-summary-chip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.ws-chip {
+  padding: 3px 10px;
+  background: rgba(125,211,252,0.08);
+  border: 1px solid rgba(125,211,252,0.2);
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.ws-placement {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .ws-placement { grid-template-columns: 1fr; }
+}
+
+.ws-neighborhood {
+  margin-top: 14px;
+  background: #0a0f18;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  height: 120px;
+}
+
+.ws-neighborhood svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ws-options-list {
+  display: grid;
+  gap: 12px;
+}
+
+.ws-balance {
+  background: #0a0f18;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.ws-balance table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.ws-balance th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ws-balance td {
+  padding: 4px 8px;
+  color: var(--text);
+}
+
+.ws-balance .positive { color: var(--success); }
+.ws-balance .negative { color: var(--danger); }
+.ws-balance .neutral { color: var(--muted); }
+
+.ws-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+
+.ws-empty h3 {
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.ws-json-toggle {
+  margin-top: 12px;
+}

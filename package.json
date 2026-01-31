@@ -3,7 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev:builder": "node data-builder/server.js"
+    "dev:builder": "node data-builder/server.js",
+    "dev:progress": "node progress-designer-codex/server.js"
   },
   "dependencies": {
     "express": "^4.19.2"

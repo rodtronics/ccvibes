@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Progress Designer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="eyebrow">crime committer vi</div>
+        <h1>Progress Designer</h1>
+        <div class="pill" title="Local server status">
+          <span class="dot" id="serverDot"></span>
+          <span id="serverText">Checking…</span>
+        </div>
+      </div>
+
+      <div class="search">
+        <div class="field">
+          <div class="label">Search</div>
+          <input id="searchInput" type="text" placeholder="activity id, name, tag…" />
+        </div>
+        <div class="row">
+          <button class="ghost" id="refreshBtn">Refresh</button>
+          <button class="primary" id="saveBtn" disabled>Save</button>
+          <div class="spacer"></div>
+          <button id="newActivityBtn">+ Activity</button>
+        </div>
+      </div>
+
+      <div class="list">
+        <div class="listHeader">
+          <span>Activities</span>
+          <span class="muted" id="activityCount">—</span>
+        </div>
+        <div class="listBody" id="activityList"></div>
+      </div>
+
+      <div class="status" id="sidebarStatus"></div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="row">
+          <strong id="activeTitle">Select an activity</strong>
+          <span class="tag" id="activeBranchTag" style="display:none;"></span>
+        </div>
+        <div class="row">
+          <button class="ghost" id="copyJsonBtn" disabled>Copy JSON</button>
+          <button class="ghost" id="validateBtn">Validate</button>
+        </div>
+      </div>
+
+      <div class="tabs" id="tabs">
+        <div class="tab active" data-tab="activity">Activity</div>
+        <div class="tab" data-tab="unlock">Unlocks</div>
+        <div class="tab" data-tab="balance">Balance</div>
+        <div class="tab" data-tab="validate">Validation</div>
+        <div class="tab" data-tab="raw">Raw JSON</div>
+      </div>
+
+      <div class="content">
+        <div id="tab-activity" class="panel"></div>
+        <div id="tab-unlock" class="panel" style="display:none;"></div>
+        <div id="tab-balance" class="panel" style="display:none;"></div>
+        <div id="tab-validate" class="panel" style="display:none;"></div>
+        <div id="tab-raw" class="panel" style="display:none;"></div>
+      </div>
+    </main>
+
+    <aside class="inspector">
+      <div class="panel">
+        <h2>Difficulty Hint</h2>
+        <div class="hint">Emergent score from gates, costs, time, and risk. Tweak inputs/outcomes to see it shift.</div>
+        <div style="height: 12px;"></div>
+        <div class="kv" id="difficultyKv"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Dependency Insight</h2>
+        <div class="hint" id="depHint">Select an activity to see what it reveals/unlocks and what it requires.</div>
+        <div style="height: 12px;"></div>
+        <div class="kv" id="depKv"></div>
+      </div>
+
+      <div class="status" id="inspectorStatus"></div>
+    </aside>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+

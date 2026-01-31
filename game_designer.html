@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCVibes Mastermind Console</title>
+    <style>
+        :root {
+            --bg-dark: #1e1e1e;
+            --bg-panel: #252526;
+            --accent: #007acc;
+            --text: #d4d4d4;
+            --border: #3e3e42;
+            --success: #4ec9b0;
+            --danger: #f44747;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-dark); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* Header & Tabs */
+        header { background: #333; padding: 0 1rem; display: flex; align-items: center; height: 50px; border-bottom: 1px solid var(--border); }
+        h1 { font-size: 1rem; margin-right: 2rem; color: var(--success); }
+        .tabs { display: flex; gap: 5px; }
+        .tab-btn { background: transparent; border: none; color: #aaa; padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { color: white; border-bottom-color: var(--accent); }
+        .tab-btn:hover { background: rgba(255,255,255,0.1); }
+
+        /* Main Layout */
+        main { flex: 1; display: none; overflow: hidden; }
+        main.active { display: flex; }
+
+        /* Editor View */
+        .sidebar { width: 250px; background: var(--bg-panel); border-right: 1px solid var(--border); overflow-y: auto; padding: 10px; }
+        .editor-area { flex: 1; padding: 20px; overflow-y: auto; }
+        
+        .job-list-item { padding: 8px; cursor: pointer; border-radius: 4px; margin-bottom: 2px; }
+        .job-list-item:hover { background: #333; }
+        .job-list-item.active { background: var(--accent); color: white; }
+        .btn-add { width: 100%; padding: 8px; background: var(--success); border: none; color: #000; cursor: pointer; margin-bottom: 10px; font-weight: bold; }
+
+        /* Forms */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 0.9rem; color: #aaa; }
+        input, textarea, select { width: 100%; padding: 8px; background: #333; border: 1px solid var(--border); color: white; box-sizing: border-box; }
+        textarea { height: 80px; resize: vertical; }
+        .row { display: flex; gap: 10px; }
+        .col { flex: 1; }
+
+        /* Simulator View */
+        .sim-container { padding: 20px; width: 100%; }
+        .sim-card { background: var(--bg-panel); padding: 15px; margin-bottom: 10px; border-left: 4px solid var(--accent); }
+        .stat-row { display: flex; justify-content: space-between; margin-top: 5px; font-family: monospace; }
+
+        /* JSON View */
+        pre { background: #000; padding: 10px; border: 1px solid var(--border); color: #ce9178; overflow: auto; height: 90%; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>CCVibes Designer</h1>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('activities')">Activities</button>
+        <button class="tab-btn" onclick="switchTab('resources')">Resources</button>
+        <button class="tab-btn" onclick="switchTab('spiderweb')">Spiderweb</button>
+        <button class="tab-btn" onclick="switchTab('simulator')">Progression Simulator</button>
+        <button class="tab-btn" onclick="switchTab('json')">Raw JSON</button>
+    </div>
+</header>
+
+<!-- ACTIVITIES TAB -->
+<main id="activities" class="active">
+    <div class="sidebar">
+        <button class="btn-add" onclick="createNewActivity()">+ New Activity</button>
+        <div id="activityList"></div>
+    </div>
+    <div class="editor-area">
+        <div id="activityForm" style="display:none;">
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label>ID (Unique)</label>
+                        <input type="text" id="actId" onchange="updateActivity('id', this.value)">
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" id="actTitle" onchange="updateActivity('title', this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="actDesc" onchange="updateActivity('desc', this.value)"></textarea>
+            </div>
+
+            <h3>Gating (Unlock Conditions)</h3>
+            <div class="form-group">
+                <label>Requires Resource (ID) >= Amount</label>
+                <div class="row">
+                    <input type="text" id="actGateRes" placeholder="resource_id" onchange="updateActivityGate()">
+                    <input type="number" id="actGateVal" placeholder="0" onchange="updateActivityGate()">
+                </div>
+            </div>
+
+            <h3>Options (Ways to run this activity)</h3>
+            <div id="optionsContainer"></div>
+            <button class="btn-add" style="margin-top:10px; background:#333; color:#fff; border:1px solid #555;" onclick="addOption()">+ Add Option</button>
+        </div>
+    </div>
+</main>
+
+<!-- RESOURCES TAB -->
+<main id="resources">
+    <div class="sidebar">
+        <button class="btn-add" onclick="createNewResource()">+ New Resource</button>
+        <div id="resourceList"></div>
+    </div>
+    <div class="editor-area">
+        <div id="resourceForm" style="display:none;">
+            <div class="form-group">
+                <label>ID</label>
+                <input type="text" id="resId" onchange="updateResource('id', this.value)">
+            </div>
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="resName" onchange="updateResource('name', this.value)">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="resCat" onchange="updateResource('category', this.value)">
+                    <option value="currency">Currency</option>
+                    <option value="material">Material</option>
+                    <option value="intel">Intel</option>
+                    <option value="heat">Heat/Risk</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- SPIDERWEB TAB -->
+<main id="spiderweb" style="position:relative; background:#111;">
+    <canvas id="webCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%;"></canvas>
+    <div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.7); padding:10px; border-radius:4px; pointer-events:none;">
+        <div style="color:#4ec9b0">■ Activity</div>
+        <div style="color:#007acc">● Resource</div>
+        <div style="color:#666; font-size:0.8em;">Drag to move. Scroll to zoom.</div>
+    </div>
+    <div style="position:absolute; top:10px; right:10px;">
+        <button onclick="layoutGraph()" style="background:#333; color:white; border:1px solid #555; padding:5px 10px; cursor:pointer;">Auto Layout</button>
+    </div>
+</main>
+
+<!-- SIMULATOR TAB -->
+<main id="simulator">
+    <div class="sim-container">
+        <h2>Progression Calculator</h2>
+        <p>Select a target activity to see the resource chain required to reach/sustain it.</p>
+        <div class="form-group">
+            <label>Target Activity</label>
+            <select id="simTarget" onchange="runSimulation()">
+                <option value="">-- Select --</option>
+            </select>
+        </div>
+        <div id="simResults"></div>
+    </div>
+</main>
+
+<!-- JSON TAB -->
+<main id="json">
+    <div class="editor-area">
+        <button class="btn-add" onclick="copyJson()">Copy to Clipboard</button>
+        <pre id="jsonOutput"></pre>
+    </div>
+</main>
+
+<script>
+    // --- DATA MODEL (CC6 Schema) ---
+    let data = {
+        resources: [
+            { id: "cash", name: "Cash", category: "currency" },
+            { id: "heat", name: "Heat", category: "heat" },
+            { id: "intel", name: "Intel", category: "intel" },
+            { id: "stolen_goods", name: "Stolen Goods", category: "material" }
+        ],
+        activities: [
+            {
+                id: "beg_street",
+                title: "Beg on Street",
+                desc: "Low risk, low reward.",
+                unlockIf: [],
+                options: [
+                    {
+                        name: "Polite Begging",
+                        inputs: {},
+                        outputs: { cash: 5, heat: 1 }
+                    }
+                ]
+            },
+            {
+                id: "shoplift",
+                title: "Shoplift",
+                desc: "Steal small items.",
+                unlockIf: [{ type: "resourceGte", resourceId: "intel", value: 1 }],
+                options: [
+                    {
+                        name: "Quick Grab",
+                        inputs: { heat: 0 }, // Requires low heat? Or just generates? Simplified for now.
+                        outputs: { stolen_goods: 1, heat: 5, xp: 10 }
+                    }
+                ]
+            },
+            {
+                id: "fence_goods",
+                title: "Fence Goods",
+                desc: "Sell stolen items.",
+                unlockIf: [{ type: "resourceGte", resourceId: "stolen_goods", value: 1 }],
+                options: [
+                    {
+                        name: "Pawn Shop",
+                        inputs: { stolen_goods: 1 },
+                        outputs: { cash: 20, heat: 2 }
+                    }
+                ]
+            }
+        ]
+    };
+
+    let currentActId = null;
+    let currentResId = null;
+
+    // --- UI LOGIC ---
+
+    function init() {
+        renderActivityList();
+        renderResourceList();
+        updateJsonView();
+        initGraph();
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('main').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+
+        if(tabId === 'spiderweb') {
+            resizeCanvas();
+            buildGraph();
+            drawGraph();
+        }
+        if(tabId === 'simulator') {
+            updateSimTargets();
+        }
+        if(tabId === 'json') updateJsonView();
+    }
+
+    // --- ACTIVITY EDITOR ---
+    function renderActivityList() {
+        const list = document.getElementById('activityList');
+        list.innerHTML = '';
+        data.activities.forEach(act => {
+            const div = document.createElement('div');
+            div.className = `job-list-item ${act.id === currentActId ? 'active' : ''}`;
+            div.innerText = act.title || act.id;
+            div.onclick = () => loadActivity(act.id);
+            list.appendChild(div);
+        });
+    }
+
+    function createNewActivity() {
+        const newId = "act_" + Date.now();
+        data.activities.push({
+            id: newId,
+            title: "New Activity",
+            desc: "",
+            unlockIf: [],
+            options: [{ name: "Standard", inputs: {}, outputs: {} }]
+        });
+        renderActivityList();
+        loadActivity(newId);
+    }
+
+    function loadActivity(id) {
+        currentActId = id;
+        const act = data.activities.find(a => a.id === id);
+        if (!act) return;
+
+        document.getElementById('activityForm').style.display = 'block';
+        document.getElementById('actId').value = act.id;
+        document.getElementById('actTitle').value = act.title;
+        document.getElementById('actDesc').value = act.desc;
+
+        // Gate
+        const gate = act.unlockIf.find(c => c.type === 'resourceGte');
+        document.getElementById('actGateRes').value = gate ? gate.resourceId : '';
+        document.getElementById('actGateVal').value = gate ? gate.value : '';
+
+        renderOptions(act);
+        renderActivityList();
+    }
+
+    function updateActivity(field, value) {
+        const act = data.activities.find(a => a.id === currentActId);
+        if (!act) return;
+        act[field] = value;
+        if (field === 'title' || field === 'id') renderActivityList();
+    }
+
+    function updateActivityGate() {
+        const act = data.activities.find(a => a.id === currentActId);
+        const resId = document.getElementById('actGateRes').value;
+        const val = parseInt(document.getElementById('actGateVal').value) || 0;
+
+        act.unlockIf = [];
+        if (resId && val > 0) {
+            act.unlockIf.push({ type: 'resourceGte', resourceId: resId, value: val });
+        }
+    }
+
+    function renderOptions(act) {
+        const container = document.getElementById('optionsContainer');
+        container.innerHTML = '';
+
+        act.options.forEach((opt, idx) => {
+            const div = document.createElement('div');
+            div.style.background = '#2a2a2a';
+            div.style.padding = '10px';
+            div.style.marginBottom = '10px';
+            div.style.border = '1px solid #444';
+
+            // Helper to make resource inputs
+            const makeResInputs = (obj, label) => {
+                let html = `<div style="margin-top:5px;"><small>${label}</small><div style="display:flex; flex-wrap:wrap; gap:5px;">`;
+                data.resources.forEach(res => {
+                    const val = obj[res.id] || 0;
+                    if (val > 0 || label === 'Outputs') { // Show all for outputs, or just active? Let's show simplified
+                         // Actually, let's just show text inputs for simplicity in this view
+                    }
+                });
+                // Simple text area for JSON editing of inputs/outputs for speed
+                html += `<input type="text" value='${JSON.stringify(obj)}' 
+                    onchange="updateOptionIO('${act.id}', ${idx}, '${label.toLowerCase()}', this.value)" 
+                    style="font-family:monospace; font-size:0.8em;">`;
+                html += `</div></div>`;
+                return html;
+            };
+
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between;">
+                    <strong>Option ${idx + 1}</strong>
+                    <button onclick="deleteOption('${act.id}', ${idx})" style="color:red; background:none; border:none; cursor:pointer;">x</button>
+                </div>
+                <div class="form-group" style="margin-bottom:5px;">
+                    <input type="text" value="${opt.name}" placeholder="Option Name" onchange="updateOptionName('${act.id}', ${idx}, this.value)">
+                </div>
+                ${makeResInputs(opt.inputs, 'Inputs')}
+                ${makeResInputs(opt.outputs, 'Outputs')}
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function addOption() {
+        const act = data.activities.find(a => a.id === currentActId);
+        act.options.push({ name: "New Option", inputs: {}, outputs: {} });
+        renderOptions(act);
+    }
+
+    function updateOptionName(actId, idx, val) {
+        const act = data.activities.find(a => a.id === actId);
+        act.options[idx].name = val;
+    }
+
+    function updateOptionIO(actId, idx, type, jsonVal) {
+        const act = data.activities.find(a => a.id === actId);
+        try {
+            act.options[idx][type] = JSON.parse(jsonVal);
+        } catch(e) {
+            alert("Invalid JSON format for " + type);
+        }
+    }
+
+    function deleteOption(actId, idx) {
+        const act = data.activities.find(a => a.id === actId);
+        act.options.splice(idx, 1);
+        renderOptions(act);
+    }
+
+    // --- RESOURCE EDITOR ---
+    function renderResourceList() {
+        const list = document.getElementById('resourceList');
+        list.innerHTML = '';
+        data.resources.forEach(res => {
+            const div = document.createElement('div');
+            div.className = `job-list-item ${res.id === currentResId ? 'active' : ''}`;
+            div.innerText = res.name || res.id;
+            div.style.borderLeft = `3px solid ${getResourceColor(res.category)}`;
+            div.onclick = () => loadResource(res.id);
+            list.appendChild(div);
+        });
+    }
+
+    function createNewResource() {
+        const newId = "res_" + Date.now();
+        data.resources.push({ id: newId, name: "New Resource", category: "material" });
+        renderResourceList();
+        loadResource(newId);
+    }
+
+    function loadResource(id) {
+        currentResId = id;
+        const res = data.resources.find(r => r.id === id);
+        document.getElementById('resourceForm').style.display = 'block';
+        document.getElementById('resId').value = res.id;
+        document.getElementById('resName').value = res.name;
+        document.getElementById('resCat').value = res.category;
+        renderResourceList();
+    }
+
+    function updateResource(field, value) {
+        const res = data.resources.find(r => r.id === currentResId);
+        res[field] = value;
+        if (field === 'name' || field === 'id' || field === 'category') renderResourceList();
+    }
+
+    function getResourceColor(cat) {
+        switch(cat) {
+            case 'currency': return '#ffd700';
+            case 'heat': return '#f44747';
+            case 'intel': return '#007acc';
+            default: return '#aaa';
+        }
+    }
+
+    // --- SPIDERWEB VISUALIZER ---
+    let canvas, ctx;
+    let nodes = [];
+    let links = [];
+    let draggedNode = null;
+    let camera = { x: 0, y: 0, zoom: 1 };
+
+    function initGraph() {
+        canvas = document.getElementById('webCanvas');
+        ctx = canvas.getContext('2d');
+        
+        canvas.addEventListener('mousedown', e => {
+            const pos = getMousePos(e);
+            draggedNode = nodes.find(n => 
+                pos.x >= n.x - n.w/2 && pos.x <= n.x + n.w/2 &&
+                pos.y >= n.y - n.h/2 && pos.y <= n.y + n.h/2
+            );
+        });
+        
+        canvas.addEventListener('mousemove', e => {
+            if (draggedNode) {
+                const pos = getMousePos(e);
+                draggedNode.x = pos.x;
+                draggedNode.y = pos.y;
+                drawGraph();
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => draggedNode = null);
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            camera.zoom *= e.deltaY > 0 ? 0.9 : 1.1;
+            drawGraph();
+        });
+    }
+
+    function getMousePos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left - canvas.width/2) / camera.zoom - camera.x,
+            y: (e.clientY - rect.top - canvas.height/2) / camera.zoom - camera.y
+        };
+    }
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.offsetWidth;
+        canvas.height = canvas.parentElement.offsetHeight;
+    }
+
+    function buildGraph() {
+        // Convert data to nodes/links
+        // Preserve positions if existing
+        const oldNodes = new Map(nodes.map(n => [n.id, n]));
+        nodes = [];
+        links = [];
+
+        // Resources
+        data.resources.forEach(res => {
+            const old = oldNodes.get(res.id);
+            nodes.push({
+                id: res.id,
+                type: 'resource',
+                label: res.name,
+                color: getResourceColor(res.category),
+                x: old ? old.x : Math.random() * 400 - 200,
+                y: old ? old.y : Math.random() * 400 - 200,
+                w: 20, h: 20
+            });
+        });
+
+        // Activities
+        data.activities.forEach(act => {
+            const old = oldNodes.get(act.id);
+            const node = {
+                id: act.id,
+                type: 'activity',
+                label: act.title,
+                color: '#4ec9b0',
+                x: old ? old.x : Math.random() * 400 - 200,
+                y: old ? old.y : Math.random() * 400 - 200,
+                w: 120, h: 40
+            };
+            nodes.push(node);
+
+            // Links from UnlockIf
+            act.unlockIf.forEach(cond => {
+                if (cond.type === 'resourceGte') {
+                    links.push({ source: cond.resourceId, target: act.id, type: 'unlock' });
+                }
+            });
+
+            // Links from Options
+            act.options.forEach(opt => {
+                // Inputs (Resource -> Activity)
+                Object.keys(opt.inputs).forEach(resId => {
+                    links.push({ source: resId, target: act.id, type: 'input' });
+                });
+                // Outputs (Activity -> Resource)
+                Object.keys(opt.outputs).forEach(resId => {
+                    if (resId !== 'xp') // skip xp for graph clarity?
+                        links.push({ source: act.id, target: resId, type: 'output' });
+                });
+            });
+        });
+    }
+
+    function layoutGraph() {
+        // Simple force directed
+        for(let i=0; i<100; i++) {
+            nodes.forEach(n1 => {
+                let fx = 0, fy = 0;
+                // Repulsion
+                nodes.forEach(n2 => {
+                    if (n1 === n2) return;
+                    const dx = n1.x - n2.x;
+                    const dy = n1.y - n2.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                    const force = 5000 / (dist * dist);
+                    fx += (dx/dist) * force;
+                    fy += (dy/dist) * force;
+                });
+                // Attraction (Links)
+                links.forEach(l => {
+                    if (l.source === n1.id || l.target === n1.id) {
+                        const other = l.source === n1.id ? nodes.find(n=>n.id===l.target) : nodes.find(n=>n.id===l.source);
+                        if (!other) return;
+                        const dx = n1.x - other.x;
+                        const dy = n1.y - other.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                        const force = (dist - 100) * 0.05;
+                        fx -= (dx/dist) * force;
+                        fy -= (dy/dist) * force;
+                    }
+                });
+                
+                n1.x += Math.max(-10, Math.min(10, fx));
+                n1.y += Math.max(-10, Math.min(10, fy));
+            });
+        }
+        drawGraph();
+    }
+
+    function drawGraph() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(canvas.width/2 + camera.x, canvas.height/2 + camera.y);
+        ctx.scale(camera.zoom, camera.zoom);
+
+        // Draw Links
+        links.forEach(l => {
+            const s = nodes.find(n => n.id === l.source);
+            const t = nodes.find(n => n.id === l.target);
+            if (!s || !t) return;
+
+            ctx.beginPath();
+            ctx.moveTo(s.x, s.y);
+            ctx.lineTo(t.x, t.y);
+            ctx.strokeStyle = l.type === 'output' ? '#4ec9b0' : (l.type === 'unlock' ? '#d4d4d4' : '#007acc');
+            ctx.lineWidth = 1;
+            if (l.type === 'unlock') ctx.setLineDash([5, 5]);
+            else ctx.setLineDash([]);
+            ctx.stroke();
+
+            // Arrow
+            const angle = Math.atan2(t.y - s.y, t.x - s.x);
+            ctx.beginPath();
+            ctx.fillStyle = ctx.strokeStyle;
+            const tx = t.x - (t.w/2 + 5) * Math.cos(angle);
+            const ty = t.y - (t.h/2 + 5) * Math.sin(angle);
+            ctx.moveTo(tx, ty);
+            ctx.lineTo(tx - 10 * Math.cos(angle - Math.PI/6), ty - 10 * Math.sin(angle - Math.PI/6));
+            ctx.lineTo(tx - 10 * Math.cos(angle + Math.PI/6), ty - 10 * Math.sin(angle + Math.PI/6));
+            ctx.fill();
+        });
+
+        // Draw Nodes
+        nodes.forEach(n => {
+            ctx.fillStyle = n.color;
+            if (n.type === 'activity') {
+                ctx.fillRect(n.x - n.w/2, n.y - n.h/2, n.w, n.h);
+                ctx.fillStyle = '#000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(n.label, n.x, n.y);
+            } else {
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, n.w/2, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(n.label, n.x, n.y + n.h + 5);
+            }
+        });
+
+        ctx.restore();
+    }
+
+    // --- SIMULATOR ---
+    function updateSimTargets() {
+        const sel = document.getElementById('simTarget');
+        sel.innerHTML = '<option value="">-- Select --</option>';
+        data.activities.forEach(act => {
+            const opt = document.createElement('option');
+            opt.value = act.id;
+            opt.innerText = act.title;
+            sel.appendChild(opt);
+        });
+    }
+
+    function runSimulation() {
+        const targetId = document.getElementById('simTarget').value;
+        const container = document.getElementById('simResults');
+        container.innerHTML = '';
+        if (!targetId) return;
+
+        const target = data.activities.find(a => a.id === targetId);
+        
+        // Simple analysis: What does this activity need?
+        let html = `<h3>Analysis for: ${target.title}</h3>`;
+        
+        target.options.forEach((opt, idx) => {
+            html += `<div class="sim-card"><h4>Option: ${opt.name}</h4>`;
+            
+            // Inputs
+            const inputs = Object.entries(opt.inputs);
+            if (inputs.length > 0) {
+                html += `<div><strong>Needs:</strong></div><ul>`;
+                inputs.forEach(([resId, amt]) => {
+                    const res = data.resources.find(r => r.id === resId);
+                    // Find who produces this
+                    const producers = data.activities.filter(a => 
+                        a.options.some(o => o.outputs[resId])
+                    );
+                    const producerNames = producers.map(p => p.title).join(", ");
+                    
+                    html += `<li>${amt} ${res ? res.name : resId} <span style="color:#666">(Produced by: ${producerNames || 'None'})</span></li>`;
+                });
+                html += `</ul>`;
+            } else {
+                html += `<div>Free to run (No inputs)</div>`;
+            }
+
+            // Outputs
+            const outputs = Object.entries(opt.outputs);
+            if (outputs.length > 0) {
+                html += `<div><strong>Produces:</strong></div><ul>`;
+                outputs.forEach(([resId, amt]) => {
+                    const res = data.resources.find(r => r.id === resId);
+                    html += `<li>${amt} ${res ? res.name : resId}</li>`;
+                });
+                html += `</ul>`;
+            }
+            html += `</div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    function updateJsonView() {
+        document.getElementById('jsonOutput').innerText = JSON.stringify(data, null, 4);
+    }
+
+    function copyJson() {
+        navigator.clipboard.writeText(JSON.stringify(data, null, 4));
+        alert("Copied to clipboard!");
+    }
+
+    // Start
+    init();
+
+</script>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- SIMULATOR TAB -->
+<main id="simulator">
+    <div class="sim-container">
+        <h2>Economy Balance Check</h2>
+        <p>This calculates how many times you must run a job to afford the NEXT job in the chain.</p>
+        <div id="simResults"></div>
+    </div>
+</main>
+
+<!-- JSON TAB -->
+<main id="json">
+    <div class="editor-area">
+        <button class="btn-add" onclick="copyJson()">Copy to Clipboard</button>
+        <pre id="jsonOutput"></pre>
+    </div>
+</main>
+
+<script>
+    // --- DATA MODEL ---
+    let jobs = [
+        {
+            id: "beg_street",
+            title: "Beg on Street",
+            desc: "Ask strangers for change.",
+            flavor: "[OBJECTION] Get a job!",
+            reqMoney: 0,
+            reqHeatMax: 100,
+            reqCrew: 0,
+            outMoney: 5,
+            outHeat: 1,
+            outXp: 1,
+            unlocks: "pickpocket"
+        },
+        {
+            id: "pickpocket",
+            title: "Pickpocket",
+            desc: "Lift wallets from tourists.",
+            flavor: "[OBJECTION] Hey! My wallet!",
+            reqMoney: 50, // Cost to buy gloves/tools?
+            reqHeatMax: 50,
+            reqCrew: 0,
+            outMoney: 25,
+            outHeat: 5,
+            outXp: 5,
+            unlocks: "rob_store"
+        },
+        {
+            id: "rob_store",
+            title: "Rob Corner Store",
+            desc: "Stick up the clerk.",
+            flavor: "[OBJECTION] I'm calling the cops!",
+            reqMoney: 200, // Buy a mask/weapon
+            reqHeatMax: 30,
+            reqCrew: 1,
+            outMoney: 150,
+            outHeat: 20,
+            outXp: 20,
+            unlocks: ""
+        }
+    ];
+
+    let currentJobId = null;
+
+    // --- UI LOGIC ---
+
+    function init() {
+        renderJobList();
+        updateJsonView();
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('main').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+
+        if(tabId === 'simulator') runSimulation();
+        if(tabId === 'json') updateJsonView();
+    }
+
+    function renderJobList() {
+        const list = document.getElementById('jobList');
+        const select = document.getElementById('unlocks');
+        
+        list.innerHTML = '';
+        select.innerHTML = '<option value="">-- None --</option>';
+
+        jobs.forEach(job => {
+            // Sidebar List
+            const div = document.createElement('div');
+            div.className = `job-list-item ${job.id === currentJobId ? 'active' : ''}`;
+            div.innerText = job.title || job.id;
+            div.onclick = () => loadJob(job.id);
+            list.appendChild(div);
+
+            // Dropdown options
+            const opt = document.createElement('option');
+            opt.value = job.id;
+            opt.innerText = job.title;
+            select.appendChild(opt);
+        });
+    }
+
+    function createNewJob() {
+        const newId = "job_" + Date.now();
+        jobs.push({
+            id: newId,
+            title: "New Activity",
+            desc: "",
+            flavor: "",
+            reqMoney: 0,
+            reqHeatMax: 100,
+            reqCrew: 0,
+            outMoney: 10,
+            outHeat: 0,
+            outXp: 0,
+            unlocks: ""
+        });
+        renderJobList();
+        loadJob(newId);
+    }
+
+    function loadJob(id) {
+        currentJobId = id;
+        const job = jobs.find(j => j.id === id);
+        if (!job) return;
+
+        document.getElementById('formContainer').style.display = 'block';
+        
+        // Populate fields
+        document.getElementById('editId').value = job.id;
+        document.getElementById('editTitle').value = job.title;
+        document.getElementById('editDesc').value = job.desc;
+        document.getElementById('editFlavor').value = job.flavor || "";
+        
+        document.getElementById('reqMoney').value = job.reqMoney;
+        document.getElementById('reqHeatMax').value = job.reqHeatMax;
+        document.getElementById('reqCrew').value = job.reqCrew;
+        
+        document.getElementById('outMoney').value = job.outMoney;
+        document.getElementById('outHeat').value = job.outHeat;
+        document.getElementById('outXp').value = job.outXp;
+        
+        document.getElementById('unlocks').value = job.unlocks || "";
+
+        renderJobList(); // Re-render to highlight active
+    }
+
+    function updateCurrentJob(field, value) {
+        const job = jobs.find(j => j.id === currentJobId);
+        if (!job) return;
+
+        // Handle numbers
+        if (['reqMoney', 'reqHeatMax', 'reqCrew', 'outMoney', 'outHeat', 'outXp'].includes(field)) {
+            value = parseInt(value) || 0;
+        }
+
+        job[field] = value;
+        
+        if (field === 'title' || field === 'id') renderJobList();
+    }
+
+    function updateJsonView() {
+        document.getElementById('jsonOutput').innerText = JSON.stringify(jobs, null, 4);
+    }
+
+    function copyJson() {
+        navigator.clipboard.writeText(JSON.stringify(jobs, null, 4));
+        alert("Copied to clipboard!");
+    }
+
+    // --- SIMULATION LOGIC ---
+    function runSimulation() {
+        const container = document.getElementById('simResults');
+        container.innerHTML = '';
+
+        // Sort jobs by dependency chain (simple version)
+        // Find jobs that are unlocked by others
+        
+        jobs.forEach(job => {
+            if (!job.unlocks) return; // If it doesn't lead anywhere, skip for this demo
+
+            const nextJob = jobs.find(j => j.id === job.unlocks);
+            if (!nextJob) return;
+
+            // Calculation:
+            // How many times do I need to run JOB A to afford the requirements of JOB B?
+            
+            const netMoneyPerRun = job.outMoney - job.reqMoney;
+            const costOfNext = nextJob.reqMoney;
+            
+            let runsNeeded = 0;
+            let status = "";
+            let cssClass = "";
+
+            if (netMoneyPerRun <= 0) {
+                runsNeeded = "Infinite";
+                status = "BROKEN: Job loses money, cannot progress.";
+                cssClass = "color: #f44747";
+            } else {
+                runsNeeded = Math.ceil(costOfNext / netMoneyPerRun);
+                if (runsNeeded < 5) {
+                    status = "Too Fast (Easy)";
+                    cssClass = "color: #4ec9b0";
+                } else if (runsNeeded > 50) {
+                    status = "Grind Fest (Hard)";
+                    cssClass = "color: orange";
+                } else {
+                    status = "Balanced";
+                    cssClass = "color: #d4d4d4";
+                }
+            }
+
+            const html = `
+                <div class="sim-card">
+                    <div style="font-weight:bold; font-size:1.1em; margin-bottom:10px;">
+                        ${job.title} <span style="color:#666">→ leads to →</span> ${nextJob.title}
+                    </div>
+                    <div class="stat-row">
+                        <span>Net Profit per run:</span>
+                        <span>$${netMoneyPerRun}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Cost to unlock next:</span>
+                        <span>$${costOfNext}</span>
+                    </div>
+                    <div class="stat-row" style="border-top:1px solid #444; padding-top:5px; margin-top:5px;">
+                        <span>Runs required:</span>
+                        <span style="font-weight:bold; ${cssClass}">${runsNeeded} runs</span>
+                    </div>
+                    <div style="font-size:0.8em; margin-top:5px; color:#888;">
+                        Verdict: ${status}
+                    </div>
+                </div>
+            `;
+            container.innerHTML += html;
+        });
+
+        if (container.innerHTML === '') {
+            container.innerHTML = '<p style="color:#888">No progression chains found. Link jobs using the "Unlocks Activity" dropdown in the Editor.</p>';
+        }
+    }
+
+    // Start
+    init();
+
+</script>
+</body>
+</html>
