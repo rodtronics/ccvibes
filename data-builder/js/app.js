@@ -52,7 +52,9 @@ async function boot() {
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
       e.preventDefault();
-      if (window._ws?.newActivity) window._ws.newActivity();
+      switchTab('workshop');
+      if (window._ws?.openWizard) window._ws.openWizard();
+      else if (window._ws?.newActivity) window._ws.newActivity();
     }
     // Tab shortcuts: Ctrl+1-4
     if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '4') {

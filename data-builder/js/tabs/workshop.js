@@ -14,6 +14,106 @@ let editorState = createActivity();
 let notes = { problems: '', solutions: '' };
 let lastSavedState = null;
 
+const wizard = {
+  open: false,
+  step: 0,
+  draft: null,
+  lastBranch: null,
+  lastResolutionType: 'ranged_outputs'
+};
+
+const WIZARD_STEPS = [
+  { id: 'template', title: 'Template' },
+  { id: 'identity', title: 'Identity' },
+  { id: 'gates', title: 'Gates' },
+  { id: 'option', title: 'First Option' },
+  { id: 'effects', title: 'Effects' }
+];
+
+const WIZARD_TEMPLATES = {
+  blank: {
+    name: 'Blank',
+    description: 'Start from scratch',
+    preset: {}
+  },
+  basic_crime: {
+    name: 'Basic Crime',
+    description: 'Simple criminal activity with cash reward and heat risk',
+    preset: {
+      tags: 'crime',
+      durationMs: 10000,
+      xp: 5,
+      heatDelta: 5,
+      costs: [],
+      outputs: [{ id: 'cash', min: 10, max: 25 }]
+    }
+  },
+  business: {
+    name: 'Business Operation',
+    description: 'Legitimate business requiring investment with steady returns',
+    preset: {
+      tags: 'business, legitimate',
+      durationMs: 30000,
+      cooldownMs: 60000,
+      xp: 10,
+      heatDelta: 0,
+      costs: [{ id: 'cash', amount: 50 }],
+      outputs: [{ id: 'cash', min: 75, max: 100 }]
+    }
+  },
+  territory: {
+    name: 'Territory Expansion',
+    description: 'High-cost expansion with influence rewards',
+    preset: {
+      tags: 'territory, expansion',
+      durationMs: 60000,
+      xp: 25,
+      heatDelta: 15,
+      costs: [{ id: 'cash', amount: 200 }],
+      outputs: [{ id: 'influence', min: 1, max: 1 }],
+      effects: {
+        revealBranch: [],
+        revealResource: ['influence'],
+        revealActivity: [],
+        unlockActivity: []
+      }
+    }
+  },
+  intel: {
+    name: 'Intel Gathering',
+    description: 'Low-risk reconnaissance with intel rewards',
+    preset: {
+      tags: 'intel, recon',
+      durationMs: 20000,
+      xp: 8,
+      heatDelta: 2,
+      costs: [],
+      outputs: [{ id: 'intel', min: 1, max: 3 }],
+      effects: {
+        revealBranch: [],
+        revealResource: ['intel'],
+        revealActivity: [],
+        unlockActivity: []
+      }
+    }
+  },
+  risky_heist: {
+    name: 'Risky Heist',
+    description: 'High-risk crime with success/failure outcomes (weighted_outcomes)',
+    preset: {
+      tags: 'crime, heist',
+      durationMs: 45000,
+      xp: 20,
+      resolutionType: 'weighted_outcomes',
+      costs: [{ id: 'cash', amount: 25 }],
+      outcomes: [
+        { name: 'Success', weight: 60, outputs: [{ id: 'cash', min: 150, max: 200 }], heatDelta: 10 },
+        { name: 'Failure', weight: 40, outputs: [], heatDelta: 25 }
+      ]
+    }
+  }
+};
+
 // Expose handlers globally for inline onclick (pragmatic approach)
 const W = {};
 window._ws = W;
@@ -106,6 +206,264 @@ W.newActivity = function() {
   store.selectedActivityId = null;
   emit('activity-selected', null);
   render();
+};
+
+W.openWizard = function() {
+  wizard.open = true;
+  wizard.step = 0;
+  wizard.draft = makeWizardDraft();
+  wizard.selectedTemplate = 'blank';
+  render();
+};
+
+W.wizSelectTemplate = function(templateId) {
+  wizard.selectedTemplate = templateId;
+  const template = WIZARD_TEMPLATES[templateId];
+  if (template && template.preset) {
+    wizard.draft = makeWizardDraft(template.preset);
+  }
+};
+
+W.wizClose = function() {
+  wizard.open = false;
+  wizard.draft = null;
+  render();
+};
+
+W.wizNext = function() {
+  if (!wizard.open) return;
+  wizard.step = Math.min(wizard.step + 1, WIZARD_STEPS.length - 1);
+  render();
+};
+
+W.wizBack = function() {
+  if (!wizard.open) return;
+  wizard.step = Math.max(wizard.step - 1, 0);
+  render();
+};
+
+W.wizSet = function(field, value) {
+  if (!wizard.draft) return;
+  wizard.draft[field] = value;
+  render();
+};
+
+W.wizSetGate = function(idx, field, value) {
+  if (!wizard.draft) return;
+  const gate = wizard.draft.gates[idx];
+  if (!gate) return;
+  gate[field] = value;
+  render();
+};
+
+W.wizSetCost = function(idx, field, value) {
+  if (!wizard.draft) return;
+  const cost = wizard.draft.costs[idx];
+  if (!cost) return;
+  cost[field] = value;
+  render();
+};
+
+W.wizSetOutput = function(idx, field, value) {
+  if (!wizard.draft) return;
+  const out = wizard.draft.outputs[idx];
+  if (!out) return;
+  out[field] = value;
+  render();
+};
+
+W.wizSetEffect = function(type, idx, value) {
+  if (!wizard.draft) return;
+  const list = wizard.draft.effects[type];
+  if (!Array.isArray(list) || idx < 0 || idx >= list.length) return;
+  list[idx] = value;
+};
+
+W.wizAddGate = function() {
+  if (!wizard.draft) return;
+  wizard.draft.gates.push({ scope: 'unlockIf', type: 'resourceGte', resourceId: '', value: 0 });
+  render();
+};
+
+W.wizRemoveGate = function(idx) {
+  if (!wizard.draft) return;
+  wizard.draft.gates.splice(idx, 1);
+  render();
+};
+
+W.wizAddCost = function() {
+  if (!wizard.draft) return;
+  wizard.draft.costs.push({ id: '', amount: 0 });
+  render();
+};
+
+W.wizRemoveCost = function(idx) {
+  if (!wizard.draft) return;
+  wizard.draft.costs.splice(idx, 1);
+  render();
+};
+
+W.wizAddOutput = function() {
+  if (!wizard.draft) return;
+  wizard.draft.outputs.push({ id: '', min: 0, max: 0 });
+  render();
+};
+
+W.wizRemoveOutput = function(idx) {
+  if (!wizard.draft) return;
+  wizard.draft.outputs.splice(idx, 1);
+  render();
+};
+
+W.wizAddOutcome = function() {
+  if (!wizard.draft) return;
+  wizard.draft.outcomes.push({ name: 'New Outcome', weight: 10, outputs: [], heatDelta: 0 });
+  render();
+};
+
+W.wizRemoveOutcome = function(idx) {
+  if (!wizard.draft || !wizard.draft.outcomes) return;
+  if (wizard.draft.outcomes.length <= 1) return; // Keep at least one
+  wizard.draft.outcomes.splice(idx, 1);
+  render();
+};
+
+W.wizSetOutcome = function(idx, field, value) {
+  if (!wizard.draft || !wizard.draft.outcomes) return;
+  const outcome = wizard.draft.outcomes[idx];
+  if (!outcome) return;
+  outcome[field] = value;
+  render();
+};
+
+W.wizAddOutcomeOutput = function(outcomeIdx) {
+  if (!wizard.draft || !wizard.draft.outcomes) return;
+  const outcome = wizard.draft.outcomes[outcomeIdx];
+  if (!outcome) return;
+  if (!outcome.outputs) outcome.outputs = [];
+  outcome.outputs.push({ id: '', min: 0, max: 0 });
+  render();
+};
+
+W.wizRemoveOutcomeOutput = function(outcomeIdx, outputIdx) {
+  if (!wizard.draft || !wizard.draft.outcomes) return;
+  const outcome = wizard.draft.outcomes[outcomeIdx];
+  if (!outcome || !outcome.outputs) return;
+  outcome.outputs.splice(outputIdx, 1);
+  render();
+};
+
+W.wizSetOutcomeOutput = function(outcomeIdx, outputIdx, field, value) {
+  if (!wizard.draft || !wizard.draft.outcomes) return;
+  const outcome = wizard.draft.outcomes[outcomeIdx];
+  if (!outcome || !outcome.outputs || !outcome.outputs[outputIdx]) return;
+  outcome.outputs[outputIdx][field] = value;
+  render();
+};
+
+W.wizAddEffect = function(type) {
+  if (!wizard.draft) return;
+  if (type === 'revealBranch') wizard.draft.effects.revealBranch.push('');
+  if (type === 'revealResource') wizard.draft.effects.revealResource.push('');
+  if (type === 'revealActivity') wizard.draft.effects.revealActivity.push('');
+  if (type === 'unlockActivity') wizard.draft.effects.unlockActivity.push('');
+  render();
+};
+
+W.wizRemoveEffect = function(type, idx) {
+  if (!wizard.draft) return;
+  const list = wizard.draft.effects[type];
+  if (!Array.isArray(list)) return;
+  list.splice(idx, 1);
+  render();
+};
+
+W.wizCreate = function() {
+  if (!wizard.draft) return;
+
+  const draft = normalizeWizardDraft(wizard.draft);
+  if (!draft.id) {
+    showToast('Wizard: Activity ID is required.', 'error');
+    return;
+  }
+
+  if (store.activityMap.has(draft.id)) {
+    showToast(`Wizard: Activity already exists: ${draft.id}`, 'error');
+    return;
+  }
+
+  // Remember user preferences for next time
+  wizard.lastBranch = draft.branchId;
+  wizard.lastResolutionType = draft.resolutionType;
+
+  resetOptionUid();
+  editorState = createActivity();
+  editorState.id = draft.id;
+  editorState.name = draft.name || draft.id;
+  editorState.description = draft.description || '';
+  editorState.branchId = draft.branchId || 'street';
+  editorState.icon = draft.icon || '';
+  editorState.tags = draft.tags || '';
+  editorState.visibleIf = [];
+  editorState.unlockIf = [];
+  editorState.reveals = { onReveal: [], onUnlock: [] };
+
+  draft.gates.forEach((g) => {
+    if (!g.resourceId) return;
+    const c = defaultCondition();
+    c.type = 'resourceGte';
+    c.resourceId = g.resourceId;
+    c.value = Number(g.value || 0);
+    if (g.scope === 'visibleIf') editorState.visibleIf.push(c);
+    else editorState.unlockIf.push(c);
+  });
+
+  const opt = createOption();
+  opt.optionId = `${draft.id}_default`;
+  opt.name = draft.optionName || 'default';
+  opt.description = draft.optionDescription || '';
+  opt.durationMs = Number(draft.durationMs || 10000);
+  opt.cooldownMs = Number(draft.cooldownMs || 0);
+  opt.xp = Number(draft.xp || 0);
+
+  opt.inputs.resources = draft.costs
+    .filter((c) => c.id)
+    .map((c) => ({ id: c.id, amount: Number(c.amount || 0) }));
+
+  opt.resolution = createResolution(draft.resolutionType || 'ranged_outputs');
+
+  if (draft.resolutionType === 'weighted_outcomes') {
+    // Build outcomes from draft
+    opt.resolution.outcomes = (draft.outcomesList || []).map((outcomeData) => {
+      const outcome = createOutcome(outcomeData.name, outcomeData.weight);
+      outcome.heatDelta = { min: String(outcomeData.heatDelta), max: String(outcomeData.heatDelta) };
+      outcome.credDelta = { min: '', max: '' };
+      outcome.outputs.resources = (outcomeData.outputs || [])
+        .filter((o) => o.id)
+        .map((o) => ({ id: o.id, min: Number(o.min || 0), max: Number(o.max ?? o.min ?? 0) }));
+      return outcome;
+    });
+  } else {
+    // Simple outputs for ranged_outputs/deterministic
+    opt.resolution.outputs.resources = draft.outputs
+      .filter((o) => o.id)
+      .map((o) => ({ id: o.id, min: Number(o.min || 0), max: Number(o.max ?? o.min ?? 0) }));
+    opt.resolution.heatDelta = { min: String(draft.heatDelta), max: String(draft.heatDelta) };
+    opt.resolution.credDelta = { min: '', max: '' };
+  }
+
+  opt.resolution.effects = draft.effectsList.map(inflateWizardEffect);
+
+  editorState.options = [opt];
+  lastSavedState = null;
+  store.selectedActivityId = null;
+  emit('activity-selected', null);
+
+  wizard.open = false;
+  wizard.draft = null;
+  wizard.selectedTemplate = null;
+  render();
+  showToast(`Wizard: Created draft ${draft.id}. Remember to save.`, 'success');
 };
 
 // ── Field updates ──
@@ -382,9 +740,13 @@ function render() {
         <div class="ws-empty">
           <h3>No activity selected</h3>
           <p>Select an activity from the sidebar, or create a new one.</p>
-          <button onclick="_ws.newActivity()" style="margin-top:16px">+ New Activity</button>
+          <div class="flex" style="justify-content:center;margin-top:16px">
+            <button onclick="_ws.openWizard()">🧙 Activity Wizard</button>
+            <button class="ghost" onclick="_ws.newActivity()">Blank</button>
+          </div>
         </div>
       </div>
+      ${renderWizardModal()}
     `;
     return;
   }
@@ -394,6 +756,8 @@ function render() {
   const optCount = s.options.length;
   const condCount = s.visibleIf.length + s.unlockIf.length;
   const revealCount = s.reveals.onReveal.length + s.reveals.onUnlock.length;
+  const difficulty = computeDifficultyHint(json);
+  const diffChip = renderDifficultyChip(difficulty);
 
   container.innerHTML = `
     <div class="section-nav">
@@ -403,6 +767,7 @@ function render() {
       <button class="section-nav__btn" onclick="document.getElementById('ws-balance').scrollIntoView({behavior:'smooth'})">Balance</button>
       <span style="flex:1"></span>
       <span class="muted" style="font-size:0.8rem">${safe(s.id || 'new')}</span>
+      <button class="ghost small" onclick="_ws.openWizard()">🧙 Wizard</button>
       <button class="small" onclick="_ws.saveActivity()">Save (Ctrl+S)</button>
       <button class="ghost small" onclick="_ws.toggleJson()">JSON</button>
       <button class="ghost small" onclick="_ws.copyJson()">Copy</button>
@@ -419,6 +784,7 @@ function render() {
               <span class="ws-chip">${optCount} option${optCount !== 1 ? 's' : ''}</span>
               ${condCount ? `<span class="ws-chip">${condCount} condition${condCount !== 1 ? 's' : ''}</span>` : ''}
               ${revealCount ? `<span class="ws-chip">${revealCount} reveal${revealCount !== 1 ? 's' : ''}</span>` : ''}
+              ${diffChip}
             </div>
           </div>
           <div class="input-grid two-col">
@@ -507,6 +873,7 @@ function render() {
         <!-- Balance Preview -->
         <div id="ws-balance" class="ws-section">
           <div class="ws-section__title">Balance Preview</div>
+          ${renderDifficultyPreview(difficulty)}
           ${renderBalancePreview()}
         </div>
 
@@ -521,6 +888,7 @@ function render() {
         </div>
       </div>
     </div>
+    ${renderWizardModal()}
   `;
 }
 
@@ -1037,6 +1405,748 @@ function renderBalancePreview() {
 }
 
 // ── Toast ──
+
+function safeNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function avgRange(value, fallback = 0) {
+  if (value && typeof value === 'object') {
+    const min = safeNumber(value.min, fallback);
+    const max = safeNumber(value.max, fallback);
+    return (min + max) / 2;
+  }
+  return safeNumber(value, fallback);
+}
+
+function scoreCondition(cond, weight = 1) {
+  if (!cond || !cond.type) return 0;
+  switch (cond.type) {
+    case 'resourceGte': {
+      const v = safeNumber(cond.value, 0);
+      return weight * (2 + Math.log10(1 + Math.max(0, v)) * 8);
+    }
+    case 'itemGte': {
+      const v = safeNumber(cond.value, 0);
+      return weight * (3 + Math.log10(1 + Math.max(0, v)) * 10);
+    }
+    case 'staffStarsGte': {
+      const v = safeNumber(cond.value, 0);
+      return weight * (4 + Math.max(0, v) * 8);
+    }
+    case 'activityCompletedGte': {
+      const v = safeNumber(cond.value, 0);
+      return weight * (6 + Math.max(0, v) * 6);
+    }
+    case 'roleRevealed':
+    case 'activityRevealed':
+      return weight * 3;
+    case 'flagIs':
+      return weight * 2;
+    default:
+      return weight * 3;
+  }
+}
+
+function scoreToLabel(score) {
+  if (score <= 15) return 'Trivial';
+  if (score <= 30) return 'Easy';
+  if (score <= 50) return 'Moderate';
+  if (score <= 70) return 'Hard';
+  return 'Extreme';
+}
+
+function difficultyClass(score) {
+  if (score <= 30) return 'good';
+  if (score <= 60) return 'warn';
+  return 'bad';
+}
+
+function computeDifficultyHint(activity) {
+  if (!activity) {
+    return {
+      score: 0,
+      label: '—',
+      className: 'good',
+      parts: { gates: 0, costs: 0, time: 0, risk: 0 }
+    };
+  }
+
+  const parts = { gates: 0, costs: 0, time: 0, risk: 0 };
+
+  // Activity-level gates
+  (activity.visibleIf || []).forEach((c) => (parts.gates += scoreCondition(c, 0.8)));
+  (activity.unlockIf || []).forEach((c) => (parts.gates += scoreCondition(c, 1.2)));
+
+  const options = Array.isArray(activity.options) ? activity.options : [];
+  if (!options.length) {
+    return {
+      score: 0,
+      label: '—',
+      className: 'good',
+      parts
+    };
+  }
+
+  let durationSum = 0;
+  let durationCount = 0;
+
+  options.forEach((opt) => {
+    // Option-level gates
+    (opt.visibleIf || []).forEach((c) => (parts.gates += scoreCondition(c, 0.6)));
+    (opt.unlockIf || []).forEach((c) => (parts.gates += scoreCondition(c, 1.0)));
+
+    // Requirements as gates (staff/items/buildings)
+    const req = opt.requirements || {};
+    (req.staff || []).forEach((s) => {
+      const stars = safeNumber(s.starsMin, 0);
+      const count = safeNumber(s.count, 1);
+      if (stars > 0) parts.gates += stars * 7;
+      if (count > 1) parts.gates += (count - 1) * 3;
+    });
+    (req.items || []).forEach((i) => {
+      const count = safeNumber(i.count, 1);
+      parts.gates += 4 + Math.log10(1 + Math.max(0, count)) * 8;
+    });
+    (req.buildings || []).forEach((b) => {
+      const count = safeNumber(b.count, 1);
+      parts.gates += 10 + Math.max(0, count - 1) * 8;
+    });
+
+    // Costs
+    const inRes = opt.inputs?.resources || {};
+    const inItems = opt.inputs?.items || {};
+    const resCost = Object.values(inRes).reduce((sum, v) => sum + safeNumber(v, 0), 0);
+    const itemCost = Object.values(inItems).reduce((sum, v) => sum + safeNumber(v, 0), 0);
+    parts.costs += Math.log10(1 + Math.max(0, resCost)) * 10;
+    parts.costs += Math.log10(1 + Math.max(0, itemCost)) * 12;
+
+    // Time / pacing (duration + cooldown)
+    const dur = safeNumber(opt.durationMs, 0);
+    const cd = safeNumber(opt.cooldownMs, 0);
+    if (dur > 0) {
+      durationSum += dur + cd;
+      durationCount += 1;
+    }
+
+    // Risk (heat/jail mainly)
+    const res = opt.resolution || {};
+    if (res.type === 'weighted_outcomes') {
+      const outcomes = Array.isArray(res.outcomes) ? res.outcomes : [];
+      const totalW = outcomes.reduce((sum, o) => sum + safeNumber(o.weight, 0), 0) || 1;
+      let expectedHeat = 0;
+      let expectedJailMin = 0;
+      outcomes.forEach((o) => {
+        const p = safeNumber(o.weight, 0) / totalW;
+        expectedHeat += p * Math.max(0, avgRange(o.heatDelta, 0));
+        expectedJailMin += p * (safeNumber(o.jail?.durationMs, 0) / 60000);
+      });
+      parts.risk += expectedHeat * 6 + expectedJailMin * 8;
+    } else {
+      parts.risk += Math.max(0, avgRange(res.heatDelta, 0)) * 4;
+    }
+  });
+
+  const avgDurationMs = durationCount ? durationSum / durationCount : 0;
+  parts.time = Math.log10(1 + Math.max(0, avgDurationMs / 10000)) * 18;
+
+  const raw = parts.gates + parts.costs + parts.time + parts.risk;
+  const score = Math.max(0, Math.min(100, Math.round(raw)));
+
+  return {
+    score,
+    label: scoreToLabel(score),
+    className: difficultyClass(score),
+    parts: {
+      gates: Math.round(parts.gates),
+      costs: Math.round(parts.costs),
+      time: Math.round(parts.time),
+      risk: Math.round(parts.risk)
+    }
+  };
+}
+
+function renderDifficultyChip(difficulty) {
+  if (!difficulty) return '';
+  return `<span class="ws-chip ws-chip--difficulty ${safe(difficulty.className)}" title="Heuristic difficulty score">${safe(difficulty.label)} • ${safe(difficulty.score)}</span>`;
+}
+
+function renderDifficultyPreview(difficulty) {
+  if (!difficulty) return '';
+  const p = difficulty.parts || { gates: 0, costs: 0, time: 0, risk: 0 };
+  return `
+    <div class="ws-difficulty">
+      <div class="ws-difficulty__head">
+        <div class="ws-difficulty__title">Difficulty heuristic</div>
+        ${renderDifficultyChip(difficulty)}
+      </div>
+      <div class="ws-difficulty__grid">
+        <div class="ws-difficulty__item"><span class="muted">Gates</span><span>${safe(p.gates)}</span></div>
+        <div class="ws-difficulty__item"><span class="muted">Costs</span><span>${safe(p.costs)}</span></div>
+        <div class="ws-difficulty__item"><span class="muted">Time</span><span>${safe(p.time)}</span></div>
+        <div class="ws-difficulty__item"><span class="muted">Risk</span><span>${safe(p.risk)}</span></div>
+      </div>
+      <div class="hint" style="font-size:0.82rem;margin-top:8px">Heuristic only. Use as a prompt to tune gates/costs/rewards.</div>
+    </div>
+  `;
+}
+
+function makeWizardDraft(preset = {}) {
+  const defaultBranch = wizard.lastBranch || store.branches?.[0]?.id || 'street';
+  const defaultResolution = wizard.lastResolutionType || 'ranged_outputs';
+
+  return {
+    id: preset.id || '',
+    name: preset.name || '',
+    description: preset.description || '',
+    branchId: preset.branchId || defaultBranch,
+    icon: preset.icon || '',
+    tags: preset.tags || '',
+    gates: preset.gates || [],
+    optionName: preset.optionName || 'default',
+    optionDescription: preset.optionDescription || '',
+    durationMs: preset.durationMs ?? 10000,
+    cooldownMs: preset.cooldownMs ?? 0,
+    xp: preset.xp ?? 0,
+    heatDelta: preset.heatDelta ?? 0,
+    resolutionType: preset.resolutionType || defaultResolution,
+    costs: preset.costs || [],
+    outputs: preset.outputs || [],
+    outcomes: preset.outcomes || [
+      { name: 'Success', weight: 70, outputs: [], heatDelta: 5 },
+      { name: 'Failure', weight: 30, outputs: [], heatDelta: 15 }
+    ],
+    effects: preset.effects || {
+      revealBranch: [],
+      revealResource: [],
+      revealActivity: [],
+      unlockActivity: []
+    }
+  };
+}
+
+function normalizeWizardDraft(draft) {
+  const effects = draft?.effects || {};
+  const effectsList = [];
+
+  (effects.revealBranch || []).forEach((branchId) => {
+    const id = String(branchId || '').trim();
+    if (id) effectsList.push({ type: 'revealBranch', branchId: id });
+  });
+  (effects.revealResource || []).forEach((resourceId) => {
+    const id = String(resourceId || '').trim();
+    if (id) effectsList.push({ type: 'revealResource', resourceId: id });
+  });
+  (effects.revealActivity || []).forEach((activityId) => {
+    const id = String(activityId || '').trim();
+    if (id) effectsList.push({ type: 'revealActivity', activityId: id });
+  });
+  (effects.unlockActivity || []).forEach((activityId) => {
+    const id = String(activityId || '').trim();
+    if (id) effectsList.push({ type: 'unlockActivity', activityId: id });
+  });
+
+  const allowedResolution = ['deterministic', 'ranged_outputs', 'weighted_outcomes'].includes(draft?.resolutionType)
+    ? draft.resolutionType
+    : 'ranged_outputs';
+
+  const outcomesList = Array.isArray(draft?.outcomes) ? draft.outcomes.map((outcome) => ({
+    name: String(outcome.name || 'Outcome').trim(),
+    weight: safeNumber(outcome.weight, 10),
+    heatDelta: safeNumber(outcome.heatDelta, 0),
+    outputs: Array.isArray(outcome.outputs) ? outcome.outputs.map((o) => ({
+      id: String(o.id || '').trim(),
+      min: safeNumber(o.min, 0),
+      max: safeNumber(o.max, safeNumber(o.min, 0))
+    })) : []
+  })) : [];
+
+  return {
+    id: String(draft?.id || '').trim(),
+    name: String(draft?.name || '').trim(),
+    description: String(draft?.description || '').trim(),
+    branchId: String(draft?.branchId || 'street').trim() || 'street',
+    icon: String(draft?.icon || '').trim(),
+    tags: String(draft?.tags || '').trim(),
+    gates: Array.isArray(draft?.gates) ? draft.gates.map((g) => ({
+      scope: g.scope === 'visibleIf' ? 'visibleIf' : 'unlockIf',
+      type: 'resourceGte',
+      resourceId: String(g.resourceId || '').trim(),
+      value: safeNumber(g.value, 0)
+    })) : [],
+    optionName: String(draft?.optionName || 'default').trim() || 'default',
+    optionDescription: String(draft?.optionDescription || '').trim(),
+    durationMs: safeNumber(draft?.durationMs, 10000),
+    cooldownMs: safeNumber(draft?.cooldownMs, 0),
+    xp: safeNumber(draft?.xp, 0),
+    heatDelta: safeNumber(draft?.heatDelta, 0),
+    resolutionType: allowedResolution,
+    costs: Array.isArray(draft?.costs) ? draft.costs.map((c) => ({
+      id: String(c.id || '').trim(),
+      amount: safeNumber(c.amount, 0)
+    })) : [],
+    outputs: Array.isArray(draft?.outputs) ? draft.outputs.map((o) => ({
+      id: String(o.id || '').trim(),
+      min: safeNumber(o.min, 0),
+      max: safeNumber(o.max, safeNumber(o.min, 0))
+    })) : [],
+    outcomesList,
+    effectsList
+  };
+}
+
+function inflateWizardEffect(effect) {
+  return { ...defaultEffect(), ...(effect || {}) };
+}
+
+function wizardDraftToActivity(draft) {
+  // Convert normalized draft to activity structure for difficulty calculation
+  const activity = {
+    id: draft.id || 'temp',
+    visibleIf: [],
+    unlockIf: [],
+    options: []
+  };
+
+  draft.gates.forEach((g) => {
+    if (!g.resourceId) return;
+    const c = { type: 'resourceGte', resourceId: g.resourceId, value: g.value };
+    if (g.scope === 'visibleIf') activity.visibleIf.push(c);
+    else activity.unlockIf.push(c);
+  });
+
+  const opt = {
+    durationMs: draft.durationMs,
+    cooldownMs: draft.cooldownMs,
+    xp: draft.xp,
+    requirements: { staff: [], items: [], buildings: [] },
+    inputs: { resources: {} },
+    resolution: {
+      type: draft.resolutionType,
+      heatDelta: { min: draft.heatDelta, max: draft.heatDelta },
+      outputs: { resources: {} },
+      outcomes: []
+    }
+  };
+
+  draft.costs.forEach((c) => {
+    if (c.id) opt.inputs.resources[c.id] = c.amount;
+  });
+
+  if (draft.resolutionType === 'weighted_outcomes') {
+    // Build outcomes for difficulty calculation
+    opt.resolution.outcomes = (draft.outcomesList || []).map((o) => ({
+      weight: o.weight,
+      heatDelta: { min: o.heatDelta, max: o.heatDelta },
+      jail: null,
+      outputs: { resources: {} }
+    }));
+    draft.outcomesList.forEach((outcome, idx) => {
+      outcome.outputs.forEach((o) => {
+        if (o.id) opt.resolution.outcomes[idx].outputs.resources[o.id] = { min: o.min, max: o.max };
+      });
+    });
+  } else {
+    draft.outputs.forEach((o) => {
+      if (o.id) opt.resolution.outputs.resources[o.id] = { min: o.min, max: o.max };
+    });
+  }
+
+  activity.options.push(opt);
+  return activity;
+}
+
+function computeWizardWarnings(draft, difficulty) {
+  const warnings = [];
+
+  const hasOutputs = draft.resolutionType === 'weighted_outcomes'
+    ? (draft.outcomesList || []).some((o) => o.outputs.length > 0)
+    : draft.outputs.length > 0;
+
+  // No costs check
+  if (draft.costs.length === 0 && hasOutputs) {
+    warnings.push('Activity has rewards but no costs (free money?)');
+  }
+
+  // No outputs check
+  if (!hasOutputs && draft.costs.length > 0) {
+    warnings.push('Activity has costs but no outputs (waste of resources?)');
+  }
+
+  // Weighted outcomes specific warnings
+  if (draft.resolutionType === 'weighted_outcomes') {
+    const totalWeight = (draft.outcomesList || []).reduce((sum, o) => sum + (o.weight || 0), 0);
+    if (totalWeight === 0) {
+      warnings.push('Total outcome weight is 0 (outcomes will never trigger)');
+    }
+  }
+
+  // High heat, no gates
+  if (draft.heatDelta > 10 && draft.gates.length === 0) {
+    warnings.push('High heat activity with no unlock gates (too easy?)');
+  }
+
+  // Very high difficulty
+  if (difficulty.score > 70) {
+    warnings.push('Very high difficulty - players may struggle to reach this');
+  }
+
+  // No XP reward
+  if (draft.xp === 0 && draft.outputs.length > 0) {
+    warnings.push('Activity has rewards but grants no XP');
+  }
+
+  // Long duration + long cooldown
+  const totalTime = draft.durationMs + draft.cooldownMs;
+  if (totalTime > 120000) {
+    warnings.push('Very long total time (duration + cooldown > 2min)');
+  }
+
+  return warnings;
+}
+
+function renderWizardModal() {
+  if (!wizard.open || !wizard.draft) return '';
+
+  const step = WIZARD_STEPS[wizard.step] || WIZARD_STEPS[0];
+  const isFirst = wizard.step <= 0;
+  const isLast = wizard.step >= WIZARD_STEPS.length - 1;
+
+  // Compute live difficulty and warnings
+  const draft = normalizeWizardDraft(wizard.draft);
+  const tempActivity = wizardDraftToActivity(draft);
+  const difficulty = computeDifficultyHint(tempActivity);
+  const warnings = computeWizardWarnings(draft, difficulty);
+
+  return `
+    <div class="ws-modal-overlay" onclick="_ws.wizClose()">
+      <div class="ws-modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+        <div class="ws-modal__head">
+          <div>
+            <div class="ws-modal__title">Activity Wizard</div>
+            <div class="ws-modal__subtitle">${safe(step.title)}</div>
+          </div>
+          <button class="ghost small" onclick="_ws.wizClose()">Close</button>
+        </div>
+
+        <div class="ws-modal__steps">
+          ${WIZARD_STEPS.map((s, idx) => `
+            <div class="ws-step ${idx === wizard.step ? 'active' : ''}">
+              <span class="ws-step__dot"></span>
+              <span>${safe(s.title)}</span>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="ws-modal__body">
+          ${renderWizardStep(step.id)}
+        </div>
+
+        <div class="ws-modal__footer">
+          <button class="ghost" ${isFirst ? 'disabled' : ''} onclick="_ws.wizBack()">Back</button>
+          <div style="flex:1;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            ${wizard.step > 0 ? renderDifficultyChip(difficulty) : ''}
+            ${warnings.length > 0 ? `<span class="muted" style="font-size:0.8rem" title="${warnings.join('; ')}">\u26A0 ${warnings.length} warning${warnings.length !== 1 ? 's' : ''}</span>` : ''}
+          </div>
+          ${isLast
+            ? `<button onclick="_ws.wizCreate()">Create Draft</button>`
+            : `<button onclick="_ws.wizNext()">Next</button>`}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderWizardStep(id) {
+  switch (id) {
+    case 'template':
+      return renderWizardTemplate();
+    case 'identity':
+      return renderWizardIdentity(wizard.draft);
+    case 'gates':
+      return renderWizardGates(wizard.draft);
+    case 'option':
+      return renderWizardOption(wizard.draft);
+    case 'effects':
+      return renderWizardEffects(wizard.draft);
+    default:
+      return renderWizardTemplate();
+  }
+}
+
+function renderWizardTemplate() {
+  const selected = wizard.selectedTemplate || 'blank';
+
+  return `
+    <div class="hint" style="margin-bottom:16px">Choose a template to start with. Templates pre-fill common patterns and can be customized in the next steps.</div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+      ${Object.entries(WIZARD_TEMPLATES).map(([id, template]) => `
+        <div
+          class="wizard-template-card ${selected === id ? 'active' : ''}"
+          onclick="_ws.wizSelectTemplate('${id}')"
+          style="cursor:pointer;padding:14px;border:2px solid ${selected === id ? 'var(--accent)' : 'var(--border)'};border-radius:var(--radius-md);background:${selected === id ? 'rgba(125,211,252,0.08)' : 'rgba(255,255,255,0.02)'};transition:all 0.15s"
+        >
+          <div style="font-weight:700;margin-bottom:6px;color:${selected === id ? 'var(--accent)' : 'var(--text)'}">${safe(template.name)}</div>
+          <div class="muted" style="font-size:0.85rem">${safe(template.description)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderWizardIdentity(draft) {
+  return `
+    <div class="input-grid two-col">
+      <div>
+        <label>Activity ID</label>
+        <input type="text" value="${safe(draft.id)}" placeholder="shoplifting" oninput="_ws.wizSet('id', this.value)">
+        <div class="hint" style="font-size:0.8rem;margin-top:6px">Unique key. Use lowercase + underscores.</div>
+      </div>
+      <div>
+        <label>Branch</label>
+        <select onchange="_ws.wizSet('branchId', this.value)">
+          ${store.branches.map(b => `<option value="${safe(b.id)}" ${draft.branchId === b.id ? 'selected' : ''}>${safe(b.name || b.id)}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label>Name</label>
+        <input type="text" value="${safe(draft.name)}" placeholder="shoplifting" oninput="_ws.wizSet('name', this.value)">
+      </div>
+      <div>
+        <label>Icon</label>
+        <input type="text" value="${safe(draft.icon)}" placeholder="(optional)" oninput="_ws.wizSet('icon', this.value)">
+      </div>
+      <div style="grid-column:1 / -1">
+        <label>Description</label>
+        <textarea oninput="_ws.wizSet('description', this.value)">${safe(draft.description)}</textarea>
+      </div>
+      <div style="grid-column:1 / -1">
+        <label>Tags (comma separated)</label>
+        <input type="text" value="${safe(draft.tags)}" placeholder="crime, starter" oninput="_ws.wizSet('tags', this.value)">
+      </div>
+    </div>
+  `;
+}
+
+function renderWizardGates(draft) {
+  const list = Array.isArray(draft.gates) ? draft.gates : [];
+  return `
+    <div class="subheader">
+      <span>Unlock Gates</span>
+      <button class="ghost small" onclick="_ws.wizAddGate()">+ gate</button>
+    </div>
+    ${list.length ? list.map((g, idx) => `
+      <div class="pill">
+        <div class="pill-row" style="justify-content:space-between">
+          <div class="pill-row" style="flex:1">
+            <select style="width:140px" onchange="_ws.wizSetGate(${idx}, 'scope', this.value)">
+              <option value="unlockIf" ${g.scope === 'unlockIf' ? 'selected' : ''}>unlockIf</option>
+              <option value="visibleIf" ${g.scope === 'visibleIf' ? 'selected' : ''}>visibleIf</option>
+            </select>
+            <select onchange="_ws.wizSetGate(${idx}, 'resourceId', this.value)">${renderResourceOptions(g.resourceId)}</select>
+            <input type="number" style="width:120px" value="${safe(g.value)}" placeholder="value" oninput="_ws.wizSetGate(${idx}, 'value', parseInt(this.value,10)||0)">
+          </div>
+          <button class="ghost small" onclick="_ws.wizRemoveGate(${idx})">remove</button>
+        </div>
+      </div>
+    `).join('') : '<div class="hint">No gates. This activity will be available immediately.</div>'}
+
+    <div class="hint" style="margin-top:10px;padding:10px;background:rgba(125,211,252,0.08);border:1px solid rgba(125,211,252,0.2);border-radius:var(--radius-sm)">
+      <strong>Note:</strong> The wizard only supports resource-based gates (resourceGte). After creating the draft, you can add:
+      <ul style="margin:6px 0 0 20px;font-size:0.9em">
+        <li>Staff requirements (staffStarsGte)</li>
+        <li>Activity completion gates (activityCompletedGte)</li>
+        <li>Item requirements (itemGte)</li>
+        <li>Flag checks (flagIs)</li>
+      </ul>
+    </div>
+  `;
+}
+
+function renderWizardOption(draft) {
+  const costs = Array.isArray(draft.costs) ? draft.costs : [];
+  const outputs = Array.isArray(draft.outputs) ? draft.outputs : [];
+  const outcomes = Array.isArray(draft.outcomes) ? draft.outcomes : [];
+  const isWeightedOutcomes = draft.resolutionType === 'weighted_outcomes';
+
+  return `
+    <div class="hint" style="margin-bottom:12px">This wizard creates a single option. Add additional options after creating the draft.</div>
+
+    <div class="input-grid two-col">
+      <div>
+        <label>Option Name</label>
+        <input type="text" value="${safe(draft.optionName)}" oninput="_ws.wizSet('optionName', this.value)">
+      </div>
+      <div>
+        <label>Resolution Type</label>
+        <select onchange="_ws.wizSet('resolutionType', this.value)">
+          <option value="ranged_outputs" ${draft.resolutionType === 'ranged_outputs' ? 'selected' : ''}>ranged_outputs</option>
+          <option value="deterministic" ${draft.resolutionType === 'deterministic' ? 'selected' : ''}>deterministic</option>
+          <option value="weighted_outcomes" ${draft.resolutionType === 'weighted_outcomes' ? 'selected' : ''}>weighted_outcomes</option>
+        </select>
+        <div class="hint" style="font-size:0.78rem;margin-top:4px">${isWeightedOutcomes ? 'Configure success/failure outcomes below' : 'Simple outputs with min/max ranges'}</div>
+      </div>
+      <div style="grid-column:1 / -1">
+        <label>Option Description</label>
+        <textarea oninput="_ws.wizSet('optionDescription', this.value)">${safe(draft.optionDescription)}</textarea>
+      </div>
+
+      <div>
+        <label>Duration (ms)</label>
+        <input type="number" value="${safe(draft.durationMs)}" oninput="_ws.wizSet('durationMs', parseInt(this.value,10)||0)">
+      </div>
+      <div>
+        <label>Cooldown (ms)</label>
+        <input type="number" value="${safe(draft.cooldownMs)}" oninput="_ws.wizSet('cooldownMs', parseInt(this.value,10)||0)">
+      </div>
+      <div>
+        <label>XP on Complete</label>
+        <input type="number" value="${safe(draft.xp)}" oninput="_ws.wizSet('xp', parseInt(this.value,10)||0)">
+      </div>
+      ${isWeightedOutcomes ? '' : `
+      <div>
+        <label>Heat Delta</label>
+        <input type="number" value="${safe(draft.heatDelta)}" oninput="_ws.wizSet('heatDelta', parseInt(this.value,10)||0)">
+      </div>
+      `}
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="subheader">
+        <span>Costs (inputs)</span>
+        <button class="ghost small" onclick="_ws.wizAddCost()">+ cost</button>
+      </div>
+      ${costs.length ? costs.map((c, idx) => `
+        <div class="pill">
+          <div class="pill-row" style="justify-content:space-between">
+            <div class="pill-row" style="flex:1">
+              <select onchange="_ws.wizSetCost(${idx}, 'id', this.value)">${renderResourceOptions(c.id)}</select>
+              <input type="number" style="width:120px" value="${safe(c.amount)}" oninput="_ws.wizSetCost(${idx}, 'amount', parseInt(this.value,10)||0)">
+            </div>
+            <button class="ghost small" onclick="_ws.wizRemoveCost(${idx})">remove</button>
+          </div>
+        </div>
+      `).join('') : '<div class="hint">No resource costs.</div>'}
+    </div>
+
+    ${isWeightedOutcomes ? renderWizardOutcomes(outcomes) : `
+    <div style="margin-top:14px">
+      <div class="subheader">
+        <span>Outputs (rewards)</span>
+        <button class="ghost small" onclick="_ws.wizAddOutput()">+ output</button>
+      </div>
+      ${outputs.length ? outputs.map((o, idx) => `
+        <div class="pill">
+          <div class="pill-row" style="justify-content:space-between">
+            <div class="pill-row" style="flex:1">
+              <select onchange="_ws.wizSetOutput(${idx}, 'id', this.value)">${renderResourceOptions(o.id)}</select>
+              <input type="number" style="width:100px" value="${safe(o.min)}" placeholder="min" oninput="_ws.wizSetOutput(${idx}, 'min', parseInt(this.value,10)||0)">
+              <input type="number" style="width:100px" value="${safe(o.max)}" placeholder="max" oninput="_ws.wizSetOutput(${idx}, 'max', parseInt(this.value,10)||0)">
+            </div>
+            <button class="ghost small" onclick="_ws.wizRemoveOutput(${idx})">remove</button>
+          </div>
+        </div>
+      `).join('') : '<div class="hint">No outputs set yet.</div>'}
+    </div>
+    `}
+  `;
+}
+
+function renderWizardOutcomes(outcomes) {
+  return `
+    <div style="margin-top:14px">
+      <div class="subheader">
+        <span>Outcomes (weighted)</span>
+        <button class="ghost small" onclick="_ws.wizAddOutcome()">+ outcome</button>
+      </div>
+      ${outcomes.map((outcome, outcomeIdx) => `
+        <div class="panel" style="margin-top:10px;padding:12px;background:rgba(255,255,255,0.02)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="flex:1;display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
+              <input type="text" value="${safe(outcome.name)}" placeholder="Outcome name" oninput="_ws.wizSetOutcome(${outcomeIdx}, 'name', this.value)">
+              <input type="number" value="${safe(outcome.weight)}" placeholder="weight" oninput="_ws.wizSetOutcome(${outcomeIdx}, 'weight', parseInt(this.value,10)||0)" style="width:100%">
+              <input type="number" value="${safe(outcome.heatDelta)}" placeholder="heat" oninput="_ws.wizSetOutcome(${outcomeIdx}, 'heatDelta', parseInt(this.value,10)||0)" style="width:100%">
+            </div>
+            <button class="ghost small" onclick="_ws.wizRemoveOutcome(${outcomeIdx})" ${outcomes.length <= 1 ? 'disabled' : ''}>remove</button>
+          </div>
+
+          <div style="margin-top:8px">
+            <div class="subheader" style="font-size:0.8rem;margin-bottom:6px">
+              <span>Outputs</span>
+              <button class="ghost small" onclick="_ws.wizAddOutcomeOutput(${outcomeIdx})">+ output</button>
+            </div>
+            ${(outcome.outputs || []).length ? (outcome.outputs || []).map((o, outputIdx) => `
+              <div class="pill" style="margin-top:4px">
+                <div class="pill-row" style="justify-content:space-between">
+                  <div class="pill-row" style="flex:1">
+                    <select onchange="_ws.wizSetOutcomeOutput(${outcomeIdx}, ${outputIdx}, 'id', this.value)">${renderResourceOptions(o.id)}</select>
+                    <input type="number" style="width:80px" value="${safe(o.min)}" placeholder="min" oninput="_ws.wizSetOutcomeOutput(${outcomeIdx}, ${outputIdx}, 'min', parseInt(this.value,10)||0)">
+                    <input type="number" style="width:80px" value="${safe(o.max)}" placeholder="max" oninput="_ws.wizSetOutcomeOutput(${outcomeIdx}, ${outputIdx}, 'max', parseInt(this.value,10)||0)">
+                  </div>
+                  <button class="ghost small" onclick="_ws.wizRemoveOutcomeOutput(${outcomeIdx}, ${outputIdx})">×</button>
+                </div>
+              </div>
+            `).join('') : '<div class="hint" style="font-size:0.8rem">No outputs for this outcome.</div>'}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderWizardEffects(draft) {
+  const fx = draft.effects || {};
+  const branches = store.branches || [];
+  const activities = store.activities || [];
+
+  const renderIdList = (type, label, items, renderSelect) => `
+    <div style="margin-top:12px">
+      <div class="subheader">
+        <span>${safe(label)}</span>
+        <button class="ghost small" onclick="_ws.wizAddEffect('${type}')">+ add</button>
+      </div>
+      ${(items || []).length ? (items || []).map((id, idx) => `
+        <div class="pill">
+          <div class="pill-row" style="justify-content:space-between">
+            <div style="flex:1">${renderSelect(id, idx)}</div>
+            <button class="ghost small" onclick="_ws.wizRemoveEffect('${type}', ${idx})">remove</button>
+          </div>
+        </div>
+      `).join('') : '<div class="hint">None.</div>'}
+    </div>
+  `;
+
+  return `
+    <div class="hint">These effects apply when the first option completes.</div>
+
+    ${renderIdList('revealBranch', 'Reveal Branch', fx.revealBranch, (id, idx) => `
+      <select onchange="_ws.wizSetEffect('revealBranch', ${idx}, this.value)">
+        <option value="">-- branch --</option>
+        ${branches.map(b => `<option value="${safe(b.id)}" ${b.id === id ? 'selected' : ''}>${safe(b.name || b.id)}</option>`).join('')}
+      </select>
+    `)}
+
+    ${renderIdList('revealResource', 'Reveal Resource', fx.revealResource, (id, idx) => `
+      <select onchange="_ws.wizSetEffect('revealResource', ${idx}, this.value)">${renderResourceOptions(id)}</select>
+    `)}
+
+    ${renderIdList('revealActivity', 'Reveal Activity', fx.revealActivity, (id, idx) => `
+      <select onchange="_ws.wizSetEffect('revealActivity', ${idx}, this.value)">
+        <option value="">-- activity --</option>
+        ${activities.map(a => `<option value="${safe(a.id)}" ${a.id === id ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
+      </select>
+    `)}
+
+    ${renderIdList('unlockActivity', 'Unlock Activity', fx.unlockActivity, (id, idx) => `
+      <select onchange="_ws.wizSetEffect('unlockActivity', ${idx}, this.value)">
+        <option value="">-- activity --</option>
+        ${activities.map(a => `<option value="${safe(a.id)}" ${a.id === id ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
+      </select>
+    `)}
+  `;
+}
 
 function showToast(message, type = 'info') {
   const existing = document.querySelector('.toast');

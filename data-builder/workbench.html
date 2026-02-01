@@ -1,62 +1,70 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CC6 Workbench</title>
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/layout.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/workshop.css">
-</head>
-<body>
-  <div id="app" class="app-shell">
-
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar__status">
-        <span id="serverDot" style="font-size:1.1rem;color:var(--muted)" title="Checking...">●</span>
-        <span id="statusText" class="muted" style="font-size:0.8rem;flex:1">Connecting...</span>
-      </div>
-
-      <div class="sidebar__minimap">
-        <svg id="minimapSvg"></svg>
-      </div>
-
-      <div class="sidebar__nav">
-        <div class="sidebar__search">
-          <input type="text" id="navSearch" placeholder="Search activities...">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CC6 Workbench</title>
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/layout.css" />
+    <link rel="stylesheet" href="css/components.css" />
+    <link rel="stylesheet" href="css/workshop.css" />
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar__status">
+          <span id="serverDot" style="font-size: 1.1rem; color: var(--muted)" title="Checking...">●</span>
+          <span id="statusText" class="muted" style="font-size: 0.8rem; flex: 1">Connecting...</span>
         </div>
-        <div class="sidebar__tree" id="navTree"></div>
-      </div>
 
-      <div class="sidebar__actions">
-        <button class="small" onclick="_ws?.newActivity()" style="flex:1">+ Activity</button>
-        <button class="ghost small" onclick="document.querySelector('[data-tab=economy]')?.click()" style="flex:1">+ Resource</button>
-      </div>
-    </aside>
+        <div class="sidebar__minimap">
+          <svg id="minimapSvg"></svg>
+        </div>
 
-    <!-- Main area -->
-    <div class="main-area">
-      <nav class="tab-bar">
-        <button class="tab-bar__btn active" data-tab="workshop">Workshop</button>
-        <button class="tab-bar__btn" data-tab="map">Map</button>
-        <button class="tab-bar__btn" data-tab="economy">Economy</button>
-        <button class="tab-bar__btn" data-tab="world">World</button>
-        <span style="flex:1"></span>
-        <span class="muted" style="font-size:0.75rem;padding:10px 16px;letter-spacing:0.1em;text-transform:uppercase">CC6 Workbench</span>
-      </nav>
+        <div class="sidebar__nav">
+          <div class="sidebar__search">
+            <input type="text" id="navSearch" placeholder="Search activities..." />
+          </div>
+          <div class="sidebar__tree" id="navTree"></div>
+        </div>
 
-      <div class="tab-panels">
-        <div id="tab-workshop" class="tab-panel active"></div>
-        <div id="tab-map" class="tab-panel" style="padding:0"></div>
-        <div id="tab-economy" class="tab-panel"></div>
-        <div id="tab-world" class="tab-panel"></div>
+        <div class="sidebar__actions">
+          <button
+            class="small"
+            onclick="
+              document.querySelector('[data-tab=workshop]')?.click();
+              typeof window._ws?.openWizard === 'function' ? window._ws.openWizard() : window._ws?.newActivity?.();
+            "
+            style="flex: 1"
+          >
+            + Activity
+          </button>
+          <button class="ghost small" onclick="document.querySelector('[data-tab=economy]')?.click()" style="flex: 1">+ Resource</button>
+        </div>
+      </aside>
+
+      <!-- Main area -->
+      <div class="main-area">
+        <nav class="tab-bar">
+          <button class="tab-bar__btn active" data-tab="workshop">Workshop</button>
+          <button class="tab-bar__btn" data-tab="map">Map</button>
+          <button class="tab-bar__btn" data-tab="economy">Economy</button>
+          <button class="tab-bar__btn" data-tab="world">World</button>
+          <span style="flex: 1"></span>
+          <span class="muted" style="font-size: 0.75rem; padding: 10px 16px; letter-spacing: 0.1em; text-transform: uppercase">CC6 Workbench</span>
+        </nav>
+
+        <div class="tab-panels">
+          <div id="tab-workshop" class="tab-panel active"></div>
+          <div id="tab-map" class="tab-panel" style="padding: 0"></div>
+          <div id="tab-economy" class="tab-panel"></div>
+          <div id="tab-world" class="tab-panel"></div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <script src="hub-storage.js"></script>
-  <script type="module" src="js/app.js"></script>
-</body>
+    <script src="hub-storage.js"></script>
+    <script type="module" src="js/app.js"></script>
+  </body>
 </html>

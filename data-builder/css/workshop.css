@@ -116,3 +116,168 @@
 .ws-json-toggle {
   margin-top: 12px;
 }
+
+/* â”€â”€ Difficulty chip â”€â”€ */
+
+.ws-chip--difficulty.good {
+  border-color: rgba(52, 211, 153, 0.55);
+  background: rgba(52, 211, 153, 0.10);
+  color: var(--success);
+}
+
+.ws-chip--difficulty.warn {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(251, 191, 36, 0.10);
+  color: var(--warning);
+}
+
+.ws-chip--difficulty.bad {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.10);
+  color: var(--danger);
+}
+
+.ws-difficulty {
+  background: #0a0f18;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.ws-difficulty__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ws-difficulty__title {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ws-difficulty__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .ws-difficulty__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.ws-difficulty__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148,163,184,0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.02);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+/* â”€â”€ Wizard modal â”€â”€ */
+
+.ws-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.60);
+  backdrop-filter: blur(6px);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.ws-modal {
+  width: min(920px, 96vw);
+  max-height: 90vh;
+  overflow: auto;
+  background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+}
+
+.ws-modal__head {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.ws-modal__title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.ws-modal__subtitle {
+  margin-top: 2px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.ws-modal__steps {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+
+.ws-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(148,163,184,0.22);
+  color: var(--muted);
+  font-size: 0.82rem;
+  user-select: none;
+}
+
+.ws-step__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(148,163,184,0.45);
+}
+
+.ws-step.active {
+  border-color: rgba(125,211,252,0.45);
+  color: var(--accent);
+  background: rgba(125,211,252,0.08);
+}
+
+.ws-step.active .ws-step__dot { background: var(--accent); }
+
+.ws-modal__body {
+  padding: 16px 18px;
+}
+
+.ws-modal__footer {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ws-modal button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
