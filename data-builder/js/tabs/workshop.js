@@ -222,6 +222,7 @@ W.wizSelectTemplate = function(templateId) {
   if (template && template.preset) {
     wizard.draft = makeWizardDraft(template.preset);
   }
+  render();
 };
 
 W.wizClose = function() {
@@ -734,6 +735,12 @@ function refreshJson() {
 function render() {
   if (!container) return;
 
+  // Save focus state before re-rendering
+  const activeEl = document.activeElement;
+  const activeId = activeEl?.id || activeEl?.getAttribute('data-focus-id');
+  const selectionStart = activeEl?.selectionStart;
+  const selectionEnd = activeEl?.selectionEnd;
+
   if (!editorState.id && !store.selectedActivityId) {
     container.innerHTML = `
       <div class="tab-panel__content">
@@ -890,6 +897,21 @@ function render() {
     </div>
     ${renderWizardModal()}
   `;
+
+  // Restore focus after re-render
+  if (activeId) {
+    const targetEl = document.getElementById(activeId) || document.querySelector(`[data-focus-id="${activeId}"]`);
+    if (targetEl && (targetEl.tagName === 'INPUT' || targetEl.tagName === 'TEXTAREA' || targetEl.tagName === 'SELECT')) {
+      setTimeout(() => {
+        targetEl.focus();
+        if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
+          if (targetEl.setSelectionRange) {
+            targetEl.setSelectionRange(selectionStart, selectionEnd);
+          }
+        }
+      }, 0);
+    }
+  }
 }
 
 // ── Sub-renderers ──
@@ -1881,17 +1903,32 @@ function renderWizardTemplate() {
   return `
     <div class="hint" style="margin-bottom:16px">Choose a template to start with. Templates pre-fill common patterns and can be customized in the next steps.</div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-      ${Object.entries(WIZARD_TEMPLATES).map(([id, template]) => `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+      ${Object.entries(WIZARD_TEMPLATES).map(([id, template]) => {
+        const isSelected = selected === id;
+        return `
         <div
-          class="wizard-template-card ${selected === id ? 'active' : ''}"
+          class="wizard-template-card"
           onclick="_ws.wizSelectTemplate('${id}')"
-          style="cursor:pointer;padding:14px;border:2px solid ${selected === id ? 'var(--accent)' : 'var(--border)'};border-radius:var(--radius-md);background:${selected === id ? 'rgba(125,211,252,0.08)' : 'rgba(255,255,255,0.02)'};transition:all 0.15s"
+          style="
+            cursor:pointer;
+            padding:16px;
+            border:2px solid ${isSelected ? 'var(--accent-bright)' : 'var(--border)'};
+            border-radius:var(--radius-md);
+            background:${isSelected ? 'var(--gradient-primary)' : 'rgba(255,255,255,0.02)'};
+            transition:all var(--transition-base);
+            position:relative;
+            overflow:hidden;
+          "
+          onmouseenter="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow-md)'"
+          onmouseleave="this.style.borderColor='${isSelected ? 'var(--accent-bright)' : 'var(--border)'}';this.style.transform='translateY(0)';this.style.boxShadow='none'"
         >
-          <div style="font-weight:700;margin-bottom:6px;color:${selected === id ? 'var(--accent)' : 'var(--text)'}">${safe(template.name)}</div>
-          <div class="muted" style="font-size:0.85rem">${safe(template.description)}</div>
+          ${isSelected ? '<div style="position:absolute;top:8px;right:8px;color:var(--accent-bright);font-size:1.2rem">✓</div>' : ''}
+          <div style="font-weight:700;margin-bottom:8px;color:${isSelected ? 'var(--accent-bright)' : 'var(--text)'};font-size:1rem">${safe(template.name)}</div>
+          <div class="muted" style="font-size:0.88rem;line-height:1.5">${safe(template.description)}</div>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
     </div>
   `;
 }
@@ -1901,30 +1938,30 @@ function renderWizardIdentity(draft) {
     <div class="input-grid two-col">
       <div>
         <label>Activity ID</label>
-        <input type="text" value="${safe(draft.id)}" placeholder="shoplifting" oninput="_ws.wizSet('id', this.value)">
+        <input type="text" data-focus-id="wiz-id" value="${safe(draft.id)}" placeholder="shoplifting" oninput="_ws.wizSet('id', this.value)">
         <div class="hint" style="font-size:0.8rem;margin-top:6px">Unique key. Use lowercase + underscores.</div>
       </div>
       <div>
         <label>Branch</label>
-        <select onchange="_ws.wizSet('branchId', this.value)">
+        <select data-focus-id="wiz-branch" onchange="_ws.wizSet('branchId', this.value)">
           ${store.branches.map(b => `<option value="${safe(b.id)}" ${draft.branchId === b.id ? 'selected' : ''}>${safe(b.name || b.id)}</option>`).join('')}
         </select>
       </div>
       <div>
         <label>Name</label>
-        <input type="text" value="${safe(draft.name)}" placeholder="shoplifting" oninput="_ws.wizSet('name', this.value)">
+        <input type="text" data-focus-id="wiz-name" value="${safe(draft.name)}" placeholder="shoplifting" oninput="_ws.wizSet('name', this.value)">
       </div>
       <div>
         <label>Icon</label>
-        <input type="text" value="${safe(draft.icon)}" placeholder="(optional)" oninput="_ws.wizSet('icon', this.value)">
+        <input type="text" data-focus-id="wiz-icon" value="${safe(draft.icon)}" placeholder="(optional)" oninput="_ws.wizSet('icon', this.value)">
       </div>
       <div style="grid-column:1 / -1">
         <label>Description</label>
-        <textarea oninput="_ws.wizSet('description', this.value)">${safe(draft.description)}</textarea>
+        <textarea data-focus-id="wiz-desc" oninput="_ws.wizSet('description', this.value)">${safe(draft.description)}</textarea>
       </div>
       <div style="grid-column:1 / -1">
         <label>Tags (comma separated)</label>
-        <input type="text" value="${safe(draft.tags)}" placeholder="crime, starter" oninput="_ws.wizSet('tags', this.value)">
+        <input type="text" data-focus-id="wiz-tags" value="${safe(draft.tags)}" placeholder="crime, starter" oninput="_ws.wizSet('tags', this.value)">
       </div>
     </div>
   `;
@@ -1977,11 +2014,11 @@ function renderWizardOption(draft) {
     <div class="input-grid two-col">
       <div>
         <label>Option Name</label>
-        <input type="text" value="${safe(draft.optionName)}" oninput="_ws.wizSet('optionName', this.value)">
+        <input type="text" data-focus-id="wiz-opt-name" value="${safe(draft.optionName)}" oninput="_ws.wizSet('optionName', this.value)">
       </div>
       <div>
         <label>Resolution Type</label>
-        <select onchange="_ws.wizSet('resolutionType', this.value)">
+        <select data-focus-id="wiz-res-type" onchange="_ws.wizSet('resolutionType', this.value)">
           <option value="ranged_outputs" ${draft.resolutionType === 'ranged_outputs' ? 'selected' : ''}>ranged_outputs</option>
           <option value="deterministic" ${draft.resolutionType === 'deterministic' ? 'selected' : ''}>deterministic</option>
           <option value="weighted_outcomes" ${draft.resolutionType === 'weighted_outcomes' ? 'selected' : ''}>weighted_outcomes</option>
@@ -1990,25 +2027,25 @@ function renderWizardOption(draft) {
       </div>
       <div style="grid-column:1 / -1">
         <label>Option Description</label>
-        <textarea oninput="_ws.wizSet('optionDescription', this.value)">${safe(draft.optionDescription)}</textarea>
+        <textarea data-focus-id="wiz-opt-desc" oninput="_ws.wizSet('optionDescription', this.value)">${safe(draft.optionDescription)}</textarea>
       </div>
 
       <div>
         <label>Duration (ms)</label>
-        <input type="number" value="${safe(draft.durationMs)}" oninput="_ws.wizSet('durationMs', parseInt(this.value,10)||0)">
+        <input type="number" data-focus-id="wiz-duration" value="${safe(draft.durationMs)}" oninput="_ws.wizSet('durationMs', parseInt(this.value,10)||0)">
       </div>
       <div>
         <label>Cooldown (ms)</label>
-        <input type="number" value="${safe(draft.cooldownMs)}" oninput="_ws.wizSet('cooldownMs', parseInt(this.value,10)||0)">
+        <input type="number" data-focus-id="wiz-cooldown" value="${safe(draft.cooldownMs)}" oninput="_ws.wizSet('cooldownMs', parseInt(this.value,10)||0)">
       </div>
       <div>
         <label>XP on Complete</label>
-        <input type="number" value="${safe(draft.xp)}" oninput="_ws.wizSet('xp', parseInt(this.value,10)||0)">
+        <input type="number" data-focus-id="wiz-xp" value="${safe(draft.xp)}" oninput="_ws.wizSet('xp', parseInt(this.value,10)||0)">
       </div>
       ${isWeightedOutcomes ? '' : `
       <div>
         <label>Heat Delta</label>
-        <input type="number" value="${safe(draft.heatDelta)}" oninput="_ws.wizSet('heatDelta', parseInt(this.value,10)||0)">
+        <input type="number" data-focus-id="wiz-heat" value="${safe(draft.heatDelta)}" oninput="_ws.wizSet('heatDelta', parseInt(this.value,10)||0)">
       </div>
       `}
     </div>

@@ -1,86 +1,14 @@
 [
   {
-    "id": "primordial",
-    "name": "PRIMORDIAL",
-    "description": "low stakes, high confidence",
-    "order": 10,
-    "hotkey": "p",
-    "revealedByDefault": true,
-    "ui": {
-      "color": "NEON_CYAN",
-      "gradient": "street"
-    }
-  },
-  {
     "id": "street",
-    "name": "STREET",
-    "description": "description here",
-    "order": 20,
-    "hotkey": "t",
+    "name": "the streets",
+    "description": "Small-time hustles and petty crimes to get started",
+    "order": 10,
+    "hotkey": "s",
     "revealedByDefault": true,
     "ui": {
       "color": "NEON_CYAN",
       "gradient": "street"
-    }
-  },
-  {
-    "id": "drugs",
-    "name": "DRUGS",
-    "description": "description here",
-    "order": 30,
-    "hotkey": "d",
-    "revealedByDefault": false,
-    "ui": {
-      "color": "LAVA_RED",
-      "gradient": "new_branch"
-    }
-  },
-  {
-    "id": "grift",
-    "name": "GRIFT",
-    "description": "fraud and grift",
-    "order": 40,
-    "hotkey": "f",
-    "revealedByDefault": true,
-    "ui": {
-      "color": "ELECTRIC_BLUE",
-      "gradient": "new_branch"
-    }
-  },
-  {
-    "id": "corruption",
-    "name": "CORRUPTION",
-    "description": "description here",
-    "order": 50,
-    "hotkey": "u",
-    "revealedByDefault": false,
-    "ui": {
-      "color": "GOLD",
-      "gradient": "new_branch"
-    }
-  },
-  {
-    "id": "tech",
-    "name": "TECH",
-    "description": "description here",
-    "order": 60,
-    "hotkey": "e",
-    "revealedByDefault": false,
-    "ui": {
-      "color": "HOT_PINK",
-      "gradient": "new_branch"
-    }
-  },
-  {
-    "id": "forbidden",
-    "name": "FORBIDDEN",
-    "description": "description here",
-    "order": 70,
-    "hotkey": "r",
-    "revealedByDefault": false,
-    "ui": {
-      "color": "TERMINAL_GREEN",
-      "gradient": "new_branch"
     }
   }
 ]

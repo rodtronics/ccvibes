@@ -10,7 +10,8 @@
       "Bash(node:*)",
       "Bash(test:*)",
       "Bash(ping:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm run dev:builder:*)"
     ],
     "defaultMode": "bypassPermissions"
   }

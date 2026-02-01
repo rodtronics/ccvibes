@@ -8,7 +8,12 @@ export function init(el) {
   container = el;
   on('data-loaded', render);
   on('save-complete', render);
-  window._world = { selectBranch, updateBranch, addBranch, deleteBranch, saveBranches };
+  window._world = {
+    selectBranch, updateBranch, addBranch, deleteBranch, saveBranches,
+    selectRole, updateRole, addRole, deleteRole, saveRoles,
+    selectPerk, updatePerk, addPerk, deletePerk, savePerks,
+    startFromScratch, confirmClearAll
+  };
 }
 
 export function activate() { render(); }
@@ -17,13 +22,22 @@ export function deactivate() {}
 function render() {
   if (!container) return;
 
+  // Save focus state before re-rendering
+  const activeEl = document.activeElement;
+  const activeId = activeEl?.id || activeEl?.getAttribute('data-focus-id');
+  const selectionStart = activeEl?.selectionStart;
+  const selectionEnd = activeEl?.selectionEnd;
+
   const branches = store.branches.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
   const branchColors = ['NEON_CYAN', 'LAVA_RED', 'ELECTRIC_BLUE', 'GOLD', 'HOT_PINK', 'TERMINAL_GREEN', 'PURPLE', 'ORANGE'];
   const gradients = ['street', 'new_branch'];
+  const totalActivities = store.activities.length;
 
   container.innerHTML = `
     <div class="tab-panel__content">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+      ${renderNewGamePanel()}
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:start;margin-top:24px">
         <div>
           <div class="panel__header">
             <h2>Branches</h2>
@@ -55,13 +69,20 @@ function render() {
         </div>
 
         <div>
-          <h2 style="margin-bottom:12px">Roles</h2>
+          <div class="panel__header">
+            <h2>Roles</h2>
+            <div class="flex">
+              <button class="small" onclick="_world.addRole()">+ Role</button>
+              <button class="small" onclick="_world.saveRoles()">Save</button>
+            </div>
+          </div>
           <div class="list">
             ${store.roles.map(r => {
               const perkCount = Object.keys(store.perks).filter(k => store.perks[k]?.roleId === r.id).length;
               const maxStars = (r.xpToStars || []).length;
+              const isSelected = r.id === store.selectedRoleId;
               return `
-                <div class="item">
+                <div class="item" style="cursor:pointer;${isSelected ? 'border-color:var(--accent)' : ''}" onclick="_world.selectRole('${safe(r.id)}')">
                   <div class="flex" style="justify-content:space-between">
                     <strong>${safe(r.id)}</strong>
                     <span class="muted">${safe(r.name)}</span>
@@ -72,10 +93,53 @@ function render() {
                 </div>`;
             }).join('')}
           </div>
+
+          ${renderRoleEditor()}
+        </div>
+
+        <div>
+          <div class="panel__header">
+            <h2>Perks</h2>
+            <div class="flex">
+              <button class="small" onclick="_world.addPerk()">+ Perk</button>
+              <button class="small" onclick="_world.savePerks()">Save</button>
+            </div>
+          </div>
+          <div class="list" style="max-height:400px;overflow-y:auto">
+            ${Object.values(store.perks || {}).sort((a, b) => {
+              if (a.roleId !== b.roleId) return a.roleId.localeCompare(b.roleId);
+              return (a.tier || 0) - (b.tier || 0);
+            }).map(p => {
+              const isSelected = p.id === store.selectedPerkId;
+              return `
+                <div class="item" style="cursor:pointer;${isSelected ? 'border-color:var(--accent)' : ''}" onclick="_world.selectPerk('${safe(p.id)}')">
+                  <div class="flex" style="justify-content:space-between;margin-bottom:4px">
+                    <strong style="font-size:0.9rem">${safe(p.name)}</strong>
+                    <span class="badge" style="font-size:0.7rem;padding:2px 6px">T${p.tier || 1}</span>
+                  </div>
+                  <div class="muted" style="font-size:0.75rem">${safe(p.roleId)}</div>
+                </div>`;
+            }).join('')}
+          </div>
+
+          ${renderPerkEditor()}
         </div>
       </div>
     </div>
   `;
+
+  // Restore focus after re-render
+  if (activeId) {
+    const targetEl = document.getElementById(activeId) || document.querySelector(`[data-focus-id="${activeId}"]`);
+    if (targetEl && targetEl.tagName === 'INPUT' || targetEl?.tagName === 'TEXTAREA') {
+      setTimeout(() => {
+        targetEl.focus();
+        if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
+          targetEl.setSelectionRange(selectionStart, selectionEnd);
+        }
+      }, 0);
+    }
+  }
 }
 
 function renderBranchEditor(branchColors, gradients) {
@@ -87,14 +151,14 @@ function renderBranchEditor(branchColors, gradients) {
       <h3 style="margin-bottom:12px">Edit: ${safe(b.name || b.id)}</h3>
       <div class="input-grid">
         <div class="input-grid two-col">
-          <div><label>ID</label><input type="text" value="${safe(b.id)}" oninput="_world.updateBranch('id', this.value)"></div>
-          <div><label>Name</label><input type="text" value="${safe(b.name)}" oninput="_world.updateBranch('name', this.value)"></div>
+          <div><label>ID</label><input type="text" data-focus-id="branch-id" value="${safe(b.id)}" oninput="_world.updateBranch('id', this.value)"></div>
+          <div><label>Name</label><input type="text" data-focus-id="branch-name" value="${safe(b.name)}" oninput="_world.updateBranch('name', this.value)"></div>
         </div>
-        <div><label>Description</label><textarea oninput="_world.updateBranch('description', this.value)">${safe(b.description)}</textarea></div>
+        <div><label>Description</label><textarea data-focus-id="branch-desc" oninput="_world.updateBranch('description', this.value)">${safe(b.description)}</textarea></div>
         <div class="input-grid three-col">
-          <div><label>Order</label><input type="number" value="${safe(b.order)}" oninput="_world.updateBranch('order', parseInt(this.value,10)||0)"></div>
-          <div><label>Hotkey</label><input type="text" value="${safe(b.hotkey)}" oninput="_world.updateBranch('hotkey', this.value)" maxlength="1"></div>
-          <div class="flex"><label class="muted" style="margin:0">Revealed?</label><input type="checkbox" ${b.revealedByDefault ? 'checked' : ''} onchange="_world.updateBranch('revealedByDefault', this.checked)"></div>
+          <div><label>Order</label><input type="number" data-focus-id="branch-order" value="${safe(b.order)}" oninput="_world.updateBranch('order', parseInt(this.value,10)||0)"></div>
+          <div><label>Hotkey</label><input type="text" data-focus-id="branch-hotkey" value="${safe(b.hotkey)}" oninput="_world.updateBranch('hotkey', this.value)" maxlength="1"></div>
+          <div class="flex"><label class="muted" style="margin:0">Revealed?</label><input type="checkbox" data-focus-id="branch-revealed" ${b.revealedByDefault ? 'checked' : ''} onchange="_world.updateBranch('revealedByDefault', this.checked)"></div>
         </div>
         <div class="input-grid two-col">
           <div>
@@ -157,16 +221,434 @@ function deleteBranch(id) {
 async function saveBranches() {
   try {
     await saveFile('branches');
-    const el = document.createElement('div');
-    el.className = 'toast success';
-    el.textContent = 'Branches saved';
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
+    showToast('Branches saved', 'success');
   } catch (err) {
-    const el = document.createElement('div');
-    el.className = 'toast error';
-    el.textContent = `Failed: ${err.message}`;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
+    showToast(`Failed: ${err.message}`, 'error');
   }
+}
+
+function renderNewGamePanel() {
+  const totalActivities = store.activities.length;
+  const totalResources = store.resources.length;
+  const totalBranches = store.branches.length;
+
+  return `
+    <div class="panel" style="background:var(--gradient-panel);border:2px solid var(--accent-dim);box-shadow:var(--shadow-glow)">
+      <div class="panel__header">
+        <div>
+          <h2 style="color:var(--accent-bright)">🎮 New Game Setup</h2>
+          <p class="muted" style="margin-top:4px;font-size:0.9rem">Build your game progression from the ground up</p>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding:14px;background:rgba(0,0,0,0.2);border-radius:var(--radius-md);border:1px solid var(--border)">
+        <div class="flex" style="justify-content:space-between;margin-bottom:12px">
+          <span class="muted">Current Content</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div style="text-align:center">
+            <div style="font-size:2rem;font-weight:800;color:var(--accent)">${totalActivities}</div>
+            <div class="muted" style="font-size:0.8rem">Activities</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:2rem;font-weight:800;color:var(--accent-2)">${totalResources}</div>
+            <div class="muted" style="font-size:0.8rem">Resources</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:2rem;font-weight:800;color:var(--success)">${totalBranches}</div>
+            <div class="muted" style="font-size:0.8rem">Branches</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <h3 style="font-size:0.95rem;margin-bottom:10px;color:var(--text-bright)">Start Fresh</h3>
+        <p class="muted" style="font-size:0.9rem;margin-bottom:12px">Clear all current content and set up a minimal starter template with:</p>
+        <ul style="margin:0 0 14px 20px;color:var(--muted);font-size:0.9rem;line-height:1.8">
+          <li>1 starter branch ("street")</li>
+          <li>Core resources (cash, heat, intel)</li>
+          <li>Empty activities file (ready for your first crime)</li>
+        </ul>
+        <button class="danger" onclick="_world.confirmClearAll()" style="width:100%">
+          🗑️ Clear All & Start Fresh
+        </button>
+      </div>
+
+      <div style="margin-top:16px;padding:12px;background:rgba(125,211,252,0.08);border:1px solid rgba(125,211,252,0.25);border-radius:var(--radius-sm)">
+        <div style="font-size:0.85rem;color:var(--accent);font-weight:700;margin-bottom:6px">💡 Recommended Workflow</div>
+        <ol style="margin:0;padding-left:20px;color:var(--muted);font-size:0.85rem;line-height:1.8">
+          <li>Start fresh or keep existing content</li>
+          <li>Use the <strong style="color:var(--text)">Activity Wizard</strong> (🧙 button) to create your first crime</li>
+          <li>Keep it simple: cash reward, low/no gates, instant duration</li>
+          <li>Build outward: each activity unlocks the next</li>
+          <li>Use the <strong style="color:var(--text)">Map tab</strong> to visualize progression</li>
+        </ol>
+      </div>
+    </div>
+  `;
+}
+
+function confirmClearAll() {
+  const confirmed = confirm(
+    'WARNING: This will DELETE all activities, resources, and branches.\n\n' +
+    'This action cannot be undone. A minimal starter template will be created.\n\n' +
+    'Are you absolutely sure?'
+  );
+
+  if (confirmed) {
+    const doubleCheck = confirm(
+      'FINAL WARNING: All your work will be lost!\n\n' +
+      `You have ${store.activities.length} activities, ${store.resources.length} resources, and ${store.branches.length} branches.\n\n` +
+      'Click OK to proceed with deletion.'
+    );
+
+    if (doubleCheck) {
+      startFromScratch();
+    }
+  }
+}
+
+async function startFromScratch() {
+  // Clear everything
+  store.activities = [];
+  store.activityMap.clear();
+
+  // Create minimal starter resources
+  store.resources = [
+    { id: 'cash', name: 'Cash', description: 'Money for buying things and paying costs', category: 'currency', revealedByDefault: true },
+    { id: 'heat', name: 'Heat', description: 'Police attention - get too hot and you\'ll be caught', category: 'risk', revealedByDefault: true },
+    { id: 'intel', name: 'Intel', description: 'Information and knowledge about opportunities', category: 'intel', revealedByDefault: false }
+  ];
+  store.resourceMap.clear();
+  store.resources.forEach(r => store.resourceMap.set(r.id, r));
+
+  // Create single starter branch
+  store.branches = [
+    {
+      id: 'street',
+      name: 'Street Crime',
+      description: 'Small-time hustles and petty crimes to get started',
+      order: 10,
+      hotkey: 's',
+      revealedByDefault: true,
+      ui: { color: 'NEON_CYAN', gradient: 'street' }
+    }
+  ];
+  store.branchMap.clear();
+  store.branches.forEach(b => store.branchMap.set(b.id, b));
+
+  store.selectedActivityId = null;
+  store.selectedResourceId = null;
+  store.selectedBranchId = null;
+
+  // Save all files
+  try {
+    await Promise.all([
+      saveFile('activities'),
+      saveFile('resources'),
+      saveFile('branches')
+    ]);
+
+    showToast('✨ Fresh start created! Use the Activity Wizard to create your first crime.', 'success');
+    emit('data-loaded');
+    render();
+
+    // Switch to workshop and open wizard
+    setTimeout(() => {
+      document.querySelector('[data-tab="workshop"]')?.click();
+      if (window._ws?.openWizard) {
+        setTimeout(() => window._ws.openWizard(), 200);
+      }
+    }, 500);
+  } catch (err) {
+    showToast(`Failed to save: ${err.message}`, 'error');
+  }
+}
+
+function showToast(message, type = 'info') {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = message;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ── Role Management ──
+
+function selectRole(id) {
+  store.selectedRoleId = id;
+  render();
+}
+
+function updateRole(field, value) {
+  const r = store.roles.find(r => r.id === store.selectedRoleId);
+  if (!r) return;
+
+  if (field === 'id') {
+    const oldId = r.id;
+    r.id = value;
+    store.selectedRoleId = value;
+    store.roleMap.delete(oldId);
+    store.roleMap.set(value, r);
+  } else {
+    r[field] = value;
+  }
+  render();
+}
+
+function addRole() {
+  const newId = 'new_role_' + (store.roles.length + 1);
+  const role = {
+    id: newId,
+    name: 'New Role',
+    description: 'Role description',
+    xpToStars: [
+      { stars: 0, minXp: 0 },
+      { stars: 1, minXp: 100 },
+      { stars: 2, minXp: 350 },
+      { stars: 3, minXp: 800 },
+      { stars: 4, minXp: 1500 },
+      { stars: 5, minXp: 2500 }
+    ],
+    perkChoices: [],
+    revealedByDefault: false
+  };
+  store.roles.push(role);
+  store.roleMap.set(newId, role);
+  store.selectedRoleId = newId;
+  render();
+}
+
+function deleteRole(id) {
+  const perkCount = Object.keys(store.perks || {}).filter(k => store.perks[k]?.roleId === id).length;
+  const warning = perkCount > 0
+    ? `Delete role "${id}"?\n\nThis role has ${perkCount} associated perks. They will become orphaned.`
+    : `Delete role "${id}"?`;
+
+  if (!confirm(warning)) return;
+
+  store.roles = store.roles.filter(r => r.id !== id);
+  store.roleMap.delete(id);
+  if (store.selectedRoleId === id) store.selectedRoleId = null;
+  render();
+}
+
+async function saveRoles() {
+  try {
+    await saveFile('roles');
+    showToast('Roles saved', 'success');
+  } catch (err) {
+    showToast('Failed: ' + err.message, 'error');
+  }
+}
+
+function renderRoleEditor() {
+  const r = store.roles.find(r => r.id === store.selectedRoleId);
+  if (!r) return '';
+
+  const maxStars = (r.xpToStars || []).length;
+  const perkCount = Object.keys(store.perks || {}).filter(k => store.perks[k]?.roleId === r.id).length;
+
+  return `
+    <div class="panel" style="margin-top:16px">
+      <h3 style="margin-bottom:12px">Edit: ${safe(r.name || r.id)}</h3>
+      <div class="input-grid">
+        <div class="input-grid two-col">
+          <div><label>ID</label><input type="text" data-focus-id="role-id" value="${safe(r.id)}" oninput="_world.updateRole('id', this.value)"></div>
+          <div><label>Name</label><input type="text" data-focus-id="role-name" value="${safe(r.name)}" oninput="_world.updateRole('name', this.value)"></div>
+        </div>
+        <div><label>Description</label><textarea data-focus-id="role-desc" oninput="_world.updateRole('description', this.value)">${safe(r.description)}</textarea></div>
+        <div class="flex">
+          <label class="muted" style="margin:0">Revealed by default?</label>
+          <input type="checkbox" data-focus-id="role-revealed" ${r.revealedByDefault ? 'checked' : ''} onchange="_world.updateRole('revealedByDefault', this.checked)">
+        </div>
+        <div class="hint" style="font-size:0.85rem;padding:10px;background:rgba(125,211,252,0.08);border:1px solid rgba(125,211,252,0.2);border-radius:var(--radius-sm)">
+          <strong>XP & Perks:</strong> This role has ${maxStars} star tiers and ${perkCount} associated perks. Edit XP thresholds and perk choices directly in roles.json for now.
+        </div>
+      </div>
+      <button class="danger small" style="margin-top:12px" onclick="_world.deleteRole('${safe(r.id)}')">Delete Role</button>
+    </div>
+  `;
+}
+
+// ── Perk Management ──
+
+function selectPerk(id) {
+  store.selectedPerkId = id;
+  render();
+}
+
+function updatePerk(field, value) {
+  const p = store.perks[store.selectedPerkId];
+  if (!p) return;
+
+  if (field === 'id') {
+    const oldId = p.id;
+    p.id = value;
+    delete store.perks[oldId];
+    store.perks[value] = p;
+    store.selectedPerkId = value;
+  } else if (field.startsWith('effects.')) {
+    // Handle nested effects object
+    const effectPath = field.slice(8); // remove "effects."
+    if (!p.effects) p.effects = {};
+
+    if (effectPath.includes('.')) {
+      // e.g., "outcomeWeightAdjust.success"
+      const [effectType, outcomeType] = effectPath.split('.');
+      if (!p.effects[effectType]) p.effects[effectType] = {};
+      p.effects[effectType][outcomeType] = parseFloat(value) || 0;
+    } else {
+      // e.g., "durationMultiplier"
+      p.effects[effectPath] = parseFloat(value) || 0;
+    }
+  } else if (field === 'tier') {
+    p.tier = parseInt(value, 10) || 1;
+  } else {
+    p[field] = value;
+  }
+  render();
+}
+
+function addPerk() {
+  const newId = 'new_perk_' + Date.now();
+  const perk = {
+    id: newId,
+    name: 'New Perk',
+    description: 'Perk description',
+    roleId: store.roles[0]?.id || 'player',
+    tier: 1,
+    effects: { cashMultiplier: 1.1 }
+  };
+  store.perks[newId] = perk;
+  store.selectedPerkId = newId;
+  render();
+}
+
+function deletePerk(id) {
+  if (!confirm(`Delete perk "${id}"?`)) return;
+  delete store.perks[id];
+  if (store.selectedPerkId === id) store.selectedPerkId = null;
+  render();
+}
+
+async function savePerks() {
+  try {
+    await saveFile('perks');
+    showToast('Perks saved', 'success');
+  } catch (err) {
+    showToast('Failed: ' + err.message, 'error');
+  }
+}
+
+function renderPerkEditor() {
+  const p = store.perks[store.selectedPerkId];
+  if (!p) return '';
+
+  // Determine current effect type and values
+  const effects = p.effects || {};
+  let effectType = 'cashMultiplier';
+  let effectValue = 1.1;
+  let outcomeType = '';
+  let outcomeValue = 0;
+
+  if (effects.cashMultiplier) {
+    effectType = 'cashMultiplier';
+    effectValue = effects.cashMultiplier;
+  } else if (effects.credMultiplier) {
+    effectType = 'credMultiplier';
+    effectValue = effects.credMultiplier;
+  } else if (effects.heatMultiplier) {
+    effectType = 'heatMultiplier';
+    effectValue = effects.heatMultiplier;
+  } else if (effects.durationMultiplier) {
+    effectType = 'durationMultiplier';
+    effectValue = effects.durationMultiplier;
+  } else if (effects.jailTimeMultiplier) {
+    effectType = 'jailTimeMultiplier';
+    effectValue = effects.jailTimeMultiplier;
+  } else if (effects.outcomeWeightAdjust) {
+    effectType = 'outcomeWeightAdjust';
+    const outcomes = effects.outcomeWeightAdjust;
+    if (outcomes.success !== undefined) {
+      outcomeType = 'success';
+      outcomeValue = outcomes.success;
+    } else if (outcomes.caught !== undefined) {
+      outcomeType = 'caught';
+      outcomeValue = outcomes.caught;
+    }
+  }
+
+  const roleOptions = store.roles.map(r =>
+    `<option value="${safe(r.id)}" ${p.roleId === r.id ? 'selected' : ''}>${safe(r.name || r.id)}</option>`
+  ).join('');
+
+  return `
+    <div class="panel" style="margin-top:16px">
+      <h3 style="margin-bottom:12px">Edit: ${safe(p.name || p.id)}</h3>
+      <div class="input-grid">
+        <div><label>ID</label><input type="text" data-focus-id="perk-id" value="${safe(p.id)}" oninput="_world.updatePerk('id', this.value)"></div>
+        <div><label>Name</label><input type="text" data-focus-id="perk-name" value="${safe(p.name)}" oninput="_world.updatePerk('name', this.value)"></div>
+        <div><label>Description</label><textarea data-focus-id="perk-desc" oninput="_world.updatePerk('description', this.value)">${safe(p.description)}</textarea></div>
+
+        <div class="input-grid two-col">
+          <div>
+            <label>Role</label>
+            <select data-focus-id="perk-role" onchange="_world.updatePerk('roleId', this.value)">
+              ${roleOptions}
+            </select>
+          </div>
+          <div><label>Tier</label><input type="number" data-focus-id="perk-tier" value="${p.tier || 1}" min="1" max="5" oninput="_world.updatePerk('tier', this.value)"></div>
+        </div>
+
+        <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;background:rgba(0,0,0,0.2)">
+          <label style="margin-bottom:8px;display:block">Effect Type</label>
+          <select data-focus-id="perk-effect-type" onchange="
+            const val = this.value;
+            const p = store.perks[store.selectedPerkId];
+            p.effects = {};
+            if (val === 'outcomeWeightAdjust') {
+              p.effects.outcomeWeightAdjust = { success: 5 };
+            } else {
+              p.effects[val] = val.includes('Multiplier') ? (val === 'durationMultiplier' || val === 'heatMultiplier' ? 0.9 : 1.1) : 5;
+            }
+            _world.selectPerk(store.selectedPerkId);
+          " style="margin-bottom:10px">
+            <option value="cashMultiplier" ${effectType === 'cashMultiplier' ? 'selected' : ''}>Cash Multiplier (+% cash)</option>
+            <option value="credMultiplier" ${effectType === 'credMultiplier' ? 'selected' : ''}>Cred Multiplier (+% cred)</option>
+            <option value="heatMultiplier" ${effectType === 'heatMultiplier' ? 'selected' : ''}>Heat Multiplier (-% heat)</option>
+            <option value="durationMultiplier" ${effectType === 'durationMultiplier' ? 'selected' : ''}>Duration Multiplier (-% time)</option>
+            <option value="jailTimeMultiplier" ${effectType === 'jailTimeMultiplier' ? 'selected' : ''}>Jail Time Multiplier (-% jail)</option>
+            <option value="outcomeWeightAdjust" ${effectType === 'outcomeWeightAdjust' ? 'selected' : ''}>Outcome Weight Adjust</option>
+          </select>
+
+          ${effectType === 'outcomeWeightAdjust' ? `
+            <div style="margin-top:8px">
+              <label style="font-size:0.85rem">Outcome Type</label>
+              <select data-focus-id="perk-outcome-type" onchange="
+                const p = store.perks[store.selectedPerkId];
+                const oldVal = Object.values(p.effects.outcomeWeightAdjust || {})[0] || 5;
+                p.effects.outcomeWeightAdjust = { [this.value]: oldVal };
+                _world.selectPerk(store.selectedPerkId);
+              " style="margin-bottom:6px">
+                <option value="success" ${outcomeType === 'success' ? 'selected' : ''}>Success</option>
+                <option value="caught" ${outcomeType === 'caught' ? 'selected' : ''}>Caught</option>
+              </select>
+              <label style="font-size:0.85rem">Adjustment Value</label>
+              <input type="number" data-focus-id="perk-outcome-val" step="1" value="${outcomeValue}" oninput="_world.updatePerk('effects.outcomeWeightAdjust.${outcomeType}', this.value)">
+            </div>
+          ` : `
+            <div style="margin-top:8px">
+              <label style="font-size:0.85rem">Multiplier Value ${effectType.includes('duration') || effectType.includes('heat') || effectType.includes('jail') ? '(0.9 = -10%, 0.85 = -15%)' : '(1.1 = +10%, 1.15 = +15%)'}</label>
+              <input type="number" data-focus-id="perk-effect-val" step="0.05" value="${effectValue}" oninput="_world.updatePerk('effects.${effectType}', this.value)">
+            </div>
+          `}
+        </div>
+      </div>
+      <button class="danger small" style="margin-top:12px" onclick="_world.deletePerk('${safe(p.id)}')">Delete Perk</button>
+    </div>
+  `;
 }
