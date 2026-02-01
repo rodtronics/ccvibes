@@ -1,5 +1,5 @@
 import { store, on } from './state.js';
-import { checkServer, loadAll, saveAllDirty } from './data-io.js';
+import { checkServer, loadAll } from './data-io.js';
 import { registerTab, switchTab, wireTabBar } from './components/tab-bar.js';
 import { init as initSidebar } from './components/sidebar.js';
 import { init as initMiniMap } from './components/mini-map.js';
@@ -15,8 +15,9 @@ async function boot() {
   registerTab('economy', economy);
   registerTab('world', world);
 
-  // Wire tab buttons
+  // Wire tab buttons + shell actions
   wireTabBar();
+  wireShellActions();
 
   // Initialize sidebar and mini-map
   initSidebar();
@@ -47,7 +48,6 @@ async function boot() {
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
-      // Save based on active tab context
       if (window._ws?.saveActivity) window._ws.saveActivity();
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
@@ -67,10 +67,28 @@ async function boot() {
   on('save-complete', () => updateServerDot(true));
 }
 
+function wireShellActions() {
+  const btnNewActivity = document.getElementById('btnNewActivity');
+  if (btnNewActivity) {
+    btnNewActivity.addEventListener('click', () => {
+      switchTab('workshop');
+      if (window._ws?.openWizard) window._ws.openWizard();
+      else if (window._ws?.newActivity) window._ws.newActivity();
+    });
+  }
+
+  const btnNewResource = document.getElementById('btnNewResource');
+  if (btnNewResource) {
+    btnNewResource.addEventListener('click', () => {
+      switchTab('economy');
+    });
+  }
+}
+
 function updateServerDot(online) {
   const dot = document.getElementById('serverDot');
   if (!dot) return;
-  dot.textContent = online ? '●' : '●';
+  dot.textContent = '\u25CF';
   dot.style.color = online ? '#34d399' : '#f87171';
   dot.title = online ? 'Server online' : 'Server offline';
 }

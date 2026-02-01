@@ -1,1 +1,124 @@
-[]
+[
+  {
+    "id": "bedtime",
+    "branchId": "primordial",
+    "name": "bedtime shenanigans",
+    "description": "your misty eyes are opening to the glory of breaking the rules",
+    "meta": {
+      "tags": [
+        "crime"
+      ],
+      "icon": ""
+    },
+    "visibleIf": [],
+    "unlockIf": [],
+    "reveals": {
+      "onReveal": [],
+      "onUnlock": []
+    },
+    "options": [
+      {
+        "id": "bedtime_default",
+        "name": "staying up",
+        "description": "staying up past your bedtime.. the perfect crime",
+        "visibleIf": [],
+        "unlockIf": [],
+        "requirements": {
+          "staff": [
+            {
+              "roleId": "player",
+              "count": 1,
+              "starsMin": 0,
+              "required": true
+            }
+          ],
+          "items": [],
+          "buildings": []
+        },
+        "inputs": {
+          "resources": {},
+          "items": {}
+        },
+        "durationMs": 7000,
+        "xpRewards": {
+          "onComplete": 5
+        },
+        "resolution": {
+          "type": "deterministic",
+          "outputs": {
+            "resources": {
+              "kids_cred": 10
+            },
+            "items": {}
+          },
+          "heatDelta": 0,
+          "effects": []
+        },
+        "modifiers": [],
+        "cooldownMs": 0
+      },
+      {
+        "id": "reading_under_covers",
+        "name": "reading under covers",
+        "description": "",
+        "visibleIf": [
+          {
+            "type": "resourceGte",
+            "resourceId": "kids_cred",
+            "value": 30
+          }
+        ],
+        "unlockIf": [],
+        "requirements": {
+          "staff": [
+            {
+              "roleId": "player",
+              "count": 1,
+              "starsMin": 0,
+              "required": true
+            }
+          ],
+          "items": [],
+          "buildings": []
+        },
+        "inputs": {
+          "resources": {},
+          "items": {
+            "torch": 1
+          }
+        },
+        "durationMs": 10000,
+        "xpRewards": {
+          "onComplete": 5
+        },
+        "resolution": {
+          "type": "weighted_outcomes",
+          "outcomes": [
+            {
+              "id": "success",
+              "weight": 70,
+              "outputs": {
+                "resources": {},
+                "items": {}
+              },
+              "heatDelta": 0,
+              "effects": []
+            },
+            {
+              "id": "caught",
+              "weight": 30,
+              "outputs": {
+                "resources": {},
+                "items": {}
+              },
+              "heatDelta": 0,
+              "effects": []
+            }
+          ]
+        },
+        "modifiers": [],
+        "cooldownMs": 0
+      }
+    ]
+  }
+]

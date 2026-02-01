@@ -44,6 +44,16 @@ body {
   backdrop-filter: blur(8px);
 }
 
+.sidebar__server-dot {
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.sidebar__status-text {
+  font-size: 0.8rem;
+  flex: 1;
+}
+
 .sidebar__minimap {
   height: 180px;
   border-bottom: 1px solid var(--border);
@@ -142,6 +152,10 @@ body {
 
 /* ── Main area ── */
 
+.sidebar__actions > button {
+  flex: 1;
+}
+
 .main-area {
   flex: 1;
   display: flex;
@@ -186,6 +200,17 @@ body {
   cursor: pointer;
   transition: all var(--transition-base);
   position: relative;
+}
+
+.tab-bar__spacer {
+  flex: 1;
+}
+
+.tab-bar__title {
+  font-size: 0.75rem;
+  padding: 10px 16px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .tab-bar__btn::before {

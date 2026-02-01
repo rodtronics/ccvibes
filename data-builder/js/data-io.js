@@ -5,8 +5,8 @@ const FILES = [
   { key: 'resources', file: 'resources.json', isArray: true },
   { key: 'branches', file: 'branches.json', isArray: true },
   { key: 'roles', file: 'roles.json', isArray: true },
-  { key: 'perks', file: 'perks.json', isArray: false },
-  { key: 'items', file: 'items.json', isArray: true }
+  { key: 'perks', file: 'perks.json', isArray: false }
+  // items.json merged into resources.json
 ];
 
 export async function checkServer() {

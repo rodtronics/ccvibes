@@ -6,7 +6,7 @@ export const store = {
   branches: [],
   roles: [],
   perks: {},
-  items: [],
+  // items merged into resources
 
   // Lookup maps (rebuilt on load/mutation)
   resourceMap: new Map(),

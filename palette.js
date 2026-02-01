@@ -7,6 +7,7 @@ export const Palette = {
   INTRO_A: "#fdd475",
   INTRO_B: "#ff5e9f",
   LOGO: "#ff89a5",
+  TITLE: "#ff89a5",
 
   //   // Background colors
   BLACK: "#000000",
@@ -42,6 +43,11 @@ export const Palette = {
   LAVA_RED: "#ff3300",
   ELECTRIC_BLUE: "#0066ff",
   GOLD: "#ffd700",
+  PURPLE: "#a78bfa",
+  ORANGE: "#fb923c",
+  EMERALD: "#34d399",
+  AMBER: "#fbbf24",
+  ROSE: "#f472b6",
 
   // Text colors
   WHITE: "#ffffff",

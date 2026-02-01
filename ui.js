@@ -74,7 +74,7 @@ export class UI {
     const y = 0;
 
     // Title (leftmost position)
-    this.buffer.writeText(x, y, "CRIME COMMITTER VI", Palette.NEON_CYAN, Palette.BLACK);
+    this.buffer.writeText(x, y, "CRIME COMMITTER VI", Palette.TITLE, Palette.BLACK);
 
     // Resources
     const cash = this.fmtNum(this.engine.state.resources.cash);
@@ -173,38 +173,75 @@ export class UI {
       const rightX = 41;
       const rightWidth = 38; // x=41 to x=78
 
-      // LEFT HALF: Activity list
-      const listTitle = branch ? branch.name.toUpperCase() + " JOBS" : "JOBS";
-      this.buffer.writeText(2, listTop, listTitle, Palette.NEON_CYAN, Palette.BLACK);
+      if (branchFocused) {
+        // BRANCH SELECTION MODE: Show branch info instead of activity list
+        if (branch) {
+          const branchColor = branch.ui?.color ? Palette[branch.ui.color] : Palette.NEON_CYAN;
 
-      // Show numbered list of activities (dimmed when branch tabs are focused)
-      activities.slice(0, 9).forEach((a, i) => {
-        const row = listTop + 2 + i;
-        const number = i + 1;
-        const selected = this.ui.activityIndex === i && !branchFocused;
-        const fg = branchFocused ? Palette.DIM_GRAY : (selected ? Palette.NEON_CYAN : Palette.NEON_TEAL);
-        const prefix = selected ? ">" : " ";
+          // Branch title
+          this.buffer.writeText(2, listTop, branch.name.toUpperCase(), branchColor, Palette.BLACK);
 
-        this.buffer.writeText(2, row, `${prefix}${number}.`, fg, Palette.BLACK);
-        const nameMax = leftWidth - 6; // Space for prefix + number
-        const truncatedName = a.name.substring(0, nameMax);
-        this.buffer.writeText(6, row, truncatedName, fg, Palette.BLACK);
-      });
+          // Branch description
+          const descLines = this.wrapText(branch.description || "", leftWidth - 2);
+          descLines.slice(0, 4).forEach((line, idx) => {
+            this.buffer.writeText(2, listTop + 2 + idx, line, Palette.LIGHT_GRAY, Palette.BLACK);
+          });
 
-      // Show description of selected activity (left half only)
-      if (activity) {
-        const descY = listTop + 13;
-        this.buffer.drawHLine(2, descY, leftWidth, "─", Palette.DIM_GRAY, Palette.BLACK);
-        this.buffer.writeText(2, descY + 1, activity.name.toUpperCase(), Palette.NEON_CYAN, Palette.BLACK);
+          // Branch stats separator
+          const statsY = listTop + 8;
+          this.buffer.drawHLine(2, statsY, leftWidth, "─", Palette.DIM_GRAY, Palette.BLACK);
+          this.buffer.writeText(2, statsY + 1, "BRANCH STATISTICS", Palette.NEON_TEAL, Palette.BLACK);
 
-        const descLines = this.wrapText(activity.description || "", leftWidth - 2);
-        descLines.slice(0, 3).forEach((line, idx) => {
-          this.buffer.writeText(2, descY + 2 + idx, line, Palette.MID_GRAY, Palette.BLACK);
+          // Calculate stats for this branch
+          const branchStats = this.getBranchStats(branch.id);
+
+          this.buffer.writeText(2, statsY + 3, `Jobs completed:`, Palette.MID_GRAY, Palette.BLACK);
+          this.buffer.writeText(20, statsY + 3, `${branchStats.completed}`, Palette.SUCCESS_GREEN, Palette.BLACK);
+
+          this.buffer.writeText(2, statsY + 4, `Jobs in progress:`, Palette.MID_GRAY, Palette.BLACK);
+          this.buffer.writeText(20, statsY + 4, `${branchStats.active}`, Palette.BRIGHT_YELLOW, Palette.BLACK);
+
+          this.buffer.writeText(2, statsY + 5, `Total earned:`, Palette.MID_GRAY, Palette.BLACK);
+          this.buffer.writeText(20, statsY + 5, `$${this.fmtNum(branchStats.earned)}`, Palette.SUCCESS_GREEN, Palette.BLACK);
+
+          if (branchStats.failed > 0) {
+            this.buffer.writeText(2, statsY + 6, `Jobs failed:`, Palette.MID_GRAY, Palette.BLACK);
+            this.buffer.writeText(20, statsY + 6, `${branchStats.failed}`, Palette.HEAT_RED, Palette.BLACK);
+          }
+
+          // Help text
+          this.buffer.writeText(2, Layout.HEIGHT - 2, "[←/→] Switch branch  [↓] Jobs", Palette.SUCCESS_GREEN, Palette.BLACK);
+        }
+      } else {
+        // ACTIVITY SELECTION MODE: Show activity list
+        const listTitle = branch ? branch.name.toUpperCase() + " JOBS" : "JOBS";
+        this.buffer.writeText(2, listTop, listTitle, Palette.NEON_CYAN, Palette.BLACK);
+
+        // Show numbered list of activities
+        activities.slice(0, 9).forEach((a, i) => {
+          const row = listTop + 2 + i;
+          const number = i + 1;
+          const selected = this.ui.activityIndex === i;
+          const fg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
+          const prefix = selected ? ">" : " ";
+
+          this.buffer.writeText(2, row, `${prefix}${number}.`, fg, Palette.BLACK);
+          const nameMax = leftWidth - 6; // Space for prefix + number
+          const truncatedName = a.name.substring(0, nameMax);
+          this.buffer.writeText(6, row, truncatedName, fg, Palette.BLACK);
         });
 
-        if (branchFocused) {
-          this.buffer.writeText(2, Layout.HEIGHT - 2, "[←/→] Switch branch  [↓] Jobs", Palette.SUCCESS_GREEN, Palette.BLACK);
-        } else {
+        // Show description of selected activity (left half only)
+        if (activity) {
+          const descY = listTop + 13;
+          this.buffer.drawHLine(2, descY, leftWidth, "─", Palette.DIM_GRAY, Palette.BLACK);
+          this.buffer.writeText(2, descY + 1, activity.name.toUpperCase(), Palette.NEON_CYAN, Palette.BLACK);
+
+          const descLines = this.wrapText(activity.description || "", leftWidth - 2);
+          descLines.slice(0, 3).forEach((line, idx) => {
+            this.buffer.writeText(2, descY + 2 + idx, line, Palette.MID_GRAY, Palette.BLACK);
+          });
+
           this.buffer.writeText(2, Layout.HEIGHT - 2, "[ENTER] Options  [→] Runs", Palette.SUCCESS_GREEN, Palette.BLACK);
         }
       }
@@ -1565,6 +1602,32 @@ export class UI {
     if (!activity) return [];
     if (this.engine.state.debugMode) return activity.options || [];
     return (activity.options || []).filter((opt) => this.engine.checkConditions(opt.visibleIf || [])).filter((opt) => this.engine.isOptionUnlocked(opt));
+  }
+
+  getBranchStats(branchId) {
+    const branchActivities = this.engine.data.activities.filter(a => a.branchId === branchId);
+    const branchActivityIds = new Set(branchActivities.map(a => a.id));
+
+    // Count active runs
+    const activeRuns = this.engine.state.runs.filter(r => branchActivityIds.has(r.activityId));
+
+    // Get historical data from run log
+    const completedRuns = this.engine.state.runLog?.filter(r => branchActivityIds.has(r.activityId)) || [];
+    const successfulRuns = completedRuns.filter(r => r.success);
+    const failedRuns = completedRuns.filter(r => !r.success);
+
+    // Calculate total earnings from successful runs
+    const totalEarned = successfulRuns.reduce((sum, r) => {
+      const cashGained = r.output?.resources?.cash || 0;
+      return sum + cashGained;
+    }, 0);
+
+    return {
+      active: activeRuns.length,
+      completed: successfulRuns.length,
+      failed: failedRuns.length,
+      earned: totalEarned
+    };
   }
 
   describeRequirements(req) {

@@ -29,3 +29,9 @@ LARGE / FUTURE
   right
 
 in the box where outcomes are presented, it has [OBJECTION] before and after
+
+early on I had an idea to employ gradients across some titles, I don't want this anymore
+
+also the idea for hotkeys for the branches is also dead idea
+
+a way so what when the player progresses past primordial, primordial branch disappears and any resources that are specific to primordial disappear too

@@ -213,7 +213,7 @@ W.openWizard = function() {
   wizard.step = 0;
   wizard.draft = makeWizardDraft();
   wizard.selectedTemplate = 'blank';
-  render();
+  renderWizard();
 };
 
 W.wizSelectTemplate = function(templateId) {
@@ -222,31 +222,31 @@ W.wizSelectTemplate = function(templateId) {
   if (template && template.preset) {
     wizard.draft = makeWizardDraft(template.preset);
   }
-  render();
+  renderWizard();
 };
 
 W.wizClose = function() {
   wizard.open = false;
   wizard.draft = null;
-  render();
+  renderWizard();
 };
 
 W.wizNext = function() {
   if (!wizard.open) return;
   wizard.step = Math.min(wizard.step + 1, WIZARD_STEPS.length - 1);
-  render();
+  renderWizard();
 };
 
 W.wizBack = function() {
   if (!wizard.open) return;
   wizard.step = Math.max(wizard.step - 1, 0);
-  render();
+  renderWizard();
 };
 
 W.wizSet = function(field, value) {
   if (!wizard.draft) return;
   wizard.draft[field] = value;
-  render();
+  renderWizard();
 };
 
 W.wizSetGate = function(idx, field, value) {
@@ -254,7 +254,7 @@ W.wizSetGate = function(idx, field, value) {
   const gate = wizard.draft.gates[idx];
   if (!gate) return;
   gate[field] = value;
-  render();
+  renderWizard();
 };
 
 W.wizSetCost = function(idx, field, value) {
@@ -262,7 +262,7 @@ W.wizSetCost = function(idx, field, value) {
   const cost = wizard.draft.costs[idx];
   if (!cost) return;
   cost[field] = value;
-  render();
+  renderWizard();
 };
 
 W.wizSetOutput = function(idx, field, value) {
@@ -270,7 +270,7 @@ W.wizSetOutput = function(idx, field, value) {
   const out = wizard.draft.outputs[idx];
   if (!out) return;
   out[field] = value;
-  render();
+  renderWizard();
 };
 
 W.wizSetEffect = function(type, idx, value) {
@@ -283,50 +283,50 @@ W.wizSetEffect = function(type, idx, value) {
 W.wizAddGate = function() {
   if (!wizard.draft) return;
   wizard.draft.gates.push({ scope: 'unlockIf', type: 'resourceGte', resourceId: '', value: 0 });
-  render();
+  renderWizard();
 };
 
 W.wizRemoveGate = function(idx) {
   if (!wizard.draft) return;
   wizard.draft.gates.splice(idx, 1);
-  render();
+  renderWizard();
 };
 
 W.wizAddCost = function() {
   if (!wizard.draft) return;
   wizard.draft.costs.push({ id: '', amount: 0 });
-  render();
+  renderWizard();
 };
 
 W.wizRemoveCost = function(idx) {
   if (!wizard.draft) return;
   wizard.draft.costs.splice(idx, 1);
-  render();
+  renderWizard();
 };
 
 W.wizAddOutput = function() {
   if (!wizard.draft) return;
   wizard.draft.outputs.push({ id: '', min: 0, max: 0 });
-  render();
+  renderWizard();
 };
 
 W.wizRemoveOutput = function(idx) {
   if (!wizard.draft) return;
   wizard.draft.outputs.splice(idx, 1);
-  render();
+  renderWizard();
 };
 
 W.wizAddOutcome = function() {
   if (!wizard.draft) return;
   wizard.draft.outcomes.push({ name: 'New Outcome', weight: 10, outputs: [], heatDelta: 0 });
-  render();
+  renderWizard();
 };
 
 W.wizRemoveOutcome = function(idx) {
   if (!wizard.draft || !wizard.draft.outcomes) return;
   if (wizard.draft.outcomes.length <= 1) return; // Keep at least one
   wizard.draft.outcomes.splice(idx, 1);
-  render();
+  renderWizard();
 };
 
 W.wizSetOutcome = function(idx, field, value) {
@@ -334,7 +334,7 @@ W.wizSetOutcome = function(idx, field, value) {
   const outcome = wizard.draft.outcomes[idx];
   if (!outcome) return;
   outcome[field] = value;
-  render();
+  renderWizard();
 };
 
 W.wizAddOutcomeOutput = function(outcomeIdx) {
@@ -343,7 +343,7 @@ W.wizAddOutcomeOutput = function(outcomeIdx) {
   if (!outcome) return;
   if (!outcome.outputs) outcome.outputs = [];
   outcome.outputs.push({ id: '', min: 0, max: 0 });
-  render();
+  renderWizard();
 };
 
 W.wizRemoveOutcomeOutput = function(outcomeIdx, outputIdx) {
@@ -351,7 +351,7 @@ W.wizRemoveOutcomeOutput = function(outcomeIdx, outputIdx) {
   const outcome = wizard.draft.outcomes[outcomeIdx];
   if (!outcome || !outcome.outputs) return;
   outcome.outputs.splice(outputIdx, 1);
-  render();
+  renderWizard();
 };
 
 W.wizSetOutcomeOutput = function(outcomeIdx, outputIdx, field, value) {
@@ -359,7 +359,7 @@ W.wizSetOutcomeOutput = function(outcomeIdx, outputIdx, field, value) {
   const outcome = wizard.draft.outcomes[outcomeIdx];
   if (!outcome || !outcome.outputs || !outcome.outputs[outputIdx]) return;
   outcome.outputs[outputIdx][field] = value;
-  render();
+  renderWizard();
 };
 
 W.wizAddEffect = function(type) {
@@ -368,7 +368,7 @@ W.wizAddEffect = function(type) {
   if (type === 'revealResource') wizard.draft.effects.revealResource.push('');
   if (type === 'revealActivity') wizard.draft.effects.revealActivity.push('');
   if (type === 'unlockActivity') wizard.draft.effects.unlockActivity.push('');
-  render();
+  renderWizard();
 };
 
 W.wizRemoveEffect = function(type, idx) {
@@ -376,7 +376,7 @@ W.wizRemoveEffect = function(type, idx) {
   const list = wizard.draft.effects[type];
   if (!Array.isArray(list)) return;
   list.splice(idx, 1);
-  render();
+  renderWizard();
 };
 
 W.wizCreate = function() {
@@ -463,7 +463,7 @@ W.wizCreate = function() {
   wizard.open = false;
   wizard.draft = null;
   wizard.selectedTemplate = null;
-  render();
+  renderWizard();
   showToast(`Wizard: Created draft ${draft.id}. Remember to save.`, 'success');
 };
 
@@ -897,6 +897,56 @@ function render() {
     </div>
     ${renderWizardModal()}
   `;
+
+  // Restore focus after re-render
+  if (activeId) {
+    const targetEl = document.getElementById(activeId) || document.querySelector(`[data-focus-id="${activeId}"]`);
+    if (targetEl && (targetEl.tagName === 'INPUT' || targetEl.tagName === 'TEXTAREA' || targetEl.tagName === 'SELECT')) {
+      setTimeout(() => {
+        targetEl.focus();
+        if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
+          if (targetEl.setSelectionRange) {
+            targetEl.setSelectionRange(selectionStart, selectionEnd);
+          }
+        }
+      }, 0);
+    }
+  }
+}
+
+// Separate wizard renderer that only updates the wizard modal
+function renderWizard() {
+  if (!container) return;
+
+  const overlay = container.querySelector('.ws-modal-overlay');
+  if (!overlay && (!wizard.open || !wizard.draft)) return;
+
+  // Save focus state before re-rendering wizard
+  const activeEl = document.activeElement;
+  const activeId = activeEl?.id || activeEl?.getAttribute('data-focus-id');
+  const selectionStart = activeEl?.selectionStart;
+  const selectionEnd = activeEl?.selectionEnd;
+
+  if (!wizard.open || !wizard.draft) {
+    // Close wizard - remove overlay
+    if (overlay) overlay.remove();
+    return;
+  }
+
+  const wizardHtml = renderWizardModal();
+
+  if (overlay) {
+    // Replace existing wizard content
+    const temp = document.createElement('div');
+    temp.innerHTML = wizardHtml;
+    const newOverlay = temp.firstElementChild;
+    if (newOverlay) {
+      overlay.replaceWith(newOverlay);
+    }
+  } else {
+    // Insert new wizard modal
+    container.insertAdjacentHTML('beforeend', wizardHtml);
+  }
 
   // Restore focus after re-render
   if (activeId) {
@@ -1842,8 +1892,8 @@ function renderWizardModal() {
   const warnings = computeWizardWarnings(draft, difficulty);
 
   return `
-    <div class="ws-modal-overlay" onclick="_ws.wizClose()">
-      <div class="ws-modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+    <div class="ws-modal-overlay">
+      <div class="ws-modal" role="dialog" aria-modal="true">
         <div class="ws-modal__head">
           <div>
             <div class="ws-modal__title">Activity Wizard</div>
@@ -2007,6 +2057,7 @@ function renderWizardOption(draft) {
   const outputs = Array.isArray(draft.outputs) ? draft.outputs : [];
   const outcomes = Array.isArray(draft.outcomes) ? draft.outcomes : [];
   const isWeightedOutcomes = draft.resolutionType === 'weighted_outcomes';
+  const isDeterministic = draft.resolutionType === 'deterministic';
 
   return `
     <div class="hint" style="margin-bottom:12px">This wizard creates a single option. Add additional options after creating the draft.</div>
@@ -2019,11 +2070,15 @@ function renderWizardOption(draft) {
       <div>
         <label>Resolution Type</label>
         <select data-focus-id="wiz-res-type" onchange="_ws.wizSet('resolutionType', this.value)">
-          <option value="ranged_outputs" ${draft.resolutionType === 'ranged_outputs' ? 'selected' : ''}>ranged_outputs</option>
-          <option value="deterministic" ${draft.resolutionType === 'deterministic' ? 'selected' : ''}>deterministic</option>
-          <option value="weighted_outcomes" ${draft.resolutionType === 'weighted_outcomes' ? 'selected' : ''}>weighted_outcomes</option>
+          <option value="deterministic" ${draft.resolutionType === 'deterministic' ? 'selected' : ''}>deterministic (exact amounts)</option>
+          <option value="ranged_outputs" ${draft.resolutionType === 'ranged_outputs' ? 'selected' : ''}>ranged_outputs (min/max)</option>
+          <option value="weighted_outcomes" ${draft.resolutionType === 'weighted_outcomes' ? 'selected' : ''}>weighted_outcomes (success/fail)</option>
         </select>
-        <div class="hint" style="font-size:0.78rem;margin-top:4px">${isWeightedOutcomes ? 'Configure success/failure outcomes below' : 'Simple outputs with min/max ranges'}</div>
+        <div class="hint" style="font-size:0.78rem;margin-top:4px">${
+          isWeightedOutcomes ? 'Configure success/failure outcomes below' :
+          isDeterministic ? 'Always gives exact amounts' :
+          'Random amounts between min and max'
+        }</div>
       </div>
       <div style="grid-column:1 / -1">
         <label>Option Description</label>
@@ -2079,8 +2134,12 @@ function renderWizardOption(draft) {
           <div class="pill-row" style="justify-content:space-between">
             <div class="pill-row" style="flex:1">
               <select onchange="_ws.wizSetOutput(${idx}, 'id', this.value)">${renderResourceOptions(o.id)}</select>
-              <input type="number" style="width:100px" value="${safe(o.min)}" placeholder="min" oninput="_ws.wizSetOutput(${idx}, 'min', parseInt(this.value,10)||0)">
-              <input type="number" style="width:100px" value="${safe(o.max)}" placeholder="max" oninput="_ws.wizSetOutput(${idx}, 'max', parseInt(this.value,10)||0)">
+              ${isDeterministic ? `
+                <input type="number" style="width:120px" value="${safe(o.min || o.max || 0)}" placeholder="amount" oninput="_ws.wizSetOutput(${idx}, 'min', parseInt(this.value,10)||0); _ws.wizSetOutput(${idx}, 'max', parseInt(this.value,10)||0)">
+              ` : `
+                <input type="number" style="width:100px" value="${safe(o.min)}" placeholder="min" oninput="_ws.wizSetOutput(${idx}, 'min', parseInt(this.value,10)||0)">
+                <input type="number" style="width:100px" value="${safe(o.max)}" placeholder="max" oninput="_ws.wizSetOutput(${idx}, 'max', parseInt(this.value,10)||0)">
+              `}
             </div>
             <button class="ghost small" onclick="_ws.wizRemoveOutput(${idx})">remove</button>
           </div>

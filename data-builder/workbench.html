@@ -14,50 +14,42 @@
       <!-- Sidebar -->
       <aside class="sidebar">
         <div class="sidebar__status">
-          <span id="serverDot" style="font-size: 1.1rem; color: var(--muted)" title="Checking...">●</span>
-          <span id="statusText" class="muted" style="font-size: 0.8rem; flex: 1">Connecting...</span>
+          <span id="serverDot" class="sidebar__server-dot" title="Checking..." aria-hidden="true">&#9679;</span>
+          <span id="statusText" class="sidebar__status-text muted" role="status" aria-live="polite">Connecting...</span>
         </div>
 
         <div class="sidebar__minimap">
-          <svg id="minimapSvg"></svg>
+          <svg id="minimapSvg" role="img" aria-label="Activity minimap"></svg>
         </div>
 
         <div class="sidebar__nav">
           <div class="sidebar__search">
+            <label class="sr-only" for="navSearch">Search activities</label>
             <input type="text" id="navSearch" placeholder="Search activities..." />
           </div>
           <div class="sidebar__tree" id="navTree"></div>
         </div>
 
         <div class="sidebar__actions">
-          <button
-            class="small"
-            onclick="
-              document.querySelector('[data-tab=workshop]')?.click();
-              typeof window._ws?.openWizard === 'function' ? window._ws.openWizard() : window._ws?.newActivity?.();
-            "
-            style="flex: 1"
-          >
-            + Activity
-          </button>
-          <button class="ghost small" onclick="document.querySelector('[data-tab=economy]')?.click()" style="flex: 1">+ Resource</button>
+          <button id="btnNewActivity" type="button" class="small">+ Activity</button>
+          <button id="btnNewResource" type="button" class="ghost small">+ Resource</button>
         </div>
       </aside>
 
       <!-- Main area -->
       <div class="main-area">
         <nav class="tab-bar">
-          <button class="tab-bar__btn active" data-tab="workshop">Workshop</button>
-          <button class="tab-bar__btn" data-tab="map">Map</button>
-          <button class="tab-bar__btn" data-tab="economy">Economy</button>
-          <button class="tab-bar__btn" data-tab="world">World</button>
-          <span style="flex: 1"></span>
-          <span class="muted" style="font-size: 0.75rem; padding: 10px 16px; letter-spacing: 0.1em; text-transform: uppercase">CC6 Workbench</span>
+          <button type="button" class="tab-bar__btn active" data-tab="workshop">Workshop</button>
+          <button type="button" class="tab-bar__btn" data-tab="map">Map</button>
+          <button type="button" class="tab-bar__btn" data-tab="economy">Economy</button>
+          <button type="button" class="tab-bar__btn" data-tab="world">World</button>
+          <span class="tab-bar__spacer"></span>
+          <span class="tab-bar__title muted">CC6 Workbench</span>
         </nav>
 
         <div class="tab-panels">
           <div id="tab-workshop" class="tab-panel active"></div>
-          <div id="tab-map" class="tab-panel" style="padding: 0"></div>
+          <div id="tab-map" class="tab-panel"></div>
           <div id="tab-economy" class="tab-panel"></div>
           <div id="tab-world" class="tab-panel"></div>
         </div>

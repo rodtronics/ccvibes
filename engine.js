@@ -11,7 +11,6 @@ export class Engine {
         heat: 0,
         notoriety: 0
       },
-      items: {},
       flags: {},
       reveals: {
         branches: {},
@@ -38,7 +37,7 @@ export class Engine {
     this.data = {
       activities: [],
       branches: [],
-      items: [],
+      // items merged into resources
       lexicon: {},
       resources: [],
       roles: [],
@@ -59,7 +58,7 @@ export class Engine {
     const files = [
       ["activities.json", "activities"],
       ["branches.json", "branches"],
-      ["items.json", "items"],
+      // items.json merged into resources.json
       ["lexicon.json", "lexicon"],
       ["resources.json", "resources"],
       ["roles.json", "roles"],
@@ -166,7 +165,6 @@ export class Engine {
         heat: 0,
         notoriety: 0
       },
-      items: {},
       flags: {},
       reveals: {
         branches: {},
@@ -200,7 +198,6 @@ export class Engine {
       const toSave = {
         version: this.state.version,
         resources: this.state.resources,
-        items: this.state.items,
         flags: this.state.flags,
         reveals: this.state.reveals,
         crew: this.state.crew,
@@ -644,7 +641,8 @@ export class Engine {
     }
     if (outputs.items) {
       Object.entries(outputs.items).forEach(([id, amount]) => {
-        this.state.items[id] = (this.state.items[id] || 0) + amount;
+        this.state.resources[id] = (this.state.resources[id] || 0) + amount;
+        this.state.reveals.resources[id] = true;
       });
     }
   }
@@ -661,7 +659,8 @@ export class Engine {
     if (outputs.items) {
       Object.entries(outputs.items).forEach(([id, range]) => {
         const amount = this.randomBetween(range.min, range.max);
-        this.state.items[id] = (this.state.items[id] || 0) + amount;
+        this.state.resources[id] = (this.state.resources[id] || 0) + amount;
+        this.state.reveals.resources[id] = true;
       });
     }
   }
@@ -777,7 +776,7 @@ export class Engine {
     }
     if (inputs.items) {
       for (const [id, amount] of Object.entries(inputs.items)) {
-        if ((this.state.items[id] || 0) < amount) return { ok: false, reason: `Need ${amount} ${id}` };
+        if ((this.state.resources[id] || 0) < amount) return { ok: false, reason: `Need ${amount} ${id}` };
       }
     }
     return { ok: true };
@@ -792,8 +791,8 @@ export class Engine {
     }
     if (inputs.items) {
       Object.entries(inputs.items).forEach(([id, amount]) => {
-        this.state.items[id] = (this.state.items[id] || 0) - amount;
-        if (this.state.items[id] <= 0) delete this.state.items[id];
+        this.state.resources[id] = (this.state.resources[id] || 0) - amount;
+        if (this.state.resources[id] <= 0) delete this.state.resources[id];
       });
     }
   }
@@ -819,7 +818,7 @@ export class Engine {
   evalCondition(cond) {
     if (cond.type === "flagIs") return this.state.flags[cond.key] === cond.value;
     if (cond.type === "resourceGte") return (this.state.resources[cond.resourceId] || 0) >= cond.value;
-    if (cond.type === "itemGte") return (this.state.items[cond.itemId] || 0) >= cond.value;
+    if (cond.type === "itemGte") return (this.state.resources[cond.itemId] || 0) >= cond.value;
     if (cond.type === "roleRevealed") return !!this.state.reveals.roles[cond.roleId];
     if (cond.type === "activityRevealed") return !!this.state.reveals.activities[cond.activityId];
     if (cond.type === "allOf") return cond.conds.every((c) => this.evalCondition(c));

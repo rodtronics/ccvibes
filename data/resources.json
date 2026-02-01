@@ -19,5 +19,31 @@
     "description": "Information and knowledge about opportunities",
     "category": "intel",
     "revealedByDefault": false
+  },
+  {
+    "id": "kids_cred",
+    "name": "kids cred",
+    "description": "you're basically a crime lord, but only during morning tea",
+    "category": "reputation",
+    "revealedByDefault": false,
+    "branchId": "primordial"
+  },
+  {
+    "id": "lockpick",
+    "name": "Lockpick",
+    "description": "technically it is a hobby tool.",
+    "category": "equipment",
+    "revealedByDefault": false,
+    "discrete": true,
+    "persistent": false
+  },
+  {
+    "id": "fakeID",
+    "name": "Fake ID",
+    "description": "looks real enough.",
+    "category": "equipment",
+    "revealedByDefault": false,
+    "discrete": true,
+    "persistent": false
   }
 ]

@@ -151,7 +151,7 @@ function renderBranchEditor(branchColors, gradients) {
       <h3 style="margin-bottom:12px">Edit: ${safe(b.name || b.id)}</h3>
       <div class="input-grid">
         <div class="input-grid two-col">
-          <div><label>ID</label><input type="text" data-focus-id="branch-id" value="${safe(b.id)}" oninput="_world.updateBranch('id', this.value)"></div>
+          <div><label>ID</label><input type="text" data-focus-id="branch-id" value="${safe(b.id)}" onchange="_world.updateBranch('id', this.value)"></div>
           <div><label>Name</label><input type="text" data-focus-id="branch-name" value="${safe(b.name)}" oninput="_world.updateBranch('name', this.value)"></div>
         </div>
         <div><label>Description</label><textarea data-focus-id="branch-desc" oninput="_world.updateBranch('description', this.value)">${safe(b.description)}</textarea></div>
@@ -192,13 +192,14 @@ function updateBranch(field, value) {
     store.selectedBranchId = value;
     store.branchMap.delete(oldId);
     store.branchMap.set(value, b);
+    render();
+    return;
   } else if (field.startsWith('ui.')) {
     if (!b.ui) b.ui = {};
     b.ui[field.slice(3)] = value;
   } else {
     b[field] = value;
   }
-  render();
 }
 
 function addBranch() {
@@ -393,10 +394,11 @@ function updateRole(field, value) {
     store.selectedRoleId = value;
     store.roleMap.delete(oldId);
     store.roleMap.set(value, r);
-  } else {
-    r[field] = value;
+    render();
+    return;
   }
-  render();
+
+  r[field] = value;
 }
 
 function addRole() {
@@ -457,7 +459,7 @@ function renderRoleEditor() {
       <h3 style="margin-bottom:12px">Edit: ${safe(r.name || r.id)}</h3>
       <div class="input-grid">
         <div class="input-grid two-col">
-          <div><label>ID</label><input type="text" data-focus-id="role-id" value="${safe(r.id)}" oninput="_world.updateRole('id', this.value)"></div>
+          <div><label>ID</label><input type="text" data-focus-id="role-id" value="${safe(r.id)}" onchange="_world.updateRole('id', this.value)"></div>
           <div><label>Name</label><input type="text" data-focus-id="role-name" value="${safe(r.name)}" oninput="_world.updateRole('name', this.value)"></div>
         </div>
         <div><label>Description</label><textarea data-focus-id="role-desc" oninput="_world.updateRole('description', this.value)">${safe(r.description)}</textarea></div>
@@ -491,6 +493,8 @@ function updatePerk(field, value) {
     delete store.perks[oldId];
     store.perks[value] = p;
     store.selectedPerkId = value;
+    render();
+    return;
   } else if (field.startsWith('effects.')) {
     // Handle nested effects object
     const effectPath = field.slice(8); // remove "effects."
@@ -510,7 +514,6 @@ function updatePerk(field, value) {
   } else {
     p[field] = value;
   }
-  render();
 }
 
 function addPerk() {
@@ -590,7 +593,7 @@ function renderPerkEditor() {
     <div class="panel" style="margin-top:16px">
       <h3 style="margin-bottom:12px">Edit: ${safe(p.name || p.id)}</h3>
       <div class="input-grid">
-        <div><label>ID</label><input type="text" data-focus-id="perk-id" value="${safe(p.id)}" oninput="_world.updatePerk('id', this.value)"></div>
+        <div><label>ID</label><input type="text" data-focus-id="perk-id" value="${safe(p.id)}" onchange="_world.updatePerk('id', this.value)"></div>
         <div><label>Name</label><input type="text" data-focus-id="perk-name" value="${safe(p.name)}" oninput="_world.updatePerk('name', this.value)"></div>
         <div><label>Description</label><textarea data-focus-id="perk-desc" oninput="_world.updatePerk('description', this.value)">${safe(p.description)}</textarea></div>
 
