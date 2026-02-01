@@ -1601,6 +1601,8 @@ export class UI {
   getVisibleOptions(activity) {
     if (!activity) return [];
     if (this.engine.state.debugMode) return activity.options || [];
+    // If activity is locked, show no options (visible but not playable)
+    if (!this.engine.isActivityUnlocked(activity)) return [];
     return (activity.options || []).filter((opt) => this.engine.checkConditions(opt.visibleIf || [])).filter((opt) => this.engine.isOptionUnlocked(opt));
   }
 
@@ -1894,24 +1896,33 @@ export class UI {
     const modal = this.ui.modal;
     if (!modal || !modal.active) return;
 
-    const { content, borderStyle, borderColor, backgroundColor } = modal;
-
-    // Parse content into formatted lines
-    const contentWidth = Layout.WIDTH - 4; // Leave 2 chars padding on each side
-    const parsedLines = parseModalContent(content, contentWidth, backgroundColor);
-
-    // Calculate content area dimensions
-    const contentHeight = Layout.HEIGHT - 2; // Top border (1) + bottom border (1)
-    const scrollOffset = modal.scroll || 0;
+    const { title, content, borderStyle, borderColor, backgroundColor, titleColor, bodyColor } = modal;
 
     // Fill entire screen with solid background first
-    this.buffer.fill(" ", Palette.LIGHT_GRAY, backgroundColor);
+    this.buffer.fill(" ", bodyColor || Palette.LIGHT_GRAY, backgroundColor);
 
     // Draw fullscreen box with border
     this.buffer.drawBox(0, 0, Layout.WIDTH, Layout.HEIGHT, borderStyle, borderColor, backgroundColor);
 
-    // Draw content area (scrollable) - starts at row 1
-    const contentStartY = 1;
+    let contentStartY = 1;
+
+    // Render title if present
+    if (title && title.trim() !== '') {
+      const titleText = title.trim();
+      const titleX = Math.floor((Layout.WIDTH - titleText.length) / 2); // Center title
+      this.buffer.writeText(titleX, contentStartY, titleText, titleColor || Palette.NEON_CYAN, backgroundColor);
+      contentStartY += 2; // Skip a line after title
+    }
+
+    // Parse content into formatted lines with body color as default
+    const contentWidth = Layout.WIDTH - 4; // Leave 2 chars padding on each side
+    const parsedLines = parseModalContent(content, contentWidth, backgroundColor, bodyColor || Palette.LIGHT_GRAY);
+
+    // Calculate content area dimensions
+    const contentHeight = Layout.HEIGHT - contentStartY - 1; // Remaining space after title and bottom border
+    const scrollOffset = modal.scroll || 0;
+
+    // Draw content area (scrollable)
     const visibleLines = parsedLines.slice(scrollOffset, scrollOffset + contentHeight);
 
     visibleLines.forEach((line, idx) => {

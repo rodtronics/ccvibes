@@ -69,6 +69,39 @@
   gap: 12px;
 }
 
+/* Option card collapse/expand */
+.option-card {
+  transition: all var(--transition-base);
+}
+
+.option-card .option-head {
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+
+.option-card .option-head:hover {
+  background: rgba(125,211,252,0.04);
+}
+
+.option-card.collapsed .option-head {
+  border-bottom: none;
+}
+
+.option-details {
+  animation: option-expand var(--transition-base);
+}
+
+@keyframes option-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .ws-balance {
   background: #0a0f18;
   border: 1px solid var(--border);

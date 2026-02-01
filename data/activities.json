@@ -96,23 +96,132 @@
           "outcomes": [
             {
               "id": "success",
-              "weight": 70,
+              "weight": 25,
+              "outputs": {
+                "resources": {},
+                "items": {
+                  "can_read": 1
+                }
+              },
+              "heatDelta": 0,
+              "effects": [
+                {
+                  "type": "revealActivity",
+                  "activityId": ""
+                }
+              ]
+            },
+            {
+              "id": "caught",
+              "weight": 75,
               "outputs": {
                 "resources": {},
                 "items": {}
               },
               "heatDelta": 0,
+              "effects": [],
+              "jail": {
+                "durationMs": 10000
+              }
+            }
+          ]
+        },
+        "modifiers": [],
+        "cooldownMs": 0
+      }
+    ]
+  },
+  {
+    "id": "kids_home_raid",
+    "branchId": "primordial",
+    "name": "raiding the house",
+    "description": "there are so many places in this house to raid.. who know what treasures we will find",
+    "meta": {
+      "tags": [],
+      "icon": ""
+    },
+    "visibleIf": [
+      {
+        "type": "resourceGte",
+        "resourceId": "kids_cred",
+        "value": 20
+      }
+    ],
+    "unlockIf": [
+      {
+        "type": "resourceGte",
+        "resourceId": "kids_cred",
+        "value": 30
+      }
+    ],
+    "reveals": {
+      "onReveal": [],
+      "onUnlock": []
+    },
+    "options": [
+      {
+        "id": "kids_home_raid_default",
+        "name": "raid the drawers",
+        "description": "",
+        "visibleIf": [],
+        "unlockIf": [],
+        "requirements": {
+          "staff": [
+            {
+              "roleId": "player",
+              "count": 1,
+              "starsMin": 0,
+              "required": true
+            }
+          ],
+          "items": [],
+          "buildings": []
+        },
+        "inputs": {
+          "resources": {},
+          "items": {}
+        },
+        "durationMs": 10000,
+        "xpRewards": {
+          "onComplete": 0
+        },
+        "resolution": {
+          "type": "weighted_outcomes",
+          "outcomes": [
+            {
+              "id": "success",
+              "weight": 30,
+              "outputs": {
+                "resources": {
+                  "kids_cred": {
+                    "min": 5,
+                    "max": 10
+                  }
+                },
+                "items": {
+                  "torch": 1
+                }
+              },
+              "heatDelta": 5,
               "effects": []
             },
             {
               "id": "caught",
-              "weight": 30,
+              "weight": 70,
               "outputs": {
-                "resources": {},
+                "resources": {
+                  "kids_cred": {
+                    "min": 0,
+                    "max": 5
+                  }
+                },
                 "items": {}
               },
-              "heatDelta": 0,
-              "effects": []
+              "heatDelta": 15,
+              "effects": [],
+              "jail": {
+                "durationMs": 15000
+              }
             }
           ]
         },

@@ -3,9 +3,9 @@
     "id": "street",
     "name": "the streets",
     "description": "Small-time hustles and petty crimes to get started",
-    "order": 2,
+    "order": 20,
     "hotkey": "s",
-    "revealedByDefault": true,
+    "revealedByDefault": false,
     "ui": {
       "color": "NEON_CYAN",
       "gradient": "street"
@@ -15,7 +15,7 @@
     "id": "primordial",
     "name": "primordial",
     "description": "the soup from whence you came",
-    "order": 20,
+    "order": 1,
     "hotkey": "",
     "revealedByDefault": true,
     "ui": {

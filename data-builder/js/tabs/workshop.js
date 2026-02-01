@@ -13,6 +13,7 @@ let container = null;
 let editorState = createActivity();
 let notes = { problems: '', solutions: '' };
 let lastSavedState = null;
+let collapsedOptions = new Set(); // Track which options are collapsed by uid
 
 const wizard = {
   open: false,
@@ -492,6 +493,16 @@ W.addOption = function() {
 W.removeOption = function(uid) {
   if (editorState.options.length === 1) return;
   editorState.options = editorState.options.filter(o => o.uid !== uid);
+  collapsedOptions.delete(uid);
+  render();
+};
+
+W.toggleOptionCollapse = function(uid) {
+  if (collapsedOptions.has(uid)) {
+    collapsedOptions.delete(uid);
+  } else {
+    collapsedOptions.add(uid);
+  }
   render();
 };
 
@@ -1054,12 +1065,17 @@ function renderEffectList(list, scope) {
 }
 
 function renderEffectOptions(current) {
-  const types = ['revealBranch', 'revealActivity', 'revealResource', 'revealRole', 'revealTab', 'unlockActivity', 'setFlag', 'incFlagCounter', 'logMessage'];
+  const types = ['showModal', 'revealBranch', 'revealActivity', 'revealResource', 'revealRole', 'revealTab', 'unlockActivity', 'setFlag', 'incFlagCounter', 'logMessage'];
   return types.map(t => `<option value="${t}" ${current === t ? 'selected' : ''}>${t}</option>`).join('');
 }
 
 function renderEffectFields(fx, scope, idx) {
   switch (fx.type) {
+    case 'showModal':
+      return `<select onchange="_ws.updateEffect('${scope}', ${idx}, 'modalId', this.value)">
+        <option value="">-- modal --</option>
+        ${store.modals.map(m => `<option value="${safe(m.id)}" ${m.id === fx.modalId ? 'selected' : ''}>${safe(m.title || m.id)}</option>`).join('')}
+      </select>`;
     case 'revealBranch':
       return `<select onchange="_ws.updateEffect('${scope}', ${idx}, 'branchId', this.value)">
         <option value="">-- branch --</option>
@@ -1098,19 +1114,36 @@ function renderEffectFields(fx, scope, idx) {
 
 function renderOptionCard(option, idx) {
   const uid = option.uid;
+  const isCollapsed = collapsedOptions.has(uid);
+
+  // Build summary info
+  const hasStaff = option.requirements.staff.length > 0;
+  const hasCosts = Object.keys(option.inputs.resources).length > 0 || Object.keys(option.inputs.items).length > 0;
+  const resType = option.resolution.type;
+  const summary = [];
+  if (option.name) summary.push(option.name);
+  if (hasStaff) summary.push(`${option.requirements.staff.length} staff`);
+  if (hasCosts) summary.push('has costs');
+  if (resType === 'weighted_outcomes') summary.push('weighted');
+  const summaryText = summary.length > 0 ? summary.join(' • ') : 'no details yet';
+
   return `
-    <div class="option-card">
-      <div class="option-head">
-        <div class="flex">
+    <div class="option-card ${isCollapsed ? 'collapsed' : ''}">
+      <div class="option-head" onclick="_ws.toggleOptionCollapse(${uid})" style="cursor:pointer">
+        <div class="flex" style="flex:1">
           <div class="badge">Option ${idx + 1}</div>
-          <div class="muted">${safe(option.optionId || 'no id yet')}</div>
+          <div class="muted" style="flex:1">${safe(option.optionId || 'no id yet')}</div>
+          ${isCollapsed ? `<div class="muted" style="font-size:0.85rem;margin-left:12px">${summaryText}</div>` : ''}
+          <div style="margin-left:12px;color:var(--muted);font-size:1.2rem;user-select:none">${isCollapsed ? '▸' : '▾'}</div>
         </div>
-        <div class="flex">
+        <div class="flex" onclick="event.stopPropagation()">
           <label class="muted" style="margin:0">Repeatable?</label>
           <input type="checkbox" ${option.repeatable ? 'checked' : ''} onchange="_ws.updateOptionField(${uid}, 'repeatable', this.checked)">
           <button class="ghost small" onclick="_ws.removeOption(${uid})">remove</button>
         </div>
       </div>
+
+      ${isCollapsed ? '' : `<div class="option-details">`}
 
       <div class="input-grid two-col">
         <div>
@@ -1187,6 +1220,7 @@ function renderOptionCard(option, idx) {
         <label>Modifiers (raw JSON array)</label>
         <textarea placeholder='[{"type":"staffStars","roleId":"thief","applyPerStar":{"outcomeWeightAdjustment":{"caught":-5}}}]' oninput="_ws.updateOptionField(${uid}, 'modifiersText', this.value)">${safe(option.modifiersText)}</textarea>
       </div>
+      ${isCollapsed ? '' : '</div>'}
     </div>
   `;
 }

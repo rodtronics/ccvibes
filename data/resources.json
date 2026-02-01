@@ -45,5 +45,38 @@
     "revealedByDefault": false,
     "discrete": true,
     "persistent": false
+  },
+  {
+    "id": "torch",
+    "name": "torch",
+    "description": "once I was blind, but that was because I could not see",
+    "category": "equipment",
+    "revealedByDefault": false,
+    "branchId": "primordial",
+    "persistent": true,
+    "discrete": true,
+    "singular": true
+  },
+  {
+    "id": "kid_crime_knowledge",
+    "name": "baby's crime knowledge",
+    "description": "you're learning the first legit things about making crime",
+    "category": "intel",
+    "revealedByDefault": false,
+    "branchId": "primordial",
+    "discrete": true,
+    "singular": true,
+    "persistent": true
+  },
+  {
+    "id": "can_read",
+    "name": "can read",
+    "description": "sad but true - you have learned to read",
+    "category": "intel",
+    "revealedByDefault": false,
+    "branchId": "primordial",
+    "discrete": true,
+    "singular": true,
+    "persistent": true
   }
 ]

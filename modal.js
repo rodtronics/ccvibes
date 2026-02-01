@@ -19,9 +19,11 @@ let MODAL_DATA = null;
  *
  * @param {string} content - Raw content string
  * @param {number} width - Width to wrap text to
+ * @param {string} bgColor - Background color (default: BLACK)
+ * @param {string} defaultFgColor - Default foreground color for body text (default: LIGHT_GRAY)
  * @returns {Array} Array of line objects: { segments: [{text, fg, bg}] }
  */
-export function parseModalContent(content, width = 76, bgColor = Palette.BLACK) {
+export function parseModalContent(content, width = 76, bgColor = Palette.BLACK, defaultFgColor = Palette.LIGHT_GRAY) {
   // First, process multi-line color tags by joining lines until tags are closed
   const processedContent = processMultilineColorTags(content);
 
@@ -31,12 +33,12 @@ export function parseModalContent(content, width = 76, bgColor = Palette.BLACK) 
   for (const rawLine of rawLines) {
     // Empty lines become blank lines
     if (rawLine.trim() === '') {
-      lines.push({ segments: [{ text: '', fg: Palette.LIGHT_GRAY, bg: bgColor }] });
+      lines.push({ segments: [{ text: '', fg: defaultFgColor, bg: bgColor }] });
       continue;
     }
 
     // Parse line into segments with formatting
-    const segments = parseLineSegments(rawLine, bgColor);
+    const segments = parseLineSegments(rawLine, bgColor, defaultFgColor);
 
     // Wrap segments to width
     const wrappedLines = wrapSegments(segments, width);
@@ -83,10 +85,10 @@ function processMultilineColorTags(content) {
 /**
  * Parse a single line into formatted segments
  */
-function parseLineSegments(line, bgColor = Palette.BLACK) {
+function parseLineSegments(line, bgColor = Palette.BLACK, defaultFgColor = Palette.LIGHT_GRAY) {
   const segments = [];
   let currentPos = 0;
-  let currentFg = Palette.LIGHT_GRAY;
+  let currentFg = defaultFgColor;
   let currentBg = bgColor;
 
   while (currentPos < line.length) {
@@ -248,7 +250,12 @@ function wrapSegments(segments, width) {
 export async function loadModalData() {
   try {
     const response = await fetch('data/modals.json', { cache: 'no-store' });
-    MODAL_DATA = await response.json();
+    const modalsArray = await response.json();
+    // Convert array to map for easy lookup
+    MODAL_DATA = {};
+    modalsArray.forEach(modal => {
+      MODAL_DATA[modal.id] = modal;
+    });
     return MODAL_DATA;
   } catch (error) {
     console.error('Failed to load modal data:', error);
@@ -265,22 +272,57 @@ export function getModal(modalId) {
     return null;
   }
 
-  const modal = MODAL_DATA.modals[modalId];
+  const modal = MODAL_DATA[modalId];
   if (!modal) {
     console.warn(`Modal not found: ${modalId}`);
     return null;
   }
 
-  // Get the type configuration
-  const type = MODAL_DATA.types[modal.type] || MODAL_DATA.types.default;
+  // Type-based styling defaults
+  const typeStyles = {
+    story: {
+      borderStyle: 'DOUBLE',
+      borderColor: 'NEON_CYAN',
+      backgroundColor: 'BLACK',
+      titleColor: 'NEON_CYAN',
+      bodyColor: 'LIGHT_GRAY'
+    },
+    lesson: {
+      borderStyle: 'SINGLE',
+      borderColor: 'SOFT_YELLOW',
+      backgroundColor: 'BLACK',
+      titleColor: 'SOFT_YELLOW',
+      bodyColor: 'LIGHT_GRAY'
+    },
+    default: {
+      borderStyle: 'DOUBLE',
+      borderColor: 'NEON_CYAN',
+      backgroundColor: 'BLACK',
+      titleColor: 'NEON_CYAN',
+      bodyColor: 'LIGHT_GRAY'
+    }
+  };
+
+  const style = typeStyles[modal.type] || typeStyles.default;
+
+  // Allow modal JSON to override style properties
+  const borderStyleKey = modal.borderStyle || style.borderStyle;
+  const borderColorKey = modal.borderColor || style.borderColor;
+  const backgroundColorKey = modal.backgroundColor || style.backgroundColor;
+  const titleColorKey = modal.titleColor || style.titleColor;
+  const bodyColorKey = modal.bodyColor || style.bodyColor;
 
   return {
     id: modalId,
-    content: modal.content,
+    type: modal.type || 'default',
+    title: modal.title || '',
+    content: modal.body || '',
     showOnce: modal.showOnce !== false, // Default to true
-    borderStyle: BoxStyles[type.borderStyle] || BoxStyles.DOUBLE,
-    borderColor: Palette[type.borderColor] || Palette.NEON_CYAN,
-    backgroundColor: Palette[type.backgroundColor] || Palette.BLACK,
+    borderStyle: BoxStyles[borderStyleKey] || BoxStyles.DOUBLE,
+    borderColor: Palette[borderColorKey] || Palette.NEON_CYAN,
+    backgroundColor: Palette[backgroundColorKey] || Palette.BLACK,
+    titleColor: Palette[titleColorKey] || Palette.NEON_CYAN,
+    bodyColor: Palette[bodyColorKey] || Palette.LIGHT_GRAY,
   };
 }
 

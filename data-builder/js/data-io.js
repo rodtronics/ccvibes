@@ -5,7 +5,8 @@ const FILES = [
   { key: 'resources', file: 'resources.json', isArray: true },
   { key: 'branches', file: 'branches.json', isArray: true },
   { key: 'roles', file: 'roles.json', isArray: true },
-  { key: 'perks', file: 'perks.json', isArray: false }
+  { key: 'perks', file: 'perks.json', isArray: false },
+  { key: 'modals', file: 'modals.json', isArray: true }
   // items.json merged into resources.json
 ];
 

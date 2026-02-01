@@ -11,7 +11,9 @@
       "Bash(test:*)",
       "Bash(ping:*)",
       "Bash(curl:*)",
-      "Bash(npm run dev:builder:*)"
+      "Bash(npm run dev:builder:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)"
     ],
     "defaultMode": "bypassPermissions"
   }

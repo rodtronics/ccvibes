@@ -1,5 +1,6 @@
 export class Engine {
-  constructor() {
+  constructor(modalQueue = null) {
+    this.modalQueue = modalQueue;
     this.state = {
       version: 6,
       now: Date.now(),
@@ -42,7 +43,8 @@ export class Engine {
       resources: [],
       roles: [],
       tech: [],
-      perks: {}
+      perks: {},
+      modals: []
     };
     this.lastTick = Date.now();
   }
@@ -63,7 +65,8 @@ export class Engine {
       ["resources.json", "resources"],
       ["roles.json", "roles"],
       ["tech.json", "tech"],
-      ["perks.json", "perks"]
+      ["perks.json", "perks"],
+      ["modals.json", "modals"]
     ];
 
     for (const [file, key] of files) {
@@ -635,13 +638,27 @@ export class Engine {
     if (!outputs) return;
     if (outputs.resources) {
       Object.entries(outputs.resources).forEach(([id, amount]) => {
-        this.state.resources[id] = (this.state.resources[id] || 0) + amount;
+        // Handle both simple numbers and ranged {min, max} objects
+        let numAmount;
+        if (typeof amount === 'object' && amount !== null && 'min' in amount && 'max' in amount) {
+          numAmount = Math.floor(Math.random() * (amount.max - amount.min + 1)) + amount.min;
+        } else {
+          numAmount = Number(amount);
+        }
+        this.state.resources[id] = (this.state.resources[id] || 0) + numAmount;
         this.state.reveals.resources[id] = true;
       });
     }
     if (outputs.items) {
       Object.entries(outputs.items).forEach(([id, amount]) => {
-        this.state.resources[id] = (this.state.resources[id] || 0) + amount;
+        // Handle both simple numbers and ranged {min, max} objects
+        let numAmount;
+        if (typeof amount === 'object' && amount !== null && 'min' in amount && 'max' in amount) {
+          numAmount = Math.floor(Math.random() * (amount.max - amount.min + 1)) + amount.min;
+        } else {
+          numAmount = Number(amount);
+        }
+        this.state.resources[id] = (this.state.resources[id] || 0) + numAmount;
         this.state.reveals.resources[id] = true;
       });
     }
@@ -651,14 +668,14 @@ export class Engine {
     if (!outputs) return;
     if (outputs.resources) {
       Object.entries(outputs.resources).forEach(([id, range]) => {
-        const amount = this.randomBetween(range.min, range.max);
+        const amount = this.randomBetween(Number(range.min), Number(range.max));
         this.state.resources[id] = (this.state.resources[id] || 0) + amount;
         this.state.reveals.resources[id] = true;
       });
     }
     if (outputs.items) {
       Object.entries(outputs.items).forEach(([id, range]) => {
-        const amount = this.randomBetween(range.min, range.max);
+        const amount = this.randomBetween(Number(range.min), Number(range.max));
         this.state.resources[id] = (this.state.resources[id] || 0) + amount;
         this.state.reveals.resources[id] = true;
       });
@@ -711,6 +728,9 @@ export class Engine {
       if (effect.type === "setFlag") this.state.flags[effect.key] = effect.value;
       if (effect.type === "incFlagCounter") this.state.flags[effect.key] = (this.state.flags[effect.key] || 0) + 1;
       if (effect.type === "logMessage") this.log(effect.text, effect.kind || "info");
+      if (effect.type === "showModal" && this.modalQueue) {
+        this.modalQueue.enqueue(effect.modalId);
+      }
     });
   }
 
@@ -801,7 +821,21 @@ export class Engine {
     if (this.state.debugMode) return true;
     const revealed = this.state.reveals.activities[activity.id];
     const conds = activity.visibleIf || [];
-    return (revealed || conds.length === 0) && this.checkConditions(conds);
+
+    // If already revealed, always visible
+    if (revealed) return true;
+
+    // If not revealed and no conditions, visible
+    if (conds.length === 0) return true;
+
+    // If not revealed but has conditions, check if conditions are met
+    return this.checkConditions(conds);
+  }
+
+  isActivityUnlocked(activity) {
+    if (this.state.debugMode) return true;
+    const conds = activity.unlockIf || [];
+    return conds.length === 0 || this.checkConditions(conds);
   }
 
   isOptionUnlocked(option) {

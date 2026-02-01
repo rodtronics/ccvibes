@@ -6,6 +6,7 @@ export const store = {
   branches: [],
   roles: [],
   perks: {},
+  modals: [],
   // items merged into resources
 
   // Lookup maps (rebuilt on load/mutation)
@@ -13,11 +14,13 @@ export const store = {
   branchMap: new Map(),
   roleMap: new Map(),
   activityMap: new Map(),
+  modalMap: new Map(),
 
   // Editor state
   selectedActivityId: null,
   selectedResourceId: null,
   selectedBranchId: null,
+  selectedModalId: null,
 
   // Dirty tracking per file
   dirty: {
@@ -44,6 +47,7 @@ export function rebuildMaps() {
   store.branchMap = new Map(store.branches.map(b => [b.id, b]));
   store.roleMap = new Map(store.roles.map(r => [r.id, r]));
   store.activityMap = new Map(store.activities.map(a => [a.id, a]));
+  store.modalMap = new Map(store.modals.map(m => [m.id, m]));
 }
 
 // ── Event bus ──

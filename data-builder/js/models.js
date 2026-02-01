@@ -101,6 +101,7 @@ export function defaultEffect() {
     resourceId: '',
     roleId: '',
     tabId: '',
+    modalId: '',
     key: '',
     value: '',
     text: '',

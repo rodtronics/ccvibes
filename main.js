@@ -19,10 +19,13 @@ import {
   ZOOM_STEP
 } from './settings.js';
 
+// Modal queue (created early so it can be passed to engine)
+const modalQueue = new ModalQueue();
+
 // Initialize the rendering stack
 const buffer = new FrameBuffer(Layout.WIDTH, Layout.HEIGHT);
 const renderer = new DOMRenderer(buffer, 'game');
-const engine = new Engine();
+const engine = new Engine(modalQueue);
 const BLOOM_OVERLAY_ID = 'bloom-overlay';
 const bloomLayer = document.getElementById(BLOOM_OVERLAY_ID);
 const bloomRenderer = bloomLayer ? new DOMRenderer(buffer, BLOOM_OVERLAY_ID) : null;
@@ -81,9 +84,6 @@ const ui = {
 // Create UI layer
 const uiLayer = new UI(buffer, engine, ui);
 
-// Modal queue
-const modalQueue = new ModalQueue();
-
 // Input handling
 document.addEventListener('keydown', handleInput);
 window.addEventListener('beforeunload', () => saveSettings(ui.settings));
@@ -103,7 +103,7 @@ async function main() {
 
   // Show intro modal on launch (if enabled in settings)
   if (ui.settings.showIntro) {
-    modalQueue.enqueue('intro');
+    modalQueue.enqueue('intro', true); // Force show bypassing showOnce check
     if (modalQueue.hasNext()) {
       const nextId = modalQueue.dequeue();
       showModal(nextId);
@@ -1107,10 +1107,13 @@ function showModal(modalId) {
 
   ui.modal.active = true;
   ui.modal.id = modalId;
+  ui.modal.title = modal.title;
   ui.modal.content = modal.content;
   ui.modal.borderStyle = modal.borderStyle;
   ui.modal.borderColor = modal.borderColor;
   ui.modal.backgroundColor = modal.backgroundColor;
+  ui.modal.titleColor = modal.titleColor;
+  ui.modal.bodyColor = modal.bodyColor;
   ui.modal.scroll = 0;
 
   console.log(`Showing modal: ${modalId}`);
