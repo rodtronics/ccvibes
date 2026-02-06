@@ -48,6 +48,7 @@ export const Palette = {
   EMERALD: "#34d399",
   AMBER: "#fbbf24",
   ROSE: "#f472b6",
+  BRANCH_SELECTED_BACK: "#491427",
 
   // Text colors
   WHITE: "#ffffff",

@@ -4,9 +4,10 @@
 const BLOOM_OVERLAY_ID = 'bloom-overlay';
 
 // Settings constants
-export const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono', 'ibm-bios', 'scp'];
+export const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono', 'ibm-bios'];
+const FONT_CLASSES = [...FONTS, 'commodore-64', 'scp'];
 export const FONT_CATEGORIES = {
-  modern: ['fira', 'jetbrains-mono', 'scp'],
+  modern: ['fira', 'jetbrains-mono'],
   retro: ['vga-9x8', 'vga-8x16', 'ibm-bios']
 };
 
@@ -84,7 +85,7 @@ export function applyFont(settings) {
   const zoom = clamp(settings.zoom || MIN_ZOOM, MIN_ZOOM, MAX_ZOOM);
   settings.zoom = zoom;
   targets.forEach((target) => {
-    FONTS.forEach(font => target.classList.remove(`font-${font}`));
+    FONT_CLASSES.forEach(font => target.classList.remove(`font-${font}`));
     target.classList.add(`font-${nextFont}`);
     target.style.fontSize = `${zoom}%`;
   });

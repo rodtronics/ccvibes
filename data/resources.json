@@ -18,7 +18,8 @@
     "name": "Intel",
     "description": "Information and knowledge about opportunities",
     "category": "intel",
-    "revealedByDefault": false
+    "revealedByDefault": false,
+    "modalId": "intel_lore"
   },
   {
     "id": "kids_cred",
@@ -35,7 +36,8 @@
     "category": "equipment",
     "revealedByDefault": false,
     "discrete": true,
-    "persistent": false
+    "persistent": false,
+    "modalId": "lockpick_lore"
   },
   {
     "id": "fakeID",

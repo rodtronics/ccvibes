@@ -1,6 +1,6 @@
 import { store, on } from './state.js';
-import { checkServer, loadAll } from './data-io.js';
-import { registerTab, switchTab, wireTabBar } from './components/tab-bar.js';
+import { checkServer, loadAll, saveAllDirty } from './data-io.js';
+import { registerTab, switchTab, wireTabBar, getActiveTab } from './components/tab-bar.js';
 import { init as initSidebar } from './components/sidebar.js';
 import { init as initMiniMap } from './components/mini-map.js';
 import * as workshop from './tabs/workshop.js';
@@ -48,7 +48,21 @@ async function boot() {
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
-      if (window._ws?.saveActivity) window._ws.saveActivity();
+      const tab = getActiveTab();
+      if (tab === 'workshop') {
+        window._ws?.saveActivity?.();
+      } else if (tab === 'economy') {
+        window._econ?.saveResources?.();
+      } else if (tab === 'world') {
+        // Save all world tab data (branches, roles, perks, modals)
+        window._world?.saveBranches?.();
+        window._world?.saveRoles?.();
+        window._world?.savePerks?.();
+        window._world?.saveModals?.();
+      } else {
+        // Fallback: save all dirty files
+        saveAllDirty();
+      }
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
       e.preventDefault();

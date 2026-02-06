@@ -13,5 +13,19 @@
     "body": "you did something you weren't meant to, but the world didn't come crashing down... maybe there is some merit in this",
     "type": "story",
     "showOnce": true
+  },
+  {
+    "id": "intel_lore",
+    "title": "Intel",
+    "body": "**Intel** is the currency of the criminal underworld.\n\nWhile cash buys you tools and bribes, **intel** opens doors that no amount of money can. It's the whispered tip about a security guard's shift change, the blueprint hidden in a dusty filing cabinet, the name of someone who knows someone.\n\nIn this world, {{neon_cyan}}knowledge is power{{/}}, and those who hoard it rise to the top. Every piece of intel you gather brings you closer to bigger scores, better connections, and jobs that lesser criminals can only dream about.\n\n~~Keep your ears open and your eyes sharp.~~",
+    "type": "lore",
+    "showOnce": false
+  },
+  {
+    "id": "lockpick_lore",
+    "title": "Lockpick",
+    "body": "**Lockpicks** — the tools of the trade for anyone serious about B&E.\n\nYou bought this set from a {{soft_yellow}}\"hobby shop\"{{/}} that definitely wasn't asking questions. The clerk winked as they handed you the case: {{dim_gray}}\"For educational purposes only, yeah?\"{{/}}\n\nInside the worn leather pouch, you'll find a full set of tension wrenches, hooks, and rakes — everything you need to convince a lock that you're supposed to be on the other side of it.\n\nIt's amazing what doors open when you have the right tools. Literally.\n\n~~just don't tell your mom where you got them~~",
+    "type": "lore",
+    "showOnce": false
   }
 ]

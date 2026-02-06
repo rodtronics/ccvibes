@@ -136,9 +136,9 @@ export class UI {
     const activity = activities[this.ui.activityIndex];
     const options = activity ? this.getVisibleOptions(activity) : [];
 
-    // Branch tab bar with box-drawing borders
+    // Branch selection bar with box-drawing borders
     const branchFocused = this.ui.focus === 'branch';
-    this.renderBranchTabBar(branches, this.ui.branchIndex, branchFocused);
+    this.renderBranchSelectionBar(branches, this.ui.branchIndex, branchFocused);
 
     // Determine layout based on focus
     const showingOptions = (this.ui.focus === "option" || this.ui.focus === "runs") && activity;
@@ -149,18 +149,15 @@ export class UI {
     const rightFocused = focus === 'runs';
     const leftBorderColor = leftFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
     const rightBorderColor = rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
-    const branchBorderColor = branchFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
 
-    // Redraw outer box borders with focus colors
-    // Left edge
-    this.buffer.drawVLine(0, 3, Layout.HEIGHT - 3, "│", branchFocused ? branchBorderColor : leftBorderColor, Palette.BLACK);
-    this.buffer.setCell(0, 2, "┌", branchBorderColor, Palette.BLACK);
+    // Content area borders (start below branch bar at row 5)
+    // Left edge (from row 5 down)
+    this.buffer.drawVLine(0, 5, Layout.HEIGHT - 5, "│", leftBorderColor, Palette.BLACK);
     // Bottom-left corner and left portion of bottom border
     this.buffer.setCell(0, Layout.HEIGHT - 1, "└", leftBorderColor, Palette.BLACK);
     this.buffer.drawHLine(1, Layout.HEIGHT - 1, 38, "─", leftBorderColor, Palette.BLACK);
-    // Right edge and top-right corner
-    this.buffer.drawVLine(Layout.WIDTH - 1, 3, Layout.HEIGHT - 3, "│", rightBorderColor, Palette.BLACK);
-    this.buffer.setCell(Layout.WIDTH - 1, 2, "┐", rightBorderColor, Palette.BLACK);
+    // Right edge (from row 5 down)
+    this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, "│", rightBorderColor, Palette.BLACK);
     // Right portion of bottom border
     this.buffer.drawHLine(40, Layout.HEIGHT - 1, 39, "─", rightBorderColor, Palette.BLACK);
     this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, "┘", rightBorderColor, Palette.BLACK);
@@ -215,14 +212,16 @@ export class UI {
       } else {
         // ACTIVITY SELECTION MODE: Show activity list
         const listTitle = branch ? branch.name.toUpperCase() + " JOBS" : "JOBS";
-        this.buffer.writeText(2, listTop, listTitle, Palette.NEON_CYAN, Palette.BLACK);
+        const activityFocused = this.ui.focus === 'activity';
+        const titleColor = activityFocused ? Palette.WHITE : Palette.NEON_CYAN;
+        this.buffer.writeText(2, listTop, listTitle, titleColor, Palette.BLACK);
 
         // Show numbered list of activities
         activities.slice(0, 9).forEach((a, i) => {
           const row = listTop + 2 + i;
           const number = i + 1;
           const selected = this.ui.activityIndex === i;
-          const fg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
+          const fg = selected ? (activityFocused ? Palette.WHITE : Palette.NEON_CYAN) : Palette.NEON_TEAL;
           const prefix = selected ? ">" : " ";
 
           this.buffer.writeText(2, row, `${prefix}${number}.`, fg, Palette.BLACK);
@@ -248,7 +247,7 @@ export class UI {
 
       // Vertical divider (colored by right panel focus)
       const divColor = rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
-      this.buffer.drawVLine(dividerX, 2, Layout.HEIGHT - 2, "│", divColor, Palette.BLACK);
+      this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", divColor, Palette.BLACK);
       this.buffer.setCell(dividerX, Layout.HEIGHT - 1, "┴", divColor, Palette.BLACK);
 
       // RIGHT HALF: Active runs filtered by current branch
@@ -269,12 +268,12 @@ export class UI {
       const branchBgColor = branch?.ui?.bgColor ? Palette[branch.ui.bgColor] : Palette.BLACK;
       this.buffer.fillRect(0, 5, Layout.WIDTH, Layout.HEIGHT - 5, " ", Palette.LIGHT_GRAY, branchBgColor);
 
-      // Redraw branch tab bar over the background (preserves tab visual)
-      this.renderBranchTabBar(branches, this.ui.branchIndex, false);
+      // Redraw branch selection bar over the background (preserves visual)
+      this.renderBranchSelectionBar(branches, this.ui.branchIndex, false);
 
       // Vertical divider (colored by focus)
       const divColor = rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
-      this.buffer.drawVLine(dividerX, 2, Layout.HEIGHT - 2, "│", divColor, branchBgColor);
+      this.buffer.drawVLine(dividerX, optionsTop, Layout.HEIGHT - 2, "│", divColor, branchBgColor);
       this.buffer.setCell(dividerX, Layout.HEIGHT - 1, "┴", divColor, Palette.BLACK);
 
       // LEFT HALF: Activity header and options list
@@ -604,8 +603,8 @@ export class UI {
     }
 
     // Vertical divider with "ACTIVE" label
-    this.buffer.drawVLine(dividerX, 2, Layout.HEIGHT - 2, "│", Palette.DIM_GRAY, Palette.BLACK);
-    this.buffer.writeText(dividerX - 3, 2, " ACTIVE ", Palette.NEON_CYAN, Palette.BLACK);
+    this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(dividerX - 3, listTop, " ACTIVE ", Palette.NEON_CYAN, Palette.BLACK);
 
     // RIGHT HALF: Filtered runs
     const filteredRuns = currentFilter.filter();
@@ -1368,18 +1367,17 @@ export class UI {
     this.buffer.drawBox(2, top, Layout.WIDTH - 4, 11, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
     this.buffer.writeText(4, top, " CONFIGURATION ", Palette.NEON_CYAN, Palette.BLACK);
 
-    const fontNames = {
-      fira: "Fira Mono (bold)",
-      "vga-9x8": "VGA 9x8 (compact)",
-      "vga-8x16": "VGA 8x16 (classic)",
-      "jetbrains-mono": "JetBrains Mono (bold)",
-      "ibm-bios": "IBM BIOS (retro)",
-      "scp": "Source Code Pro (bold)",
-    };
+      const fontNames = {
+        fira: "Fira Mono (bold)",
+        "vga-9x8": "VGA 9x8 (compact)",
+        "vga-8x16": "VGA 8x16 (classic)",
+        "jetbrains-mono": "JetBrains Mono (bold)",
+        "ibm-bios": "IBM BIOS (retro)",
+      };
 
     // Determine category
     const fontId = this.ui.settings.font;
-    const isRetro = ["vga-9x8", "vga-8x16", "ibm-bios"].includes(fontId);
+      const isRetro = ["vga-9x8", "vga-8x16", "ibm-bios"].includes(fontId);
     const categoryLabel = isRetro ? "RETRO" : "MODERN";
 
     // 1. Generation
@@ -1454,6 +1452,8 @@ export class UI {
     return safeLabel.length; // Return width for positioning next tab
   }
 
+  // DEPRECATED: Old branch tab bar - replaced by renderBranchSelectionBar
+  // Kept for reference only, no longer in use
   // Branch tab bar - visual tabs with box-drawing borders
   // 3 rows: Row 2 = top border (┌/┬/┐), Row 3 = │ LABEL │, Row 4 = bottom line with selected tab open
   // Tabs overwrite the main panel top line only within the tab span
@@ -1497,29 +1497,35 @@ export class UI {
       }
 
       // Draw the tab top line with tee connectors
+      // Use bright borders when branches are focused
+      const borderColor = focused ? Palette.WHITE : Palette.DIM_GRAY;
       tabs.forEach((tab, index) => {
         const leftChar = index === 0 ? "┌" : "┬";
-        this.buffer.setCell(tab.x, TOP_Y, leftChar, Palette.DIM_GRAY, Palette.BLACK);
+        this.buffer.setCell(tab.x, TOP_Y, leftChar, borderColor, Palette.BLACK);
         for (let i = 1; i < tab.totalWidth - 1; i++) {
-          this.buffer.setCell(tab.x + i, TOP_Y, "─", Palette.DIM_GRAY, Palette.BLACK);
+          this.buffer.setCell(tab.x + i, TOP_Y, "─", borderColor, Palette.BLACK);
         }
       });
 
       // Right corner of the last tab
-      this.buffer.setCell(lastX, TOP_Y, "┐", Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.setCell(lastX, TOP_Y, "┐", borderColor, Palette.BLACK);
     }
 
     // Row 1 (y=3): │ LABEL │ for each tab
+    const borderColor = focused ? Palette.WHITE : Palette.DIM_GRAY;
     tabs.forEach(tab => {
       // Left border
-      this.buffer.setCell(tab.x, TAB_Y, BOX.vertical, Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.setCell(tab.x, TAB_Y, BOX.vertical, borderColor, Palette.BLACK);
 
       // Label with padding
       const labelStart = tab.x + 1 + TAB_PADDING;
       const branchColor = tab.branch.ui?.color ? Palette[tab.branch.ui.color] : Palette.TERMINAL_GREEN;
       const isFocusedTab = focused && tab.isSelected;
+
+      // When branches are focused, make the selected tab BRIGHT and inverted
+      // When not focused, selected tab uses dimmer branch color, unselected are very dim
       const labelColor = isFocusedTab ? Palette.BLACK : (tab.isSelected ? branchColor : Palette.DIM_GRAY);
-      const labelBg = isFocusedTab ? branchColor : Palette.BLACK;
+      const labelBg = isFocusedTab ? Palette.WHITE : Palette.BLACK;
 
       // Clear the inside with spaces first (for consistent background)
       for (let i = 1; i <= tab.innerWidth; i++) {
@@ -1530,34 +1536,113 @@ export class UI {
       this.buffer.writeText(labelStart, TAB_Y, tab.label, labelColor, labelBg);
 
       // Right border
-      this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y, BOX.vertical, Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y, BOX.vertical, borderColor, Palette.BLACK);
     });
 
     // Row 2 (y=4): Bottom line - selected tab opens, others closed
     // First, draw a continuous horizontal line across the full width
+    const bottomBorderColor = focused ? Palette.WHITE : Palette.DIM_GRAY;
     for (let i = 0; i < Layout.WIDTH; i++) {
-      this.buffer.setCell(i, TAB_Y + 1, BOX.horizontal, Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.setCell(i, TAB_Y + 1, BOX.horizontal, bottomBorderColor, Palette.BLACK);
     }
 
     // Now handle each tab's bottom
     tabs.forEach(tab => {
       if (tab.isSelected) {
         // Selected tab: open bottom (┘ spaces └)
-        this.buffer.setCell(tab.x, TAB_Y + 1, BOX.bottomRight, Palette.DIM_GRAY, Palette.BLACK);
+        this.buffer.setCell(tab.x, TAB_Y + 1, BOX.bottomRight, borderColor, Palette.BLACK);
         // Clear the bottom (spaces - tab merges with content)
         for (let i = 1; i <= tab.innerWidth; i++) {
           this.buffer.setCell(tab.x + i, TAB_Y + 1, " ", Palette.BLACK, Palette.BLACK);
         }
-        this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y + 1, BOX.bottomLeft, Palette.DIM_GRAY, Palette.BLACK);
+        this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y + 1, BOX.bottomLeft, borderColor, Palette.BLACK);
       } else {
         // Unselected tab: closed bottom with tee connectors
-        this.buffer.setCell(tab.x, TAB_Y + 1, BOX.teeUp, Palette.DIM_GRAY, Palette.BLACK);
+        this.buffer.setCell(tab.x, TAB_Y + 1, BOX.teeUp, bottomBorderColor, Palette.BLACK);
         for (let i = 1; i <= tab.innerWidth; i++) {
-          this.buffer.setCell(tab.x + i, TAB_Y + 1, BOX.horizontal, Palette.DIM_GRAY, Palette.BLACK);
+          this.buffer.setCell(tab.x + i, TAB_Y + 1, BOX.horizontal, bottomBorderColor, Palette.BLACK);
         }
-        this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y + 1, BOX.teeUp, Palette.DIM_GRAY, Palette.BLACK);
+        this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y + 1, BOX.teeUp, bottomBorderColor, Palette.BLACK);
       }
     });
+  }
+
+  // Branch selection bar - horizontal bordered bar with arrows when focused
+  // Simple design: [> branch1 | branch2 | branch3 <] with clear selection
+  renderBranchSelectionBar(branches, selectedIndex, focused = false) {
+    const BAR_Y = 2;  // Start at row 2 (top border)
+    const BOX = BoxStyles.SINGLE;
+
+    // Colors based on focus state
+    const borderColor = focused ? Palette.NEON_CYAN : Palette.DIM_GRAY;
+    const arrowColor = Palette.MAGENTA;
+    const barBgColor = focused ? Palette.BRANCH_SELECTED_BACK : Palette.BLACK;
+
+    // Draw top border (with background color on all cells)
+    this.buffer.setCell(0, BAR_Y, BOX.topLeft, borderColor, barBgColor);
+    this.buffer.drawHLine(1, BAR_Y, Layout.WIDTH - 2, BOX.horizontal, borderColor, barBgColor);
+    this.buffer.setCell(Layout.WIDTH - 1, BAR_Y, BOX.topRight, borderColor, barBgColor);
+
+    // Draw content row (branches)
+    const CONTENT_Y = BAR_Y + 1;
+
+    // Left border: arrow when focused, vertical bar when not
+    if (focused) {
+      this.buffer.setCell(0, CONTENT_Y, ">", arrowColor, barBgColor);
+    } else {
+      this.buffer.setCell(0, CONTENT_Y, BOX.vertical, borderColor, barBgColor);
+    }
+
+    // Right border: arrow when focused, vertical bar when not
+    if (focused) {
+      this.buffer.setCell(Layout.WIDTH - 1, CONTENT_Y, "<", arrowColor, barBgColor);
+    } else {
+      this.buffer.setCell(Layout.WIDTH - 1, CONTENT_Y, BOX.vertical, borderColor, barBgColor);
+    }
+
+    // Clear content area - always black inside
+    this.buffer.fillRect(1, CONTENT_Y, Layout.WIDTH - 2, 1, " ", Palette.LIGHT_GRAY, Palette.BLACK);
+
+    let x = 2;  // Start position for content
+
+    // Draw branches
+    branches.forEach((branch, i) => {
+      const isSelected = i === selectedIndex;
+      const branchColor = branch.ui?.color ? Palette[branch.ui.color] : Palette.NEON_CYAN;
+
+      // Selected branch styling
+      let fg = isSelected ? branchColor : Palette.MID_GRAY;
+      let bg = Palette.BLACK;
+
+      if (focused && isSelected) {
+        // Inverted/highlighted when focused
+        fg = Palette.BLACK;
+        bg = branchColor;
+      } else if (isSelected) {
+        // Just brighter when not focused
+        fg = branchColor;
+      }
+
+      const name = branch.name.toUpperCase();
+
+      // Draw branch name with background
+      for (let ci = 0; ci < name.length; ci++) {
+        this.buffer.setCell(x + ci, CONTENT_Y, name[ci], fg, bg);
+      }
+      x += name.length;
+
+      // Draw separator if not the last branch
+      if (i < branches.length - 1) {
+        this.buffer.writeText(x, CONTENT_Y, " │ ", Palette.DIM_GRAY, Palette.BLACK);
+        x += 3;
+      }
+    });
+
+    // Draw bottom border (with background color on all cells)
+    const BOTTOM_Y = BAR_Y + 2;
+    this.buffer.setCell(0, BOTTOM_Y, BOX.bottomLeft, borderColor, barBgColor);
+    this.buffer.drawHLine(1, BOTTOM_Y, Layout.WIDTH - 2, BOX.horizontal, borderColor, barBgColor);
+    this.buffer.setCell(Layout.WIDTH - 1, BOTTOM_Y, BOX.bottomRight, borderColor, barBgColor);
   }
 
   // Helper methods

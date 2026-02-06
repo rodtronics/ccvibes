@@ -1,5 +1,5 @@
-import { store, on, emit, getBranchColor } from '../state.js';
-import { safe } from '../utils.js';
+import { store, on, emit, getBranchColor, cascadeBranchRename, cascadeRoleRename, cascadeModalRename } from '../state.js';
+import { safe, showToast } from '../utils.js';
 import { saveFile } from '../data-io.js';
 
 let container = null;
@@ -22,6 +22,12 @@ export function deactivate() {}
 
 function render() {
   if (!container) return;
+
+  // Auto-select first items if nothing selected
+  if (!store.selectedBranchId && store.branches.length > 0) store.selectedBranchId = store.branches[0].id;
+  if (!store.selectedRoleId && store.roles.length > 0) store.selectedRoleId = store.roles[0].id;
+  if (!store.selectedPerkId && Object.keys(store.perks).length > 0) store.selectedPerkId = Object.keys(store.perks)[0];
+  if (!store.selectedModalId && store.modals.length > 0) store.selectedModalId = store.modals[0].id;
 
   // Save focus state before re-rendering
   const activeEl = document.activeElement;
@@ -219,6 +225,7 @@ function updateBranch(field, value) {
     store.selectedBranchId = value;
     store.branchMap.delete(oldId);
     store.branchMap.set(value, b);
+    cascadeBranchRename(oldId, value);
     render();
     return;
   } else if (field.startsWith('ui.')) {
@@ -393,17 +400,6 @@ async function startFromScratch() {
   }
 }
 
-function showToast(message, type = 'info') {
-  const existing = document.querySelector('.toast');
-  if (existing) existing.remove();
-
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = message;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 4000);
-}
-
 // ── Role Management ──
 
 function selectRole(id) {
@@ -421,6 +417,7 @@ function updateRole(field, value) {
     store.selectedRoleId = value;
     store.roleMap.delete(oldId);
     store.roleMap.set(value, r);
+    cascadeRoleRename(oldId, value);
     render();
     return;
   }
@@ -700,6 +697,7 @@ function updateModal(field, value) {
     store.selectedModalId = value;
     store.modalMap.delete(oldId);
     store.modalMap.set(value, m);
+    cascadeModalRename(oldId, value);
     render();
     return;
   }

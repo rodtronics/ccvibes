@@ -1,5 +1,11 @@
 THIS TO DO LIST relates the index.html, related files, and the founding documents starting with 00_agent_readme.md
 
+my priority:
+when a crime has been committed, where the runs are shown, it leaves behing a "crime committed" entry, that can be entered, and the player can see the outcome. they can then hit c to clear it from the runs, or escape to leave it. when the player is on the active runs panels and going up and down, they can clear all completed runs by pressing x.
+when the crime is a multi-repeated run, there is a line under the completion bar that shows how many completed runs and how many runs left. when the player goes into that entry they can view the outcomes so far. it wont be available for clearing until the runs have been stopped.
+
+indicators to show that a new activity or option is available
+
 BUGS
 
 - auto repeat doesnt seem to work if crime fails
@@ -35,3 +41,5 @@ early on I had an idea to employ gradients across some titles, I don't want this
 also the idea for hotkeys for the branches is also dead idea
 
 a way so what when the player progresses past primordial, primordial branch disappears and any resources that are specific to primordial disappear too
+
+when the game starts, and it defaults to the jobs menu, it should then also default to branches within the jobs menu.

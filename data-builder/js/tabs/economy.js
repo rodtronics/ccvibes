@@ -1,5 +1,5 @@
-import { store, on, emit } from '../state.js';
-import { safe } from '../utils.js';
+import { store, on, emit, cascadeResourceRename } from '../state.js';
+import { safe, showToast } from '../utils.js';
 import { saveFile } from '../data-io.js';
 
 let container = null;
@@ -89,6 +89,13 @@ function renderResourceEditor() {
               ${store.branches.map(b => `<option value="${safe(b.id)}" ${r.branchId === b.id ? 'selected' : ''}>${safe(b.name || b.id)}</option>`).join('')}
             </select>
           </div>
+        </div>
+        <div>
+          <label>Modal (lore/info popup)</label>
+          <select onchange="_econ.updateResource('modalId', this.value)">
+            <option value="">None</option>
+            ${store.modals.map(m => `<option value="${safe(m.id)}" ${r.modalId === m.id ? 'selected' : ''}>${safe(m.title || m.id)}</option>`).join('')}
+          </select>
         </div>
         <div class="flex">
           <label class="muted" style="margin:0">Revealed by default?</label>
@@ -206,6 +213,7 @@ function updateResource(field, value) {
     store.selectedResourceId = nextId;
     store.resourceMap.delete(oldId);
     store.resourceMap.set(nextId, r);
+    cascadeResourceRename(oldId, nextId);
     render();
     return;
   }
@@ -247,16 +255,6 @@ async function saveResources() {
 
 function setFilter(text) { filterText = text; refreshResourceList(); }
 function setCategoryFilter(cat) { filterCategory = cat; refreshResourceList(); }
-
-function showToast(message, type) {
-  const existing = document.querySelector('.toast');
-  if (existing) existing.remove();
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = message;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-}
 
 function getFilteredResources() {
   let resources = store.resources;

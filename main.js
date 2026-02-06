@@ -717,6 +717,19 @@ function handleResourcesInput(e) {
     updateResourcesScroll(ui.resourceSelection.selectedIndex, visibleRows, totalResources);
   }
 
+  // 'I' or Enter to open resource modal (if available)
+  const key = (e.key || '').toLowerCase();
+  if (key === 'i' || e.key === 'Enter') {
+    const selectedResource = visibleResources[ui.resourceSelection.selectedIndex];
+    console.log('Resource selected:', selectedResource);
+    if (selectedResource && selectedResource.modalId) {
+      console.log('Attempting to show modal:', selectedResource.modalId);
+      showModal(selectedResource.modalId);
+    } else if (selectedResource) {
+      console.log('No modalId on resource:', selectedResource.id);
+    }
+  }
+
   if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
 }
 

@@ -20,20 +20,28 @@ export const store = {
   selectedActivityId: null,
   selectedResourceId: null,
   selectedBranchId: null,
+  selectedRoleId: null,
+  selectedPerkId: null,
   selectedModalId: null,
 
   // Dirty tracking per file
   dirty: {
     activities: false,
     resources: false,
-    branches: false
+    branches: false,
+    roles: false,
+    perks: false,
+    modals: false
   },
 
   // Last saved snapshots for change detection
   savedSnapshots: {
     activities: null,
     resources: null,
-    branches: null
+    branches: null,
+    roles: null,
+    perks: null,
+    modals: null
   },
 
   // Server status
@@ -86,4 +94,98 @@ const BRANCH_COLORS = {
 
 export function getBranchColor(branchId) {
   return BRANCH_COLORS[branchId] || '#94a3b8';
+}
+
+// ── ID Rename Cascades ──
+// When an entity ID changes, update all references across other data
+
+export function cascadeBranchRename(oldId, newId) {
+  // Update activities referencing this branch
+  store.activities.forEach(a => {
+    if (a.branchId === oldId) a.branchId = newId;
+  });
+  // Update resources referencing this branch
+  store.resources.forEach(r => {
+    if (r.branchId === oldId) r.branchId = newId;
+  });
+}
+
+export function cascadeRoleRename(oldId, newId) {
+  // Update staff requirements in all activity options
+  store.activities.forEach(a => {
+    (a.options || []).forEach(opt => {
+      const staff = opt.requirements?.staff || [];
+      staff.forEach(s => {
+        if (s.roleId === oldId) s.roleId = newId;
+      });
+    });
+  });
+}
+
+export function cascadeResourceRename(oldId, newId) {
+  store.activities.forEach(a => {
+    // Update conditions
+    (a.visibleIf || []).forEach(c => { if (c.resourceId === oldId) c.resourceId = newId; });
+    (a.unlockIf || []).forEach(c => { if (c.resourceId === oldId) c.resourceId = newId; });
+    // Update options
+    (a.options || []).forEach(opt => {
+      // Conditions
+      (opt.visibleIf || []).forEach(c => { if (c.resourceId === oldId) c.resourceId = newId; });
+      (opt.unlockIf || []).forEach(c => { if (c.resourceId === oldId) c.resourceId = newId; });
+      // Inputs
+      if (opt.inputs?.resources && oldId in opt.inputs.resources) {
+        opt.inputs.resources[newId] = opt.inputs.resources[oldId];
+        delete opt.inputs.resources[oldId];
+      }
+      if (opt.inputs?.items && oldId in opt.inputs.items) {
+        opt.inputs.items[newId] = opt.inputs.items[oldId];
+        delete opt.inputs.items[oldId];
+      }
+      // Outputs (deterministic)
+      const res = opt.resolution;
+      if (res) {
+        if (res.outputs?.resources && oldId in res.outputs.resources) {
+          res.outputs.resources[newId] = res.outputs.resources[oldId];
+          delete res.outputs.resources[oldId];
+        }
+        if (res.outputs?.items && oldId in res.outputs.items) {
+          res.outputs.items[newId] = res.outputs.items[oldId];
+          delete res.outputs.items[oldId];
+        }
+        // Weighted outcomes
+        (res.outcomes || []).forEach(out => {
+          if (out.outputs?.resources && oldId in out.outputs.resources) {
+            out.outputs.resources[newId] = out.outputs.resources[oldId];
+            delete out.outputs.resources[oldId];
+          }
+          if (out.outputs?.items && oldId in out.outputs.items) {
+            out.outputs.items[newId] = out.outputs.items[oldId];
+            delete out.outputs.items[oldId];
+          }
+        });
+      }
+      // Effects
+      (res?.effects || []).forEach(fx => { if (fx.resourceId === oldId) fx.resourceId = newId; });
+    });
+  });
+}
+
+export function cascadeModalRename(oldId, newId) {
+  // Update showModal effects in activities
+  store.activities.forEach(a => {
+    const allEffects = [
+      ...(a.reveals?.onReveal || []),
+      ...(a.reveals?.onUnlock || [])
+    ];
+    (a.options || []).forEach(opt => {
+      const res = opt.resolution;
+      if (res?.effects) allEffects.push(...res.effects);
+      (res?.outcomes || []).forEach(out => {
+        if (out.effects) allEffects.push(...out.effects);
+      });
+    });
+    allEffects.forEach(fx => {
+      if (fx.type === 'showModal' && fx.modalId === oldId) fx.modalId = newId;
+    });
+  });
 }

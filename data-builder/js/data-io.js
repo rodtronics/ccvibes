@@ -47,6 +47,9 @@ export async function loadAll() {
   store.savedSnapshots.activities = JSON.stringify(store.activities);
   store.savedSnapshots.resources = JSON.stringify(store.resources);
   store.savedSnapshots.branches = JSON.stringify(store.branches);
+  store.savedSnapshots.roles = JSON.stringify(store.roles);
+  store.savedSnapshots.perks = JSON.stringify(store.perks);
+  store.savedSnapshots.modals = JSON.stringify(store.modals);
 
   rebuildMaps();
   store.loaded = true;
@@ -85,13 +88,15 @@ export function isDirty(key) {
   return JSON.stringify(store[key]) !== store.savedSnapshots[key];
 }
 
+const ALL_KEYS = ['activities', 'resources', 'branches', 'roles', 'perks', 'modals'];
+
 export function isAnyDirty() {
-  return isDirty('activities') || isDirty('resources') || isDirty('branches');
+  return ALL_KEYS.some(k => isDirty(k));
 }
 
 export async function saveAllDirty() {
   const results = [];
-  for (const key of ['activities', 'resources', 'branches']) {
+  for (const key of ALL_KEYS) {
     if (isDirty(key)) {
       try {
         await saveFile(key);

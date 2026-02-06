@@ -294,6 +294,13 @@ export function getModal(modalId) {
       titleColor: 'SOFT_YELLOW',
       bodyColor: 'LIGHT_GRAY'
     },
+    lore: {
+      borderStyle: 'SINGLE',
+      borderColor: 'NEON_PURPLE',
+      backgroundColor: 'BLACK',
+      titleColor: 'NEON_PURPLE',
+      bodyColor: 'LIGHT_GRAY'
+    },
     default: {
       borderStyle: 'DOUBLE',
       borderColor: 'NEON_CYAN',

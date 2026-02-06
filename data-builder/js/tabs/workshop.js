@@ -1,5 +1,5 @@
 import { store, on, emit } from '../state.js';
-import { safe, cloneJson, kvToObject, formatRange } from '../utils.js';
+import { safe, cloneJson, kvToObject, formatRange, showToast } from '../utils.js';
 import { renderResourceOptions } from '../components/resource-picker.js';
 import { renderRoleOptions } from '../components/role-picker.js';
 import {
@@ -2278,13 +2278,3 @@ function renderWizardEffects(draft) {
   `;
 }
 
-function showToast(message, type = 'info') {
-  const existing = document.querySelector('.toast');
-  if (existing) existing.remove();
-
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = message;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-}
