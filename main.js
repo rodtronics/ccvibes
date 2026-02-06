@@ -79,6 +79,11 @@ const ui = {
     selectedSlotIndex: 0, // Which crew slot is selected (for multi-crew crimes)
     crewSlots: [], // Array of { options: [], selectedIndex: 0 } for each slot
   },
+  runDetail: {
+    active: false,
+    runId: null,
+    scroll: 0,  // Scroll offset for viewing many sub-run results
+  },
 };
 
 // Create UI layer
@@ -128,7 +133,8 @@ function handleInput(e) {
     return;
   }
 
-  // Tab switching (J, A, C, O)
+
+  // Tab switching (J, A, C, O) - C is conditional on not being in runs panel
   if (e.key === 'j' || e.key === 'J') {
     ui.tab = 'jobs';
     ui.focus = 'activity';  // Reset to branch/activity list
@@ -140,7 +146,8 @@ function handleInput(e) {
     ui.tab = 'active';
     closeCrimeDetail();
   }
-  if (e.key === 'c' || e.key === 'C') {
+  // C switches to crew tab, unless focus is on runs panel (C = clear there)
+  if ((e.key === 'c' || e.key === 'C') && ui.focus !== 'runs') {
     ui.tab = 'crew';
     closeCrimeDetail();
   }
@@ -265,13 +272,7 @@ function handleJobsInput(e) {
     }
   } else if (ui.focus === 'option') {
     if (e.key === 'ArrowUp') {
-      if (ui.optionIndex === 0) {
-        // At top of options — go back to activity list
-        ui.focus = 'activity';
-        ui.optionIndex = 0;
-      } else {
-        ui.optionIndex = Math.max(0, ui.optionIndex - 1);
-      }
+      ui.optionIndex = Math.max(0, ui.optionIndex - 1);
     }
     if (e.key === 'ArrowDown') ui.optionIndex = Math.min(Math.max(0, options.length - 1), ui.optionIndex + 1);
 
@@ -336,6 +337,13 @@ function handleJobsInput(e) {
       });
     }
 
+    // Sort: active first, then completed (matches renderActiveRunsPanel sorting)
+    contextRuns.sort((a, b) => {
+      if (a.status === 'active' && b.status === 'completed') return -1;
+      if (a.status === 'completed' && b.status === 'active') return 1;
+      return 0;
+    });
+
     if (contextRuns.length === 0) {
       ui.focus = activity ? 'option' : 'activity';
       ui.selectedRun = 0;
@@ -343,6 +351,10 @@ function handleJobsInput(e) {
     }
 
     if (ui.selectedRun === undefined) ui.selectedRun = 0;
+    ui.selectedRun = Math.min(ui.selectedRun, contextRuns.length - 1);
+
+    const selectedRun = contextRuns[ui.selectedRun];
+    const isCompleted = selectedRun?.status === 'completed';
 
     // LEFT arrow or ESCAPE switches back to left panel
     if (e.key === 'ArrowLeft' || e.key === 'Escape') {
@@ -357,18 +369,36 @@ function handleJobsInput(e) {
       ui.selectedRun = Math.min(contextRuns.length - 1, ui.selectedRun + 1);
     }
 
-    // X key stops selected run immediately
-    if (e.key === 'x' || e.key === 'X') {
-      const run = contextRuns[ui.selectedRun];
-      if (run) engine.stopRun(run.runId);
+    // X key clears selected completed run
+    if ((e.key === 'x' || e.key === 'X') && selectedRun && isCompleted) {
+      engine.clearCompletedRun(selectedRun.runId);
+      // Adjust selection if needed
+      if (ui.selectedRun >= contextRuns.length - 1) {
+        ui.selectedRun = Math.max(0, contextRuns.length - 2);
+      }
     }
 
-    // Z key stops repeat (lets current finish)
-    if (e.key === 'z' || e.key === 'Z') {
-      const run = contextRuns[ui.selectedRun];
-      if (run && run.runsLeft !== 0) {
-        engine.stopRepeat(run.runId);
-      }
+    // Z key clears ALL completed runs
+    if ((e.key === 'z' || e.key === 'Z')) {
+      engine.clearAllCompletedRuns();
+    }
+
+    // Y key stops active run (forfeits progress unless results exist)
+    if ((e.key === 'y' || e.key === 'Y') && selectedRun && !isCompleted) {
+      engine.stopRun(selectedRun.runId);
+    }
+
+    // R key cancels future runs (current iteration completes, then done)
+    if ((e.key === 'r' || e.key === 'R') && selectedRun && !isCompleted && selectedRun.runsLeft !== 0) {
+      engine.stopRepeat(selectedRun.runId);
+    }
+
+    // Page Up/Down for scrolling run detail results
+    if (e.key === 'PageDown') {
+      ui.runDetailScroll = (ui.runDetailScroll || 0) + 5;
+    }
+    if (e.key === 'PageUp') {
+      ui.runDetailScroll = Math.max(0, (ui.runDetailScroll || 0) - 5);
     }
   }
 }
@@ -568,11 +598,52 @@ function handleActiveInput(e) {
   if (ui.activeFilter === undefined) ui.activeFilter = 0;
   if (ui.activeBranchFilter === undefined) ui.activeBranchFilter = 0;
 
-  const filterCount = 4; // all, ending soon, by branch, completed
+  const filterCount = 5; // all, active only, ending soon, by branch, completed
+
+  // Get filtered runs based on current filter
+  function getFilteredRuns() {
+    switch (ui.activeFilter) {
+      case 0: return engine.state.runs;  // all
+      case 1: return engine.state.runs.filter(r => r.status !== 'completed');  // active only
+      case 2: return engine.state.runs.filter(r => r.status !== 'completed')  // ending soon
+        .sort((a, b) => (a.endsAt - engine.state.now) - (b.endsAt - engine.state.now));
+      case 3: {  // by branch
+        const branches = uiLayer.getVisibleBranches();
+        const branch = branches[ui.activeBranchFilter || 0];
+        return engine.state.runs.filter(r => {
+          const a = engine.data.activities.find(act => act.id === r.activityId);
+          return a && a.branchId === branch?.id;
+        });
+      }
+      case 4: return engine.state.runs.filter(r => r.status === 'completed');  // completed
+      default: return engine.state.runs;
+    }
+  }
 
   // Handle focus switching between filter list and runs panel
   if (ui.focus === 'runs') {
-    // In runs panel - same handling as jobs tab
+    const filteredRuns = getFilteredRuns();
+
+    // Sort: active first, then completed
+    filteredRuns.sort((a, b) => {
+      if (a.status === 'active' && b.status === 'completed') return -1;
+      if (a.status === 'completed' && b.status === 'active') return 1;
+      return 0;
+    });
+
+    if (filteredRuns.length === 0) {
+      ui.focus = 'filter';
+      ui.selectedRun = 0;
+      return;
+    }
+
+    if (ui.selectedRun === undefined) ui.selectedRun = 0;
+    ui.selectedRun = Math.min(ui.selectedRun, filteredRuns.length - 1);
+
+    const selectedRun = filteredRuns[ui.selectedRun];
+    const isCompleted = selectedRun?.status === 'completed';
+
+    // In runs panel
     if (e.key === 'ArrowLeft' || e.key === 'Escape') {
       ui.focus = 'filter';
       return;
@@ -580,28 +651,48 @@ function handleActiveInput(e) {
 
     // Arrow Up/Down to navigate runs
     if (e.key === 'ArrowUp') {
-      ui.selectedRun = Math.max(0, (ui.selectedRun || 0) - 1);
+      ui.selectedRun = Math.max(0, ui.selectedRun - 1);
       return;
     }
     if (e.key === 'ArrowDown') {
-      const maxRuns = engine.state.runs.length; // Simplified - actual depends on filter
-      ui.selectedRun = Math.min(maxRuns - 1, (ui.selectedRun || 0) + 1);
+      ui.selectedRun = Math.min(filteredRuns.length - 1, ui.selectedRun + 1);
       return;
     }
 
-    // X to stop selected run
-    if (key === 'x') {
-      const run = engine.state.runs[ui.selectedRun || 0];
-      if (run) engine.stopRun(run.runId);
-      return;
-    }
-
-    // Z to stop repeat
-    if (key === 'z') {
-      const run = engine.state.runs[ui.selectedRun || 0];
-      if (run && run.runsLeft !== 0) {
-        engine.stopRepeat(run.runId);
+    // X clears selected completed run
+    if (key === 'x' && selectedRun && isCompleted) {
+      engine.clearCompletedRun(selectedRun.runId);
+      if (ui.selectedRun >= filteredRuns.length - 1) {
+        ui.selectedRun = Math.max(0, filteredRuns.length - 2);
       }
+      return;
+    }
+
+    // Z clears ALL completed runs
+    if (key === 'z') {
+      engine.clearAllCompletedRuns();
+      return;
+    }
+
+    // Y stops active run (forfeits progress unless results exist)
+    if (key === 'y' && selectedRun && !isCompleted) {
+      engine.stopRun(selectedRun.runId);
+      return;
+    }
+
+    // R cancels future runs (current iteration completes, then done)
+    if (key === 'r' && selectedRun && !isCompleted && selectedRun.runsLeft !== 0) {
+      engine.stopRepeat(selectedRun.runId);
+      return;
+    }
+
+    // Page Up/Down for scrolling run detail results
+    if (e.key === 'PageDown') {
+      ui.runDetailScroll = (ui.runDetailScroll || 0) + 5;
+      return;
+    }
+    if (e.key === 'PageUp') {
+      ui.runDetailScroll = Math.max(0, (ui.runDetailScroll || 0) - 5);
       return;
     }
   } else {
@@ -620,15 +711,15 @@ function handleActiveInput(e) {
       return;
     }
 
-    // Number keys 1-4 to select filter
-    if (key >= '1' && key <= '4') {
+    // Number keys 1-5 to select filter
+    if (key >= '1' && key <= '5') {
       ui.activeFilter = parseInt(key) - 1;
       ui.confirmStopAll = false;
       return;
     }
 
     // B to cycle branches when "By branch" filter is selected
-    if (key === 'b' && ui.activeFilter === 2) {
+    if (key === 'b' && ui.activeFilter === 3) {  // Now index 3 after adding "Active only"
       const branches = uiLayer.getVisibleBranches();
       ui.activeBranchFilter = ((ui.activeBranchFilter || 0) + 1) % branches.length;
       return;
@@ -643,7 +734,7 @@ function handleActiveInput(e) {
       return;
     }
 
-    // X to stop all runs (with confirmation)
+    // X to stop all ACTIVE runs (with confirmation) - in filter list only
     if (key === 'x') {
       if (ui.confirmStopAll) {
         engine.stopAllRuns();
@@ -1071,6 +1162,7 @@ function handleFontSubMenuInput(e) {
     }
   }
 }
+
 
 // Modal input handler
 function handleModalInput(e) {

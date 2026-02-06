@@ -43,3 +43,5 @@ also the idea for hotkeys for the branches is also dead idea
 a way so what when the player progresses past primordial, primordial branch disappears and any resources that are specific to primordial disappear too
 
 when the game starts, and it defaults to the jobs menu, it should then also default to branches within the jobs menu.
+
+I think branches also need a "visible but locked" functionality, that allows the player to move over that branch, but ALL it says is locked. that'll mean there will have to be effect that completeing a particular crime that is make branch visible but still locked. Im happy for it to be that thats the only way it can be made visble but locked, is an effect from compelteing a crime

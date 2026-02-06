@@ -163,14 +163,35 @@ export class UI {
     this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, "┘", rightBorderColor, Palette.BLACK);
 
     if (!showingOptions) {
-      // ACTIVITY LIST VIEW (50/50 split: left=activities, right=active runs for branch)
+      // ACTIVITY LIST VIEW (50/50 split: left=activities/run detail, right=active runs for branch)
       const listTop = 5;
       const leftWidth = 36; // x=2 to x=38
       const dividerX = 39;
       const rightX = 41;
       const rightWidth = 38; // x=41 to x=78
 
-      if (branchFocused) {
+      // Get runs for this branch (needed for both left and right panels)
+      const branchRuns = this.engine.state.runs.filter(r => {
+        const a = this.engine.data.activities.find(act => act.id === r.activityId);
+        return a && a.branchId === branch?.id;
+      });
+
+      // Sort runs: active first, then completed
+      const sortedRuns = branchRuns.slice().sort((a, b) => {
+        if (a.status === 'active' && b.status === 'completed') return -1;
+        if (a.status === 'completed' && b.status === 'active') return 1;
+        return 0;
+      });
+
+      // Get selected run (if any)
+      const selectedRunIndex = this.ui.selectedRun ?? 0;
+      const selectedRun = sortedRuns[selectedRunIndex];
+
+      if (rightFocused) {
+        // RUNS FOCUSED: Show run detail in left panel
+        const panelHeight = Layout.HEIGHT - listTop - 1;
+        this.renderRunDetailPanel(selectedRun?.runId, 2, listTop, leftWidth, panelHeight, Palette.BLACK);
+      } else if (branchFocused) {
         // BRANCH SELECTION MODE: Show branch info instead of activity list
         if (branch) {
           const branchColor = branch.ui?.color ? Palette[branch.ui.color] : Palette.NEON_CYAN;
@@ -250,14 +271,11 @@ export class UI {
       this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", divColor, Palette.BLACK);
       this.buffer.setCell(dividerX, Layout.HEIGHT - 1, "┴", divColor, Palette.BLACK);
 
-      // RIGHT HALF: Active runs filtered by current branch
-      const branchRuns = this.engine.state.runs.filter(r => {
-        const a = this.engine.data.activities.find(act => act.id === r.activityId);
-        return a && a.branchId === branch?.id;
-      });
-      this.renderActiveRunsPanel(branchRuns, rightX, listTop, rightWidth, Palette.BLACK);
+      // RIGHT HALF: Active runs for this branch
+      const branchContext = branch?.name || "?";
+      this.renderActiveRunsPanel(branchRuns, rightX, listTop, rightWidth, Palette.BLACK, branchContext);
     } else {
-      // OPTIONS VIEW (50/50 split: left=options, right=active runs for activity)
+      // OPTIONS VIEW (50/50 split: left=options/run detail, right=active runs for activity)
       const optionsTop = 5;
       const leftWidth = 36; // x=2 to x=38
       const dividerX = 39;
@@ -276,66 +294,86 @@ export class UI {
       this.buffer.drawVLine(dividerX, optionsTop, Layout.HEIGHT - 2, "│", divColor, branchBgColor);
       this.buffer.setCell(dividerX, Layout.HEIGHT - 1, "┴", divColor, Palette.BLACK);
 
-      // LEFT HALF: Activity header and options list
-      this.buffer.writeText(2, optionsTop, activity.name.toUpperCase(), Palette.NEON_CYAN, branchBgColor);
+      // Get runs for this activity (needed for both panels)
+      const activityRuns = this.engine.state.runs.filter((r) => r.activityId === activity.id);
 
-      const descLines = this.wrapText(activity.description || "", leftWidth - 2);
-      descLines.slice(0, 2).forEach((line, idx) => {
-        this.buffer.writeText(2, optionsTop + 1 + idx, line, Palette.MID_GRAY, branchBgColor);
+      // Sort runs: active first, then completed
+      const sortedRuns = activityRuns.slice().sort((a, b) => {
+        if (a.status === 'active' && b.status === 'completed') return -1;
+        if (a.status === 'completed' && b.status === 'active') return 1;
+        return 0;
       });
 
-      // Show numbered options (condensed for 36-col width)
-      options.slice(0, 9).forEach((opt, i) => {
-        const optY = optionsTop + 4 + i * 5;
-        const number = i + 1;
-        const selected = this.ui.optionIndex === i;
+      // Get selected run (if any)
+      const selectedRunIndex = this.ui.selectedRun ?? 0;
+      const selectedRun = sortedRuns[selectedRunIndex];
 
-        // Validate if this option can be started
-        const validation = selected ? this.engine.canStartRun(activity.id, opt.id) : { ok: true };
-        const fg = selected ? (validation.ok ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE) : Palette.NEON_TEAL;
+      if (rightFocused) {
+        // RUNS FOCUSED: Show run detail in left panel
+        const panelHeight = Layout.HEIGHT - optionsTop - 1;
+        this.renderRunDetailPanel(selectedRun?.runId, 2, optionsTop, leftWidth, panelHeight, branchBgColor);
+      } else {
+        // LEFT HALF: Activity header and options list
+        this.buffer.writeText(2, optionsTop, activity.name.toUpperCase(), Palette.NEON_CYAN, branchBgColor);
 
-        // Number and name (fit in leftWidth)
-        this.buffer.writeText(2, optY, `${number}.`, fg, branchBgColor);
-        this.buffer.writeText(5, optY, opt.name.substring(0, leftWidth - 5), fg, branchBgColor);
+        const descLines = this.wrapText(activity.description || "", leftWidth - 2);
+        descLines.slice(0, 2).forEach((line, idx) => {
+          this.buffer.writeText(2, optionsTop + 1 + idx, line, Palette.MID_GRAY, branchBgColor);
+        });
 
-        // Details
-        const detailFg = selected ? Palette.MID_GRAY : Palette.DIM_GRAY;
-        this.buffer.writeText(5, optY + 1, `Dur: ${this.formatMs(opt.durationMs)}`, detailFg, branchBgColor);
-        this.buffer.writeText(5, optY + 2, `Req: ${this.describeRequirements(opt.requirements).substring(0, leftWidth - 10)}`, detailFg, branchBgColor);
+        // Show numbered options (condensed for 36-col width)
+        options.slice(0, 9).forEach((opt, i) => {
+          const optY = optionsTop + 4 + i * 5;
+          const number = i + 1;
+          const selected = this.ui.optionIndex === i;
 
-        // Show validation error if can't start
-        if (selected && !validation.ok) {
-          this.buffer.writeText(5, optY + 3, `! ${validation.reason.substring(0, leftWidth - 7)}`, Palette.HEAT_ORANGE, branchBgColor);
-        }
+          // Validate if this option can be started
+          const validation = selected ? this.engine.canStartRun(activity.id, opt.id) : { ok: true };
+          const fg = selected ? (validation.ok ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE) : Palette.NEON_TEAL;
 
-        // Repeat controls (only for selected option if repeatable and valid)
-        if (selected && opt.repeatable && validation.ok) {
-          const repeatRow = optY + 3;
-          const mode = this.ui.repeatMode || "single";
+          // Number and name (fit in leftWidth)
+          this.buffer.writeText(2, optY, `${number}.`, fg, branchBgColor);
+          this.buffer.writeText(5, optY, opt.name.substring(0, leftWidth - 5), fg, branchBgColor);
 
-          // Mode buttons
-          const multiColor = mode === "multi" ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
-          const infColor = mode === "infinite" ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
+          // Details
+          const detailFg = selected ? Palette.MID_GRAY : Palette.DIM_GRAY;
+          this.buffer.writeText(5, optY + 1, `Dur: ${this.formatMs(opt.durationMs)}`, detailFg, branchBgColor);
+          this.buffer.writeText(5, optY + 2, `Req: ${this.describeRequirements(opt.requirements).substring(0, leftWidth - 10)}`, detailFg, branchBgColor);
 
-          this.buffer.writeText(5, repeatRow, "[N]", multiColor, branchBgColor);
-
-          if (mode === "multi") {
-            const count = this.ui.repeatCount || 2;
-            this.buffer.writeText(9, repeatRow, `(${count})`, Palette.WHITE, branchBgColor);
-            this.buffer.writeText(13, repeatRow, "[+/-]", Palette.DIM_GRAY, branchBgColor);
+          // Show validation error if can't start
+          if (selected && !validation.ok) {
+            this.buffer.writeText(5, optY + 3, `! ${validation.reason.substring(0, leftWidth - 7)}`, Palette.HEAT_ORANGE, branchBgColor);
           }
 
-          this.buffer.writeText(20, repeatRow, "[I]INF", infColor, branchBgColor);
-        }
+          // Repeat controls (only for selected option if repeatable and valid)
+          if (selected && opt.repeatable && validation.ok) {
+            const repeatRow = optY + 3;
+            const mode = this.ui.repeatMode || "single";
 
-        if (selected) {
-          this.buffer.writeText(5, optY + 4, "[Q]Quick [→]Runs", Palette.SUCCESS_GREEN, branchBgColor);
-        }
-      });
+            // Mode buttons
+            const multiColor = mode === "multi" ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
+            const infColor = mode === "infinite" ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
+
+            this.buffer.writeText(5, repeatRow, "[N]", multiColor, branchBgColor);
+
+            if (mode === "multi") {
+              const count = this.ui.repeatCount || 2;
+              this.buffer.writeText(9, repeatRow, `(${count})`, Palette.WHITE, branchBgColor);
+              this.buffer.writeText(13, repeatRow, "[+/-]", Palette.DIM_GRAY, branchBgColor);
+            }
+
+            this.buffer.writeText(20, repeatRow, "[I]INF", infColor, branchBgColor);
+          }
+
+          if (selected) {
+            this.buffer.writeText(5, optY + 4, "[Q]Quick [→]Runs", Palette.SUCCESS_GREEN, branchBgColor);
+          }
+        });
+      }
 
       // RIGHT HALF: Active runs for this activity (use shared panel)
-      const activityRuns = this.engine.state.runs.filter((r) => r.activityId === activity.id);
-      this.renderActiveRunsPanel(activityRuns, rightX, optionsTop, rightWidth, branchBgColor);
+      const activityContext = `${branch?.name || "?"} > ${activity?.name || "?"}`;
+      this.renderActiveRunsPanel(activityRuns, rightX, optionsTop, rightWidth, branchBgColor, activityContext);
     }
   }
 
@@ -387,27 +425,42 @@ export class UI {
   }
 
   // Render ultra-compact 2-line run card for 50/50 split layout
-  renderCompactRunCard2Line(run, x, y, maxWidth, bgColor = Palette.BLACK, selected = false) {
+  renderCompactRunCard3Line(run, x, y, maxWidth, bgColor = Palette.BLACK, selected = false) {
     const activity = this.engine.data.activities.find((a) => a.id === run.activityId);
     const option = activity?.options.find((o) => o.id === run.optionId);
-    const remaining = Math.max(0, run.endsAt - this.engine.state.now);
-    const timeText = this.formatMs(remaining);
+    const isCompleted = run.status === 'completed';
 
-    // Line 1: Option name (left) + time remaining (right-aligned)
+    // Line 1: Option name (left) + time remaining or DONE (right-aligned)
+    let timeText;
+    if (isCompleted) {
+      timeText = "DONE";
+    } else {
+      const remaining = Math.max(0, run.endsAt - this.engine.state.now);
+      timeText = this.formatMs(remaining);
+    }
+
     const nameWidth = maxWidth - timeText.length - 1;
     const trimmedName = (option?.name || "?").substring(0, nameWidth);
 
     const nameFg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
-    const timeFg = selected ? Palette.WHITE : Palette.MID_GRAY;
+    const timeFg = isCompleted ? Palette.SUCCESS_GREEN : (selected ? Palette.WHITE : Palette.MID_GRAY);
     this.buffer.writeText(x, y, trimmedName, nameFg, bgColor);
     this.buffer.writeText(x + maxWidth - timeText.length, y, timeText, timeFg, bgColor);
 
     // Line 2: Progress bar + repeat indicator + staff initials
     let suffix = "";
-    if (run.runsLeft === -1) {
-      suffix = " INF";
-    } else if (run.runsLeft > 0) {
-      suffix = ` +${run.runsLeft}`;
+    if (isCompleted) {
+      // Show completed count for multi-runs
+      const results = run.results || [];
+      if (results.length > 1) {
+        suffix = ` x${results.length}`;
+      }
+    } else {
+      if (run.runsLeft === -1) {
+        suffix = " INF";
+      } else if (run.runsLeft > 0) {
+        suffix = ` +${run.runsLeft}`;
+      }
     }
 
     // Get staff initials
@@ -421,20 +474,16 @@ export class UI {
     const staffStr = staffInitials ? ` [${staffInitials}]` : "";
 
     const barWidth = maxWidth - suffix.length - staffStr.length - 1;
-    const pct = (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt);
 
-    this.buffer.drawSmoothProgressBar(
-      x,
-      y + 1,
-      barWidth,
-      pct,
-      Palette.BRIGHT_YELLOW,
-      Palette.NEON_CYAN,
-      Palette.DIM_GRAY,
-      bgColor
-    );
+    if (isCompleted) {
+      // Full bar for completed runs
+      this.buffer.drawSmoothProgressBar(x, y + 1, barWidth, 1.0, Palette.SUCCESS_GREEN, Palette.SUCCESS_GREEN, Palette.DIM_GRAY, bgColor);
+    } else {
+      const pct = (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt);
+      this.buffer.drawSmoothProgressBar(x, y + 1, barWidth, pct, Palette.BRIGHT_YELLOW, Palette.NEON_CYAN, Palette.DIM_GRAY, bgColor);
+    }
 
-    // Suffix (repeat count)
+    // Suffix (repeat count or completion count)
     if (suffix) {
       this.buffer.writeText(x + barWidth, y + 1, suffix, selected ? Palette.WHITE : Palette.DIM_GRAY, bgColor);
     }
@@ -443,23 +492,84 @@ export class UI {
     if (staffStr) {
       this.buffer.writeText(x + barWidth + suffix.length, y + 1, staffStr, selected ? Palette.MID_GRAY : Palette.DIM_GRAY, bgColor);
     }
+
+    // Line 3: Results summary
+    const results = run.results || [];
+    if (isCompleted || results.length > 0) {
+      // Aggregate results
+      const successCount = results.filter(r => r.wasSuccess).length;
+      const failCount = results.filter(r => r.botched).length;
+      const totalCash = results.reduce((sum, r) => sum + (r.resourcesGained?.cash || 0), 0);
+
+      let line3 = "";
+      if (successCount > 0) {
+        line3 += `✓${successCount}`;
+      }
+      if (failCount > 0) {
+        line3 += (line3 ? " " : "") + `✗${failCount}`;
+      }
+      if (totalCash !== 0) {
+        const cashStr = totalCash >= 0 ? `$${this.fmtNum(totalCash)}` : `-$${this.fmtNum(Math.abs(totalCash))}`;
+        line3 += (line3 ? "  " : "") + cashStr;
+      }
+      if (failCount > 0 && results.some(r => r.botched)) {
+        line3 += "  JAILED";
+      }
+
+      if (!line3 && isCompleted) {
+        line3 = "✓ Done";
+      } else if (!line3 && !isCompleted) {
+        // In progress with results
+        line3 = `Run ${run.currentRun || 1}...`;
+      }
+
+      const line3Fg = failCount > 0 ? Palette.HEAT_ORANGE : Palette.MID_GRAY;
+      this.buffer.writeText(x, y + 2, line3.substring(0, maxWidth), line3Fg, bgColor);
+    } else {
+      // No results yet, show "Run 1 of N" or just in progress
+      let line3;
+      if (run.totalRuns === 1) {
+        line3 = "In progress...";
+      } else if (run.totalRuns === -1) {
+        line3 = `Run ${run.currentRun || 1} (INF)...`;
+      } else {
+        line3 = `Run ${run.currentRun || 1} of ${run.totalRuns}...`;
+      }
+      this.buffer.writeText(x, y + 2, line3.substring(0, maxWidth), Palette.DIM_GRAY, bgColor);
+    }
   }
 
   // Render the unified active runs panel (right half of screen, 40 cols wide)
-  renderActiveRunsPanel(runs, startX, startY, width, bgColor = Palette.BLACK) {
-    // Panel dimensions
-    const panelHeight = Layout.HEIGHT - startY - 1; // Y=5 to Y=23 = 19 rows
-    const runCardHeight = 2;
+  // contextPath is optional breadcrumb like "PRIMORDIAL > BEDTIME SHENANIGANS"
+  renderActiveRunsPanel(runs, startX, startY, width, bgColor = Palette.BLACK, contextPath = null) {
+    // Sort runs: active first, then completed
+    const sortedRuns = runs.slice().sort((a, b) => {
+      if (a.status === 'active' && b.status === 'completed') return -1;
+      if (a.status === 'completed' && b.status === 'active') return 1;
+      return 0;  // preserve original order within same status
+    });
+
+    // Draw context header if provided
+    let runsStartY = startY;
+    if (contextPath) {
+      const header = `RUNS > ${contextPath}`.toUpperCase();
+      this.buffer.writeText(startX, startY, header.substring(0, width), Palette.DIM_GRAY, bgColor);
+      runsStartY = startY + 1;
+    }
+
+    // Panel dimensions (adjusted for header if present)
+    const panelHeight = Layout.HEIGHT - runsStartY - 1;
+    const runCardHeight = 3;  // Now 3 lines per run card
     const maxVisibleRuns = Math.floor(panelHeight / runCardHeight);
 
     // Scroll handling
     const focusedOnRuns = this.ui.focus === 'runs';
     let selectedRun = this.ui.selectedRun ?? 0;
-    selectedRun = Math.max(0, Math.min(selectedRun, runs.length - 1));
+    selectedRun = Math.max(0, Math.min(selectedRun, sortedRuns.length - 1));
     this.ui.selectedRun = selectedRun;
 
-    let scrollOffset = this.clampScrollOffset("activePanel", runs.length, maxVisibleRuns);
-    if (focusedOnRuns && runs.length > 0) {
+    let scrollOffset = this.clampScrollOffset("activePanel", sortedRuns.length, maxVisibleRuns);
+    if (focusedOnRuns && sortedRuns.length > 0) {
       // Auto-scroll to keep selected run visible
       if (selectedRun < scrollOffset) scrollOffset = selectedRun;
       if (selectedRun >= scrollOffset + maxVisibleRuns) {
@@ -469,41 +579,205 @@ export class UI {
     }
 
     // Empty state
-    if (runs.length === 0) {
-      this.buffer.writeText(startX, startY, "No active runs", Palette.DIM_GRAY, bgColor);
+    if (sortedRuns.length === 0) {
+      this.buffer.writeText(startX, runsStartY, "No runs", Palette.DIM_GRAY, bgColor);
       return;
     }
 
     // Render visible slice of runs
-    const visibleRuns = runs.slice(scrollOffset, scrollOffset + maxVisibleRuns);
+    const visibleRuns = sortedRuns.slice(scrollOffset, scrollOffset + maxVisibleRuns);
     visibleRuns.forEach((run, idx) => {
       const runIndex = scrollOffset + idx;
-      const cardY = startY + idx * runCardHeight;
+      const cardY = runsStartY + idx * runCardHeight;
       const isSelected = focusedOnRuns && runIndex === selectedRun;
 
-      // Alternating backgrounds: even=BLACK, odd=slightly darker
-      const rowBg = runIndex % 2 === 0 ? Palette.BLACK : Palette.DIM_GRAY;
+      // Alternating backgrounds
+      const rowBg = runIndex % 2 === 0 ? Palette.BLACK : Palette.DARK_GRAY;
 
       // Selection indicator
       if (isSelected) {
         this.buffer.writeText(startX - 1, cardY, ">", Palette.SUCCESS_GREEN, bgColor);
       }
 
-      this.renderCompactRunCard2Line(run, startX, cardY, width, rowBg, isSelected);
+      this.renderCompactRunCard3Line(run, startX, cardY, width, rowBg, isSelected);
     });
 
     // Scrollbar if needed
-    if (runs.length > maxVisibleRuns) {
+    if (sortedRuns.length > maxVisibleRuns) {
       this.renderScrollBar(
         startX + width,
-        startY,
+        runsStartY,
         panelHeight,
-        runs.length,
+        sortedRuns.length,
         scrollOffset,
         Palette.DIM_GRAY,
         bgColor,
         maxVisibleRuns
       );
+    }
+  }
+
+  // Render run detail in a panel (inline, not overlay)
+  // Shows run info, results list, totals, and controls
+  renderRunDetailPanel(runId, x, y, width, height, bgColor = Palette.BLACK) {
+    if (!runId) {
+      // No run selected - show empty state
+      this.buffer.writeText(x, y, "NO AVAILABLE RUNS", Palette.DIM_GRAY, bgColor);
+      this.buffer.writeText(x, y + 2, "Select a run from the queue", Palette.DIM_GRAY, bgColor);
+      this.buffer.writeText(x, y + 3, "to view details.", Palette.DIM_GRAY, bgColor);
+      return;
+    }
+
+    const run = this.engine.state.runs.find(r => r.runId === runId);
+    if (!run) {
+      this.buffer.writeText(x, y, "Run not found", Palette.DIM_GRAY, bgColor);
+      return;
+    }
+
+    const activity = this.engine.data.activities.find(a => a.id === run.activityId);
+    const option = activity?.options.find(o => o.id === run.optionId);
+    if (!activity || !option) return;
+
+    const isCompleted = run.status === 'completed';
+    const titleColor = isCompleted ? Palette.SUCCESS_GREEN : Palette.NEON_CYAN;
+
+    // Row 1: Option name
+    const title = option.name.toUpperCase();
+    this.buffer.writeText(x, y, title.substring(0, width), titleColor, bgColor);
+
+    // Row 2: Status
+    const statusText = isCompleted ? "COMPLETED" : "IN PROGRESS";
+    const statusColor = isCompleted ? Palette.SUCCESS_GREEN : Palette.BRIGHT_YELLOW;
+    this.buffer.writeText(x, y + 1, statusText, statusColor, bgColor);
+
+    // Row 3: Crew info
+    const staffNames = run.assignedStaffIds
+      .map(id => this.engine.state.crew.staff.find(s => s.id === id)?.name || "?")
+      .join(", ");
+    this.buffer.writeText(x, y + 2, `Crew: ${staffNames}`.substring(0, width), Palette.MID_GRAY, bgColor);
+
+    // Row 4: Separator
+    this.buffer.drawHLine(x, y + 3, width, "─", Palette.DIM_GRAY, bgColor);
+
+    // Results section
+    const results = run.results || [];
+    let currentY = y + 4;
+
+    // Show progress bar if active
+    if (!isCompleted) {
+      const remaining = Math.max(0, run.endsAt - this.engine.state.now);
+      const pct = Math.min(1, Math.max(0, (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt)));
+      const barWidth = Math.min(width - 10, 20);
+      this.buffer.drawSmoothProgressBar(x, currentY, barWidth, pct, Palette.BRIGHT_YELLOW, Palette.NEON_CYAN, Palette.DIM_GRAY, bgColor);
+      this.buffer.writeText(x + barWidth + 1, currentY, this.formatMs(remaining), Palette.WHITE, bgColor);
+      currentY += 2;
+    }
+
+    // Results header
+    const totalRuns = run.totalRuns === -1 ? "INF" : run.totalRuns;
+    const resultsHeader = isCompleted
+      ? `RESULTS (${results.length})`
+      : `RESULTS (${results.length}/${totalRuns})`;
+    this.buffer.writeText(x, currentY, resultsHeader, Palette.NEON_TEAL, bgColor);
+    currentY += 1;
+
+    // Calculate available space for results
+    const controlsHeight = 3; // Space for totals + controls
+    const maxResultRows = height - (currentY - y) - controlsHeight;
+    const scrollOffset = this.ui.runDetailScroll || 0;
+
+    if (results.length === 0) {
+      this.buffer.writeText(x, currentY, "No results yet...", Palette.DIM_GRAY, bgColor);
+      currentY += 1;
+    } else {
+      // Show results with scroll
+      const visibleResults = results.slice(scrollOffset, scrollOffset + maxResultRows);
+      visibleResults.forEach((result, idx) => {
+        if (currentY >= y + height - controlsHeight) return;
+        const resultIdx = scrollOffset + idx + 1;
+        const icon = result.botched ? "✗" : "✓";
+        const iconColor = result.botched ? Palette.HEAT_RED : Palette.SUCCESS_GREEN;
+
+        // Format resource gains - iterate ALL resources
+        let resourceStr = "";
+        if (result.resourcesGained) {
+          const gains = [];
+          for (const [resId, amount] of Object.entries(result.resourcesGained)) {
+            if (amount === 0) continue;
+            const resDef = this.engine.data.resources?.find(r => r.id === resId);
+            const resName = resDef?.name || resId;
+            if (resId === "cash") {
+              gains.push(amount >= 0 ? `$${this.fmtNum(amount)}` : `-$${this.fmtNum(Math.abs(amount))}`);
+            } else {
+              gains.push(amount >= 0 ? `+${amount} ${resName}` : `${amount} ${resName}`);
+            }
+          }
+          resourceStr = gains.join(" ");
+        }
+
+        this.buffer.writeText(x, currentY, `#${resultIdx}`, Palette.DIM_GRAY, bgColor);
+        this.buffer.writeText(x + 3, currentY, icon, iconColor, bgColor);
+        this.buffer.writeText(x + 5, currentY, resourceStr.substring(0, width - 5), Palette.WHITE, bgColor);
+        currentY += 1;
+      });
+
+      // Scroll indicator
+      if (results.length > maxResultRows) {
+        const moreAbove = scrollOffset > 0;
+        const moreBelow = scrollOffset + maxResultRows < results.length;
+        if (moreAbove || moreBelow) {
+          let scrollHint = moreAbove && moreBelow ? "↑↓ scroll" : (moreAbove ? "↑ scroll" : "↓ scroll");
+          this.buffer.writeText(x + width - scrollHint.length, currentY, scrollHint, Palette.DIM_GRAY, bgColor);
+        }
+      }
+    }
+
+    // Totals at bottom
+    const totalsY = y + height - 3;
+    this.buffer.drawHLine(x, totalsY - 1, width, "─", Palette.DIM_GRAY, bgColor);
+
+    // Aggregate totals
+    const resourceTotals = {};
+    let successCount = 0;
+    let failCount = 0;
+    results.forEach(r => {
+      if (r.wasSuccess) successCount++;
+      if (r.botched) failCount++;
+      if (r.resourcesGained) {
+        for (const [resId, amount] of Object.entries(r.resourcesGained)) {
+          resourceTotals[resId] = (resourceTotals[resId] || 0) + amount;
+        }
+      }
+    });
+
+    let totalsStr = "";
+    if (successCount > 0) totalsStr += `✓${successCount} `;
+    if (failCount > 0) totalsStr += `✗${failCount} `;
+    for (const [resId, amount] of Object.entries(resourceTotals)) {
+      if (amount === 0) continue;
+      const resDef = this.engine.data.resources?.find(r => r.id === resId);
+      const resName = resDef?.name || resId;
+      if (resId === "cash") {
+        totalsStr += amount >= 0 ? `$${this.fmtNum(amount)} ` : `-$${this.fmtNum(Math.abs(amount))} `;
+      } else {
+        totalsStr += `${amount > 0 ? '+' : ''}${amount} ${resName} `;
+      }
+    }
+    this.buffer.writeText(x, totalsY, totalsStr.substring(0, width) || "No gains", Palette.WHITE, bgColor);
+
+    // Controls
+    const controlsY = y + height - 1;
+    let controls = "";
+    if (isCompleted) {
+      controls = "[X] Clear  [Z] Clear all";
+    } else {
+      controls = "[Y] Stop";
+      if (run.runsLeft !== 0) {
+        controls += "  [R] Cancel future";
+      }
+    }
+    if (controls) {
+      this.buffer.writeText(x, controlsY, controls, Palette.SUCCESS_GREEN, bgColor);
     }
   }
 
@@ -540,7 +814,7 @@ export class UI {
   }
 
   renderActiveTab() {
-    // 50/50 split: left=filter list, right=filtered runs
+    // 50/50 split: left=run detail/filters, right=filtered runs
     const listTop = 5;
     const leftWidth = 36; // x=2 to x=38
     const dividerX = 39;
@@ -553,7 +827,8 @@ export class UI {
     // Filter definitions
     const filters = [
       { id: "all", name: "All runs", filter: () => this.engine.state.runs },
-      { id: "ending_soon", name: "Ending soon", filter: () => this.engine.state.runs.slice().sort((a, b) => (a.endsAt - this.engine.state.now) - (b.endsAt - this.engine.state.now)) },
+      { id: "active", name: "Active only", filter: () => this.engine.state.runs.filter(r => r.status !== 'completed') },
+      { id: "ending_soon", name: "Ending soon", filter: () => this.engine.state.runs.filter(r => r.status !== 'completed').sort((a, b) => (a.endsAt - this.engine.state.now) - (b.endsAt - this.engine.state.now)) },
       { id: "by_branch", name: "By branch", filter: () => {
         const branchIndex = this.ui.activeBranchFilter ?? 0;
         const branches = this.getVisibleBranches();
@@ -563,52 +838,81 @@ export class UI {
           return a && a.branchId === branch?.id;
         });
       }},
-      { id: "completed", name: "Completed", filter: () => this.engine.state.completedRuns || [] }
+      { id: "completed", name: "Completed", filter: () => this.engine.state.runs.filter(r => r.status === 'completed') }
     ];
 
     const currentFilter = filters[this.ui.activeFilter];
+    const filteredRuns = currentFilter.filter();
 
-    // LEFT HALF: Filter list
-    this.buffer.writeText(2, listTop - 2, "ACTIVE OPERATIONS", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(2, listTop, "FILTERS:", Palette.NEON_CYAN, Palette.BLACK);
-
-    filters.forEach((f, i) => {
-      const row = listTop + 2 + i;
-      const selected = this.ui.activeFilter === i;
-      const prefix = selected ? ">" : " ";
-      const fg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
-
-      let label = `${i + 1}. ${f.name}`;
-      if (f.id === "by_branch") {
-        const branchIndex = this.ui.activeBranchFilter ?? 0;
-        const branches = this.getVisibleBranches();
-        const branch = branches[branchIndex];
-        label += `: ${branch?.name || "?"}`;
-      }
-
-      this.buffer.writeText(2, row, prefix, selected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.writeText(4, row, label.substring(0, leftWidth - 4), fg, Palette.BLACK);
+    // Sort runs: active first, then completed
+    const sortedRuns = filteredRuns.slice().sort((a, b) => {
+      if (a.status === 'active' && b.status === 'completed') return -1;
+      if (a.status === 'completed' && b.status === 'active') return 1;
+      return 0;
     });
 
-    // Cycle branch hint
-    if (this.ui.activeFilter === 2) {
-      this.buffer.writeText(4, listTop + 7, "[B] Cycle branches", Palette.DIM_GRAY, Palette.BLACK);
-    }
+    // Get selected run (if any)
+    const selectedRunIndex = this.ui.selectedRun ?? 0;
+    const selectedRun = sortedRuns[selectedRunIndex];
+    const rightFocused = this.ui.focus === 'runs';
 
-    // Stop all hint
-    if (this.ui.confirmStopAll) {
-      this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] CONFIRM STOP ALL", Palette.HEAT_RED, Palette.BLACK);
+    // Determine left/right focus colors
+    const leftBorderColor = !rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
+    const rightBorderColor = rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
+
+    // Vertical divider
+    this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", rightBorderColor, Palette.BLACK);
+
+    if (rightFocused) {
+      // RUNS FOCUSED: Show run detail in left panel
+      this.buffer.writeText(2, listTop - 2, "RUN DETAIL", Palette.SUCCESS_GREEN, Palette.BLACK);
+      const panelHeight = Layout.HEIGHT - listTop - 1;
+      this.renderRunDetailPanel(selectedRun?.runId, 2, listTop, leftWidth, panelHeight, Palette.BLACK);
     } else {
-      this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] Stop all  [→] Runs", Palette.DIM_GRAY, Palette.BLACK);
-    }
+      // LEFT HALF: Filter list
+      this.buffer.writeText(2, listTop - 2, "ACTIVE OPERATIONS", Palette.SUCCESS_GREEN, Palette.BLACK);
+      this.buffer.writeText(2, listTop, "FILTERS:", Palette.NEON_CYAN, Palette.BLACK);
 
-    // Vertical divider with "ACTIVE" label
-    this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", Palette.DIM_GRAY, Palette.BLACK);
-    this.buffer.writeText(dividerX - 3, listTop, " ACTIVE ", Palette.NEON_CYAN, Palette.BLACK);
+      filters.forEach((f, i) => {
+        const row = listTop + 2 + i;
+        const selected = this.ui.activeFilter === i;
+        const prefix = selected ? ">" : " ";
+        const fg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
+
+        let label = `${i + 1}. ${f.name}`;
+        if (f.id === "by_branch") {
+          const branchIndex = this.ui.activeBranchFilter ?? 0;
+          const branches = this.getVisibleBranches();
+          const branch = branches[branchIndex];
+          label += `: ${branch?.name || "?"}`;
+        }
+
+        this.buffer.writeText(2, row, prefix, selected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
+        this.buffer.writeText(4, row, label.substring(0, leftWidth - 4), fg, Palette.BLACK);
+      });
+
+      // Cycle branch hint
+      if (this.ui.activeFilter === 3) {
+        this.buffer.writeText(4, listTop + 8, "[B] Cycle branches", Palette.DIM_GRAY, Palette.BLACK);
+      }
+
+      // Stop all hint
+      if (this.ui.confirmStopAll) {
+        this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] CONFIRM STOP ALL", Palette.HEAT_RED, Palette.BLACK);
+      } else {
+        this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] Clear all  [→] Runs", Palette.DIM_GRAY, Palette.BLACK);
+      }
+    }
 
     // RIGHT HALF: Filtered runs
-    const filteredRuns = currentFilter.filter();
-    this.renderActiveRunsPanel(filteredRuns, rightX, listTop, rightWidth, Palette.BLACK);
+    let activeContext = currentFilter.name;
+    if (currentFilter.id === "by_branch") {
+      const branchIndex = this.ui.activeBranchFilter ?? 0;
+      const branches = this.getVisibleBranches();
+      const branch = branches[branchIndex];
+      activeContext = branch?.name || "?";
+    }
+    this.renderActiveRunsPanel(filteredRuns, rightX, listTop, rightWidth, Palette.BLACK, activeContext);
   }
 
   renderCrewTab() {
@@ -1696,23 +2000,37 @@ export class UI {
     const branchActivityIds = new Set(branchActivities.map(a => a.id));
 
     // Count active runs
-    const activeRuns = this.engine.state.runs.filter(r => branchActivityIds.has(r.activityId));
+    const activeRuns = this.engine.state.runs.filter(r =>
+      r.status !== 'completed' && branchActivityIds.has(r.activityId)
+    );
 
-    // Get historical data from run log
-    const completedRuns = this.engine.state.runLog?.filter(r => branchActivityIds.has(r.activityId)) || [];
-    const successfulRuns = completedRuns.filter(r => r.success);
-    const failedRuns = completedRuns.filter(r => !r.success);
+    // Get completed runs for this branch and aggregate their results
+    const completedRuns = this.engine.state.runs.filter(r =>
+      r.status === 'completed' && branchActivityIds.has(r.activityId)
+    );
 
-    // Calculate total earnings from successful runs
-    const totalEarned = successfulRuns.reduce((sum, r) => {
-      const cashGained = r.output?.resources?.cash || 0;
-      return sum + cashGained;
-    }, 0);
+    // Count successes/failures from results arrays
+    let successCount = 0;
+    let failCount = 0;
+    let totalEarned = 0;
+
+    completedRuns.forEach(run => {
+      const results = run.results || [];
+      results.forEach(result => {
+        if (result.wasSuccess) {
+          successCount++;
+        }
+        if (result.botched) {
+          failCount++;
+        }
+        totalEarned += result.resourcesGained?.cash || 0;
+      });
+    });
 
     return {
       active: activeRuns.length,
-      completed: successfulRuns.length,
-      failed: failedRuns.length,
+      completed: successCount,
+      failed: failCount,
       earned: totalEarned
     };
   }

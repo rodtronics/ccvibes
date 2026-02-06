@@ -26,7 +26,6 @@ export class Engine {
         ]
       },
       runs: [],
-      completedRuns: [], // Last 20 completed runs for "Completed" filter
       log: [],
       stats: {
         lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
@@ -128,24 +127,42 @@ export class Engine {
         this.state.stats.totals = { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 };
       }
 
+      // Migrate runs to include new fields for persistent completed runs
+      if (this.state.runs) {
+        this.state.runs = this.state.runs.map(run => ({
+          ...run,
+          status: run.status || 'active',
+          results: run.results || [],
+          currentRun: run.currentRun || 1,
+          totalRuns: run.totalRuns || (run.runsLeft === -1 ? -1 : (run.runsLeft || 0) + 1),
+          completedAt: run.completedAt || null,
+        }));
+      }
+
       // Process any runs that should have completed while offline
       const now = Date.now();
-      const completedOffline = [];
+      let completedCount = 0;
 
-      this.state.runs.forEach((run, index) => {
-        if (run.endsAt <= now) {
-          completedOffline.push({ run, originalIndex: index });
-        }
-      });
+      // Loop until no more runs need completion (handles multi-run chains)
+      let hasMore = true;
+      while (hasMore) {
+        hasMore = false;
+        this.state.runs.forEach((run, index) => {
+          // Skip already-completed runs
+          if (run.status === 'completed') return;
 
-      // Complete offline runs - completeRun handles removal/replacement
-      completedOffline.forEach(({ run, originalIndex }) => {
-        console.log(`Completing run that finished offline: ${run.runId}`);
-        this.completeRun(run, originalIndex);
-      });
+          if (run.endsAt <= now) {
+            console.log(`Completing run that finished offline: ${run.runId}`);
+            this.completeRun(run, index);
+            completedCount++;
+            hasMore = true;  // Check again in case repeat spawned a new run that also completed
+          }
+        });
+      }
 
-      const stillActive = this.state.runs.filter(r => r.endsAt > now);
-      console.log(`State loaded: ${completedOffline.length} runs completed offline, ${stillActive.length} still active`);
+      const stillActive = this.state.runs.filter(r => r.status === 'active' && r.endsAt > now);
+      const completed = this.state.runs.filter(r => r.status === 'completed');
+      console.log(`State loaded: ${completedCount} sub-runs completed offline, ${stillActive.length} active, ${completed.length} completed`);
     } catch (err) {
       console.warn('Failed to load state:', err);
       this.log('Failed to load saved state', 'warn');
@@ -182,7 +199,6 @@ export class Engine {
         ]
       },
       runs: [],
-      completedRuns: [], // Last 20 completed runs for "Completed" filter
       log: [],
       stats: {
         lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
@@ -198,6 +214,18 @@ export class Engine {
 
   saveState() {
     try {
+      // Prune old completed runs to prevent localStorage bloat (keep max 50)
+      const MAX_COMPLETED = 50;
+      const completedRuns = this.state.runs.filter(r => r.status === 'completed');
+      if (completedRuns.length > MAX_COMPLETED) {
+        // Sort by completedAt ascending (oldest first), remove oldest
+        completedRuns.sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
+        const toRemove = new Set(
+          completedRuns.slice(0, completedRuns.length - MAX_COMPLETED).map(r => r.runId)
+        );
+        this.state.runs = this.state.runs.filter(r => !toRemove.has(r.runId));
+      }
+
       const toSave = {
         version: this.state.version,
         resources: this.state.resources,
@@ -296,14 +324,14 @@ export class Engine {
 
   processRuns(now) {
     const completed = [];
-    const active = [];
 
     this.state.runs.forEach((run, index) => {
+      // Skip already-completed runs
+      if (run.status === 'completed') return;
+
       if (run.endsAt <= now) {
         // Store original index for position preservation on repeat
         completed.push({ run, originalIndex: index });
-      } else {
-        active.push(run);
       }
     });
 
@@ -370,6 +398,16 @@ export class Engine {
     const plannedOutcomeId = this.planOutcome(option, staff);
     const duration = option.durationMs || 5000;
 
+    // Calculate totalRuns based on runsLeft
+    let totalRuns;
+    if (runsLeft === 0) {
+      totalRuns = 1;  // Single run
+    } else if (runsLeft === -1) {
+      totalRuns = -1;  // Infinite
+    } else {
+      totalRuns = runsLeft + 1;  // N more after this = N+1 total
+    }
+
     const run = {
       runId: `r_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       activityId,
@@ -378,12 +416,24 @@ export class Engine {
       endsAt: this.state.now + duration,
       assignedStaffIds: staffIds,
       runsLeft: runsLeft,  // 0 = single, N = N more after this, -1 = infinite
-      snapshot: { plannedOutcomeId }
+      snapshot: { plannedOutcomeId },
+      // New fields for persistent completed runs
+      status: 'active',
+      totalRuns: totalRuns,
+      currentRun: 1,
+      results: [],
+      completedAt: null,
     };
 
     // Replace at specific index (for repeat runs) or append to end
     if (replaceIndex >= 0 && replaceIndex < this.state.runs.length) {
-      this.state.runs[replaceIndex] = run;
+      // For repeat continuation, update the existing run in-place
+      const existingRun = this.state.runs[replaceIndex];
+      existingRun.endsAt = run.endsAt;
+      existingRun.snapshot = run.snapshot;
+      existingRun.runsLeft = run.runsLeft;
+      existingRun.currentRun = (existingRun.currentRun || 1) + 1;
+      // Don't overwrite: runId, startedAt, totalRuns, results, status, completedAt
     } else {
       this.state.runs.push(run);
     }
@@ -415,59 +465,59 @@ export class Engine {
       .filter(Boolean);
     staff.forEach((s) => (s.status = "available"));
 
-    this.resolveOutcome(option, run, staff);
+    // Resolve outcome and capture the result
+    const outcomeResult = this.resolveOutcome(option, run, staff);
     if (!run.snapshot?.botched) {
       this.log(`Completed: ${activity.name} / ${option.name}`, "success");
     }
 
-    // Track completed run (keep last 20)
-    const completedRun = {
-      ...run,
+    // Record this sub-run's result
+    if (!run.results) run.results = [];
+    run.results.push({
+      subRunIndex: run.currentRun || 1,
       completedAt: this.state.now,
-      activityName: activity.name,
-      optionName: option.name,
-      wasSuccess: !run.snapshot?.botched
-    };
-    if (!this.state.completedRuns) this.state.completedRuns = [];
-    this.state.completedRuns.unshift(completedRun);
-    if (this.state.completedRuns.length > 20) {
-      this.state.completedRuns = this.state.completedRuns.slice(0, 20);
-    }
+      wasSuccess: outcomeResult.wasSuccess,
+      resourcesGained: outcomeResult.resourcesGained,
+      botched: outcomeResult.botched,
+    });
 
     // Handle repeat runs
     if (run.runsLeft !== 0) {
       const nextRunsLeft = run.runsLeft === -1 ? -1 : run.runsLeft - 1;
 
-      // Try to restart with same staff, preserving position
+      // Try to continue with same staff, updating the existing run in-place
       const result = this.startRun(
         run.activityId,
         run.optionId,
         run.assignedStaffIds,
         nextRunsLeft,
-        originalIndex  // Replace at same position
+        originalIndex  // Update at same position
       );
 
       if (!result.ok) {
-        // Remove the completed run since restart failed
-        this.state.runs = this.state.runs.filter(r => r.runId !== run.runId);
+        // Repeat failed - mark run as completed with partial results
+        run.status = 'completed';
+        run.completedAt = this.state.now;
         const reasonText = String(result.reason || 'Unknown');
         const clarifiedReason = reasonText === 'No crew available'
           ? 'Assigned crew unavailable (jailed or busy)'
           : reasonText;
         this.log(`Repeat failed: ${clarifiedReason}`, 'warning');
-        this.saveState();  // Save state even if repeat fails
+        this.saveState();
       }
       // Note: startRun already saves state if successful
     } else {
-      // Remove completed single run
-      this.state.runs = this.state.runs.filter(r => r.runId !== run.runId);
-      this.saveState();  // Save state after single run completion
+      // Single run or last repeat - mark as completed, don't remove
+      run.status = 'completed';
+      run.completedAt = this.state.now;
+      this.saveState();
     }
   }
 
   stopRun(runId) {
     const run = this.state.runs.find((r) => r.runId === runId);
     if (!run) return { ok: false, reason: 'Run not found' };
+    if (run.status === 'completed') return { ok: false, reason: 'Run already completed' };
 
     // Mark staff available
     run.assignedStaffIds.forEach((id) => {
@@ -475,24 +525,40 @@ export class Engine {
       if (staff) staff.status = 'available';
     });
 
-    // Remove from active runs
-    this.state.runs = this.state.runs.filter((r) => r.runId !== runId);
-    this.log('Run stopped (progress forfeited)', 'warning');
-    this.saveState();  // Save state after stopping run
+    // If run has partial results, mark as completed; otherwise remove entirely
+    if (run.results && run.results.length > 0) {
+      run.status = 'completed';
+      run.completedAt = this.state.now;
+      this.log('Run stopped (partial results preserved)', 'warning');
+    } else {
+      this.state.runs = this.state.runs.filter((r) => r.runId !== runId);
+      this.log('Run stopped (progress forfeited)', 'warning');
+    }
+    this.saveState();
     return { ok: true };
   }
 
   stopAllRuns() {
-    if (this.state.runs.length === 0) return { ok: false, reason: 'No active runs' };
-    const count = this.state.runs.length;
-    this.state.runs.forEach((run) => {
+    const activeRuns = this.state.runs.filter(r => r.status !== 'completed');
+    if (activeRuns.length === 0) return { ok: false, reason: 'No active runs' };
+
+    const count = activeRuns.length;
+    activeRuns.forEach((run) => {
       run.assignedStaffIds.forEach((id) => {
         const staff = this.state.crew.staff.find((s) => s.id === id);
         if (staff && staff.status === 'busy') staff.status = 'available';
       });
+
+      // If run has partial results, mark as completed; otherwise remove
+      if (run.results && run.results.length > 0) {
+        run.status = 'completed';
+        run.completedAt = this.state.now;
+      } else {
+        this.state.runs = this.state.runs.filter(r => r.runId !== run.runId);
+      }
     });
-    this.state.runs = [];
-    this.log(`Stopped all ${count} runs (progress forfeited)`, 'warning');
+
+    this.log(`Stopped all ${count} runs`, 'warning');
     this.saveState();
     return { ok: true, count };
   }
@@ -500,11 +566,33 @@ export class Engine {
   stopRepeat(runId) {
     const run = this.state.runs.find((r) => r.runId === runId);
     if (!run) return { ok: false, reason: 'Run not found' };
+    if (run.status === 'completed') return { ok: false, reason: 'Run already completed' };
 
     run.runsLeft = 0;  // Convert to single run
     this.log('Repeat stopped (current run will complete)', 'info');
-    this.saveState();  // Save state after stopping repeat
+    this.saveState();
     return { ok: true };
+  }
+
+  clearCompletedRun(runId) {
+    const run = this.state.runs.find((r) => r.runId === runId);
+    if (!run) return { ok: false, reason: 'Run not found' };
+    if (run.status !== 'completed') return { ok: false, reason: 'Run is still active' };
+
+    this.state.runs = this.state.runs.filter((r) => r.runId !== runId);
+    this.saveState();
+    return { ok: true };
+  }
+
+  clearAllCompletedRuns() {
+    const before = this.state.runs.length;
+    this.state.runs = this.state.runs.filter((r) => r.status !== 'completed');
+    const removed = before - this.state.runs.length;
+    if (removed > 0) {
+      this.log(`Cleared ${removed} completed run${removed > 1 ? 's' : ''}`, 'info');
+      this.saveState();
+    }
+    return { ok: true, removed };
   }
 
   canStartRun(activityId, optionId) {
@@ -540,11 +628,15 @@ export class Engine {
 
   resolveOutcome(option, run, staff) {
     const resolution = option.resolution;
-    if (!resolution) return;
+    if (!resolution) return { wasSuccess: true, resourcesGained: {}, botched: false };
+
+    // Snapshot resources before resolution to calculate gains
+    const beforeResources = { ...this.state.resources };
 
     // Base XP reward for completing a job (scaled by difficulty/duration)
     const baseXp = option.xpReward || 10;
     let wasSuccessful = true;
+    let botched = false;
 
     if (resolution.type === "deterministic") {
       this.applyOutputs(resolution.outputs);
@@ -558,13 +650,14 @@ export class Engine {
       this.applyEffects(resolution.effects);
     } else if (resolution.type === "weighted_outcomes") {
       const outcome = resolution.outcomes.find((o) => o.id === run.snapshot.plannedOutcomeId) || resolution.outcomes[0];
-      if (!outcome) return;
+      if (!outcome) return { wasSuccess: true, resourcesGained: {}, botched: false };
       this.applyOutputs(outcome.outputs);
       this.applyCred(outcome.credDelta);
       this.applyHeat(outcome.heatDelta);
       this.applyEffects(outcome.effects);
       if (outcome.jail) {
         wasSuccessful = false;
+        botched = true;
         const activity = this.data.activities.find((a) => a.id === run.activityId);
         const activityName = activity?.name || "Unknown";
         const optionName = option?.name || "Unknown";
@@ -578,6 +671,15 @@ export class Engine {
           s.unavailableUntil = this.state.now + durationMs;
           this.log(`Unavailable: ${s.name} jailed for ${durationText}.`, "warning");
         });
+      }
+    }
+
+    // Calculate resource gains by diffing before/after
+    const resourcesGained = {};
+    for (const key of Object.keys(this.state.resources)) {
+      const delta = (this.state.resources[key] || 0) - (beforeResources[key] || 0);
+      if (delta !== 0) {
+        resourcesGained[key] = delta;
       }
     }
 
@@ -600,6 +702,8 @@ export class Engine {
     if (wasSuccessful && staff.length > 0) {
       this.awardXp(staff, baseXp);
     }
+
+    return { wasSuccess: wasSuccessful, resourcesGained, botched };
   }
 
   applyModifiers(option, staff) {
