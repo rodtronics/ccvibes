@@ -7,6 +7,7 @@ import * as workshop from './tabs/workshop.js';
 import * as map from './tabs/map.js';
 import * as economy from './tabs/economy.js';
 import * as world from './tabs/world.js';
+import * as modals from './tabs/modals.js';
 
 async function boot() {
   // Register tabs
@@ -14,6 +15,7 @@ async function boot() {
   registerTab('map', map);
   registerTab('economy', economy);
   registerTab('world', world);
+  registerTab('modals', modals);
 
   // Wire tab buttons + shell actions
   wireTabBar();
@@ -54,11 +56,13 @@ async function boot() {
       } else if (tab === 'economy') {
         window._econ?.saveResources?.();
       } else if (tab === 'world') {
-        // Save all world tab data (branches, roles, perks, modals)
+        // Save all world tab data (branches, roles, perks)
         window._world?.saveBranches?.();
         window._world?.saveRoles?.();
         window._world?.savePerks?.();
         window._world?.saveModals?.();
+      } else if (tab === 'modals') {
+        window._modals?.saveModals?.();
       } else {
         // Fallback: save all dirty files
         saveAllDirty();
@@ -70,10 +74,10 @@ async function boot() {
       if (window._ws?.openWizard) window._ws.openWizard();
       else if (window._ws?.newActivity) window._ws.newActivity();
     }
-    // Tab shortcuts: Ctrl+1-4
-    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '4') {
+    // Tab shortcuts: Ctrl+1-5
+    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
       e.preventDefault();
-      const tabs = ['workshop', 'map', 'economy', 'world'];
+      const tabs = ['workshop', 'map', 'economy', 'world', 'modals'];
       switchTab(tabs[parseInt(e.key) - 1]);
     }
   });

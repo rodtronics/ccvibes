@@ -13,7 +13,10 @@
       "Bash(curl:*)",
       "Bash(npm run dev:builder:*)",
       "Bash(npm run dev:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(git log:*)",
+      "Bash(wc:*)",
+      "Bash(git -C \"c:\\\\Users\\\\Andrew\\\\Documents\\\\GitHub\\\\ccvibes\\\\ccvibes\" log --oneline -5)"
     ],
     "defaultMode": "bypassPermissions"
   }

@@ -24,6 +24,12 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Commodore_64";
+  src: url("fonts/Commodore-64.TTF") format("truetype");
+  font-display: swap;
+}
+
 body {
   margin: 0;
   background: #000000;
@@ -122,8 +128,27 @@ body {
   line-height: 1.1;
 }
 
-/* Progress bar block characters - use negative margin to overlap blocks without affecting text spacing */
-.pb {
+.font-commodore-64 {
+  font-family: "Commodore_64", "Courier New", monospace;
+  letter-spacing: 0;
+  word-spacing: 0;
+  font-variant-ligatures: none;
+}
+
+.font-scp {
+  font-family: "Source Code Pro", "Consolas", monospace;
+  font-weight: 700;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+}
+
+/* Fixed-width character cell - forces every glyph (including fallback box-drawing chars) to 1ch */
+.c {
   display: inline-block;
+  width: 1ch;
+}
+
+/* Progress bar block characters */
+.pb {
   margin-right: 0;
 }

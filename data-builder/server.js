@@ -118,6 +118,7 @@ app.get("/api/docs/:doc", async (req, res) => {
 });
 
 app.use(express.static(staticDir));
+app.use('/engine', express.static(rootDir));
 
 app.listen(port, () => {
   console.log(`Data builder server running at http://localhost:${port}/`);

@@ -8,6 +8,14 @@
     <link rel="stylesheet" href="css/layout.css" />
     <link rel="stylesheet" href="css/components.css" />
     <link rel="stylesheet" href="css/workshop.css" />
+    <style>
+      /* VGA font for modal preview - loaded from game engine */
+      @font-face {
+        font-family: "VGA_9x8";
+        src: url("/engine/fonts/Ac437_IBM_VGA_9x8.ttf") format("truetype");
+        font-display: swap;
+      }
+    </style>
   </head>
   <body>
     <div id="app" class="app-shell">
@@ -43,6 +51,7 @@
           <button type="button" class="tab-bar__btn" data-tab="map">Map</button>
           <button type="button" class="tab-bar__btn" data-tab="economy">Economy</button>
           <button type="button" class="tab-bar__btn" data-tab="world">World</button>
+          <button type="button" class="tab-bar__btn" data-tab="modals">Modals</button>
           <span class="tab-bar__spacer"></span>
           <span class="tab-bar__title muted">CC6 Workbench</span>
         </nav>
@@ -52,6 +61,7 @@
           <div id="tab-map" class="tab-panel"></div>
           <div id="tab-economy" class="tab-panel"></div>
           <div id="tab-world" class="tab-panel"></div>
+          <div id="tab-modals" class="tab-panel"></div>
         </div>
       </div>
     </div>

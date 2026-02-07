@@ -289,16 +289,16 @@ export function getModal(modalId) {
     },
     lesson: {
       borderStyle: 'SINGLE',
-      borderColor: 'SOFT_YELLOW',
+      borderColor: 'GOLD',
       backgroundColor: 'BLACK',
-      titleColor: 'SOFT_YELLOW',
+      titleColor: 'GOLD',
       bodyColor: 'LIGHT_GRAY'
     },
     lore: {
       borderStyle: 'SINGLE',
-      borderColor: 'NEON_PURPLE',
+      borderColor: 'PURPLE',
       backgroundColor: 'BLACK',
-      titleColor: 'NEON_PURPLE',
+      titleColor: 'PURPLE',
       bodyColor: 'LIGHT_GRAY'
     },
     default: {

@@ -4,11 +4,11 @@
 const BLOOM_OVERLAY_ID = 'bloom-overlay';
 
 // Settings constants
-export const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono', 'ibm-bios'];
-const FONT_CLASSES = [...FONTS, 'commodore-64', 'scp'];
+export const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono', 'ibm-bios', 'commodore-64', 'scp'];
+const FONT_CLASSES = [...FONTS];
 export const FONT_CATEGORIES = {
-  modern: ['fira', 'jetbrains-mono'],
-  retro: ['vga-9x8', 'vga-8x16', 'ibm-bios']
+  modern: ['fira', 'jetbrains-mono', 'scp'],
+  retro: ['vga-9x8', 'vga-8x16', 'ibm-bios', 'commodore-64']
 };
 
 export const MIN_ZOOM = 100; // %

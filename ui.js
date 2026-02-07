@@ -137,7 +137,7 @@ export class UI {
     const options = activity ? this.getVisibleOptions(activity) : [];
 
     // Branch selection bar with box-drawing borders
-    const branchFocused = this.ui.focus === 'branch';
+    const branchFocused = this.ui.focus === "branch";
     this.renderBranchSelectionBar(branches, this.ui.branchIndex, branchFocused);
 
     // Determine layout based on focus
@@ -145,8 +145,8 @@ export class UI {
 
     // Focus border colors: highlight the focused section's borders
     const focus = this.ui.focus;
-    const leftFocused = focus === 'activity' || focus === 'option';
-    const rightFocused = focus === 'runs';
+    const leftFocused = focus === "activity" || focus === "option";
+    const rightFocused = focus === "runs";
     const leftBorderColor = leftFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
     const rightBorderColor = rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
 
@@ -171,15 +171,15 @@ export class UI {
       const rightWidth = 38; // x=41 to x=78
 
       // Get runs for this branch (needed for both left and right panels)
-      const branchRuns = this.engine.state.runs.filter(r => {
-        const a = this.engine.data.activities.find(act => act.id === r.activityId);
+      const branchRuns = this.engine.state.runs.filter((r) => {
+        const a = this.engine.data.activities.find((act) => act.id === r.activityId);
         return a && a.branchId === branch?.id;
       });
 
       // Sort runs: active first, then completed
       const sortedRuns = branchRuns.slice().sort((a, b) => {
-        if (a.status === 'active' && b.status === 'completed') return -1;
-        if (a.status === 'completed' && b.status === 'active') return 1;
+        if (a.status === "active" && b.status === "completed") return -1;
+        if (a.status === "completed" && b.status === "active") return 1;
         return 0;
       });
 
@@ -233,7 +233,7 @@ export class UI {
       } else {
         // ACTIVITY SELECTION MODE: Show activity list
         const listTitle = branch ? branch.name.toUpperCase() + " JOBS" : "JOBS";
-        const activityFocused = this.ui.focus === 'activity';
+        const activityFocused = this.ui.focus === "activity";
         const titleColor = activityFocused ? Palette.WHITE : Palette.NEON_CYAN;
         this.buffer.writeText(2, listTop, listTitle, titleColor, Palette.BLACK);
 
@@ -299,8 +299,8 @@ export class UI {
 
       // Sort runs: active first, then completed
       const sortedRuns = activityRuns.slice().sort((a, b) => {
-        if (a.status === 'active' && b.status === 'completed') return -1;
-        if (a.status === 'completed' && b.status === 'active') return 1;
+        if (a.status === "active" && b.status === "completed") return -1;
+        if (a.status === "completed" && b.status === "active") return 1;
         return 0;
       });
 
@@ -313,62 +313,105 @@ export class UI {
         const panelHeight = Layout.HEIGHT - optionsTop - 1;
         this.renderRunDetailPanel(selectedRun?.runId, 2, optionsTop, leftWidth, panelHeight, branchBgColor);
       } else {
-        // LEFT HALF: Activity header and options list
+        // LEFT HALF: Streamlined options view
+        // Zone 1: Header (rows 5-6)
         this.buffer.writeText(2, optionsTop, activity.name.toUpperCase(), Palette.NEON_CYAN, branchBgColor);
+        this.buffer.drawHLine(2, optionsTop + 1, leftWidth, "─", Palette.DIM_GRAY, branchBgColor);
 
-        const descLines = this.wrapText(activity.description || "", leftWidth - 2);
-        descLines.slice(0, 2).forEach((line, idx) => {
-          this.buffer.writeText(2, optionsTop + 1 + idx, line, Palette.MID_GRAY, branchBgColor);
+        // Zone 2: Scrollable options (rows 7-18, 12 rows available)
+        const scrollTop = optionsTop + 2;
+        const footerTop = Layout.HEIGHT - 6;
+        const scrollRows = footerTop - scrollTop;
+        const buttonsStr = "[Q]uick [D]etails";
+        const buttonsWidth = buttonsStr.length;
+
+        // Pre-calculate option heights and total
+        const optionHeights = options.map((opt, i) => {
+          const validation = this.engine.canStartRun(activity.id, opt.id);
+          return validation.ok ? 1 : 2;
         });
 
-        // Show numbered options (condensed for 36-col width)
-        options.slice(0, 9).forEach((opt, i) => {
-          const optY = optionsTop + 4 + i * 5;
-          const number = i + 1;
-          const selected = this.ui.optionIndex === i;
+        // Auto-scroll to keep selected option visible
+        if (this.ui.optionScroll === undefined) this.ui.optionScroll = 0;
+        const selectedIdx = this.ui.optionIndex;
 
-          // Validate if this option can be started
-          const validation = selected ? this.engine.canStartRun(activity.id, opt.id) : { ok: true };
+        // Calculate row position of selected option
+        let rowsBefore = 0;
+        for (let i = 0; i < selectedIdx && i < options.length; i++) {
+          rowsBefore += optionHeights[i];
+        }
+        const selectedHeight = optionHeights[selectedIdx] || 1;
+
+        // Adjust scroll so selected option is visible
+        if (rowsBefore < this.ui.optionScroll) {
+          this.ui.optionScroll = rowsBefore;
+        }
+        if (rowsBefore + selectedHeight > this.ui.optionScroll + scrollRows) {
+          this.ui.optionScroll = rowsBefore + selectedHeight - scrollRows;
+        }
+        this.ui.optionScroll = Math.max(0, this.ui.optionScroll);
+
+        // Render visible options
+        let currentRow = 0;
+        for (let i = 0; i < options.length; i++) {
+          const opt = options[i];
+          const h = optionHeights[i];
+
+          // Skip if entirely above scroll viewport
+          if (currentRow + h <= this.ui.optionScroll) {
+            currentRow += h;
+            continue;
+          }
+          // Stop if below scroll viewport
+          if (currentRow >= this.ui.optionScroll + scrollRows) break;
+
+          const drawY = scrollTop + (currentRow - this.ui.optionScroll);
+          if (drawY >= footerTop) break;
+
+          const selected = selectedIdx === i;
+          const validation = this.engine.canStartRun(activity.id, opt.id);
           const fg = selected ? (validation.ok ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE) : Palette.NEON_TEAL;
 
-          // Number and name (fit in leftWidth)
-          this.buffer.writeText(2, optY, `${number}.`, fg, branchBgColor);
-          this.buffer.writeText(5, optY, opt.name.substring(0, leftWidth - 5), fg, branchBgColor);
+          // Row 1: Number + name + buttons
+          const number = i + 1;
+          const nameMax = leftWidth - buttonsWidth - 5;
+          this.buffer.writeText(2, drawY, `${number}.`, fg, branchBgColor);
+          this.buffer.writeText(5, drawY, opt.name.substring(0, nameMax), fg, branchBgColor);
 
-          // Details
-          const detailFg = selected ? Palette.MID_GRAY : Palette.DIM_GRAY;
-          this.buffer.writeText(5, optY + 1, `Dur: ${this.formatMs(opt.durationMs)}`, detailFg, branchBgColor);
-          this.buffer.writeText(5, optY + 2, `Req: ${this.describeRequirements(opt.requirements).substring(0, leftWidth - 10)}`, detailFg, branchBgColor);
-
-          // Show validation error if can't start
-          if (selected && !validation.ok) {
-            this.buffer.writeText(5, optY + 3, `! ${validation.reason.substring(0, leftWidth - 7)}`, Palette.HEAT_ORANGE, branchBgColor);
-          }
-
-          // Repeat controls (only for selected option if repeatable and valid)
-          if (selected && opt.repeatable && validation.ok) {
-            const repeatRow = optY + 3;
-            const mode = this.ui.repeatMode || "single";
-
-            // Mode buttons
-            const multiColor = mode === "multi" ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
-            const infColor = mode === "infinite" ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
-
-            this.buffer.writeText(5, repeatRow, "[N]", multiColor, branchBgColor);
-
-            if (mode === "multi") {
-              const count = this.ui.repeatCount || 2;
-              this.buffer.writeText(9, repeatRow, `(${count})`, Palette.WHITE, branchBgColor);
-              this.buffer.writeText(13, repeatRow, "[+/-]", Palette.DIM_GRAY, branchBgColor);
-            }
-
-            this.buffer.writeText(20, repeatRow, "[I]INF", infColor, branchBgColor);
-          }
-
+          // Buttons (right-aligned)
           if (selected) {
-            this.buffer.writeText(5, optY + 4, "[Q]Quick [→]Runs", Palette.SUCCESS_GREEN, branchBgColor);
+            const qColor = validation.ok ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
+            this.buffer.writeText(2 + leftWidth - buttonsWidth, drawY, "[Q]", qColor, branchBgColor);
+            this.buffer.writeText(2 + leftWidth - buttonsWidth + 3, drawY, "uick ", Palette.DIM_GRAY, branchBgColor);
+            this.buffer.writeText(2 + leftWidth - buttonsWidth + 8, drawY, "[D]", Palette.NEON_CYAN, branchBgColor);
+            this.buffer.writeText(2 + leftWidth - buttonsWidth + 11, drawY, "etails", Palette.DIM_GRAY, branchBgColor);
           }
-        });
+
+          // Row 2: Validation error (if unavailable)
+          if (!validation.ok && drawY + 1 < footerTop) {
+            this.buffer.writeText(5, drawY + 1, `! ${validation.reason}`.substring(0, leftWidth - 5), Palette.HEAT_ORANGE, branchBgColor);
+          }
+
+          currentRow += h;
+        }
+
+        // Zone 3: Footer (selected option description + controls)
+        this.buffer.drawHLine(2, footerTop, leftWidth, "─", Palette.DIM_GRAY, branchBgColor);
+
+        const selectedOpt = options[selectedIdx];
+        if (selectedOpt) {
+          this.buffer.writeText(2, footerTop + 1, selectedOpt.name.toUpperCase(), Palette.NEON_CYAN, branchBgColor);
+
+          const desc = selectedOpt.description || "";
+          if (desc) {
+            const descLines = this.wrapText(desc, leftWidth - 2);
+            descLines.slice(0, 3).forEach((line, idx) => {
+              this.buffer.writeText(2, footerTop + 2 + idx, line, Palette.MID_GRAY, branchBgColor);
+            });
+          }
+        }
+
+        this.buffer.writeText(2, Layout.HEIGHT - 2, "[→] Runs  [ESC] Back", Palette.SUCCESS_GREEN, branchBgColor);
       }
 
       // RIGHT HALF: Active runs for this activity (use shared panel)
@@ -412,7 +455,7 @@ export class UI {
       Palette.BRIGHT_YELLOW, // Start color (left side of gradient)
       Palette.NEON_CYAN, // End color (right side of gradient)
       Palette.DIM_GRAY, // Empty color (unfilled blocks)
-      bgColor
+      bgColor,
     );
 
     // Stop buttons - only show when the run is selected
@@ -428,7 +471,7 @@ export class UI {
   renderCompactRunCard3Line(run, x, y, maxWidth, bgColor = Palette.BLACK, selected = false) {
     const activity = this.engine.data.activities.find((a) => a.id === run.activityId);
     const option = activity?.options.find((o) => o.id === run.optionId);
-    const isCompleted = run.status === 'completed';
+    const isCompleted = run.status === "completed";
 
     // Line 1: Option name (left) + time remaining or DONE (right-aligned)
     let timeText;
@@ -443,7 +486,7 @@ export class UI {
     const trimmedName = (option?.name || "?").substring(0, nameWidth);
 
     const nameFg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
-    const timeFg = isCompleted ? Palette.SUCCESS_GREEN : (selected ? Palette.WHITE : Palette.MID_GRAY);
+    const timeFg = isCompleted ? Palette.SUCCESS_GREEN : selected ? Palette.WHITE : Palette.MID_GRAY;
     this.buffer.writeText(x, y, trimmedName, nameFg, bgColor);
     this.buffer.writeText(x + maxWidth - timeText.length, y, timeText, timeFg, bgColor);
 
@@ -497,8 +540,8 @@ export class UI {
     const results = run.results || [];
     if (isCompleted || results.length > 0) {
       // Aggregate results
-      const successCount = results.filter(r => r.wasSuccess).length;
-      const failCount = results.filter(r => r.botched).length;
+      const successCount = results.filter((r) => r.wasSuccess).length;
+      const failCount = results.filter((r) => r.botched).length;
       const totalCash = results.reduce((sum, r) => sum + (r.resourcesGained?.cash || 0), 0);
 
       let line3 = "";
@@ -512,7 +555,7 @@ export class UI {
         const cashStr = totalCash >= 0 ? `$${this.fmtNum(totalCash)}` : `-$${this.fmtNum(Math.abs(totalCash))}`;
         line3 += (line3 ? "  " : "") + cashStr;
       }
-      if (failCount > 0 && results.some(r => r.botched)) {
+      if (failCount > 0 && results.some((r) => r.botched)) {
         line3 += "  JAILED";
       }
 
@@ -544,9 +587,9 @@ export class UI {
   renderActiveRunsPanel(runs, startX, startY, width, bgColor = Palette.BLACK, contextPath = null) {
     // Sort runs: active first, then completed
     const sortedRuns = runs.slice().sort((a, b) => {
-      if (a.status === 'active' && b.status === 'completed') return -1;
-      if (a.status === 'completed' && b.status === 'active') return 1;
-      return 0;  // preserve original order within same status
+      if (a.status === "active" && b.status === "completed") return -1;
+      if (a.status === "completed" && b.status === "active") return 1;
+      return 0; // preserve original order within same status
     });
 
     // Draw context header if provided
@@ -559,11 +602,11 @@ export class UI {
 
     // Panel dimensions (adjusted for header if present)
     const panelHeight = Layout.HEIGHT - runsStartY - 1;
-    const runCardHeight = 3;  // Now 3 lines per run card
+    const runCardHeight = 3; // Now 3 lines per run card
     const maxVisibleRuns = Math.floor(panelHeight / runCardHeight);
 
     // Scroll handling
-    const focusedOnRuns = this.ui.focus === 'runs';
+    const focusedOnRuns = this.ui.focus === "runs";
     let selectedRun = this.ui.selectedRun ?? 0;
     selectedRun = Math.max(0, Math.min(selectedRun, sortedRuns.length - 1));
     this.ui.selectedRun = selectedRun;
@@ -604,16 +647,7 @@ export class UI {
 
     // Scrollbar if needed
     if (sortedRuns.length > maxVisibleRuns) {
-      this.renderScrollBar(
-        startX + width,
-        runsStartY,
-        panelHeight,
-        sortedRuns.length,
-        scrollOffset,
-        Palette.DIM_GRAY,
-        bgColor,
-        maxVisibleRuns
-      );
+      this.renderScrollBar(startX + width, runsStartY, panelHeight, sortedRuns.length, scrollOffset, Palette.DIM_GRAY, bgColor, maxVisibleRuns);
     }
   }
 
@@ -628,17 +662,17 @@ export class UI {
       return;
     }
 
-    const run = this.engine.state.runs.find(r => r.runId === runId);
+    const run = this.engine.state.runs.find((r) => r.runId === runId);
     if (!run) {
       this.buffer.writeText(x, y, "Run not found", Palette.DIM_GRAY, bgColor);
       return;
     }
 
-    const activity = this.engine.data.activities.find(a => a.id === run.activityId);
-    const option = activity?.options.find(o => o.id === run.optionId);
+    const activity = this.engine.data.activities.find((a) => a.id === run.activityId);
+    const option = activity?.options.find((o) => o.id === run.optionId);
     if (!activity || !option) return;
 
-    const isCompleted = run.status === 'completed';
+    const isCompleted = run.status === "completed";
     const titleColor = isCompleted ? Palette.SUCCESS_GREEN : Palette.NEON_CYAN;
 
     // Row 1: Option name
@@ -651,9 +685,7 @@ export class UI {
     this.buffer.writeText(x, y + 1, statusText, statusColor, bgColor);
 
     // Row 3: Crew info
-    const staffNames = run.assignedStaffIds
-      .map(id => this.engine.state.crew.staff.find(s => s.id === id)?.name || "?")
-      .join(", ");
+    const staffNames = run.assignedStaffIds.map((id) => this.engine.state.crew.staff.find((s) => s.id === id)?.name || "?").join(", ");
     this.buffer.writeText(x, y + 2, `Crew: ${staffNames}`.substring(0, width), Palette.MID_GRAY, bgColor);
 
     // Row 4: Separator
@@ -675,9 +707,7 @@ export class UI {
 
     // Results header
     const totalRuns = run.totalRuns === -1 ? "INF" : run.totalRuns;
-    const resultsHeader = isCompleted
-      ? `RESULTS (${results.length})`
-      : `RESULTS (${results.length}/${totalRuns})`;
+    const resultsHeader = isCompleted ? `RESULTS (${results.length})` : `RESULTS (${results.length}/${totalRuns})`;
     this.buffer.writeText(x, currentY, resultsHeader, Palette.NEON_TEAL, bgColor);
     currentY += 1;
 
@@ -704,7 +734,7 @@ export class UI {
           const gains = [];
           for (const [resId, amount] of Object.entries(result.resourcesGained)) {
             if (amount === 0) continue;
-            const resDef = this.engine.data.resources?.find(r => r.id === resId);
+            const resDef = this.engine.data.resources?.find((r) => r.id === resId);
             const resName = resDef?.name || resId;
             if (resId === "cash") {
               gains.push(amount >= 0 ? `$${this.fmtNum(amount)}` : `-$${this.fmtNum(Math.abs(amount))}`);
@@ -726,7 +756,7 @@ export class UI {
         const moreAbove = scrollOffset > 0;
         const moreBelow = scrollOffset + maxResultRows < results.length;
         if (moreAbove || moreBelow) {
-          let scrollHint = moreAbove && moreBelow ? "↑↓ scroll" : (moreAbove ? "↑ scroll" : "↓ scroll");
+          let scrollHint = moreAbove && moreBelow ? "↑↓ scroll" : moreAbove ? "↑ scroll" : "↓ scroll";
           this.buffer.writeText(x + width - scrollHint.length, currentY, scrollHint, Palette.DIM_GRAY, bgColor);
         }
       }
@@ -740,7 +770,7 @@ export class UI {
     const resourceTotals = {};
     let successCount = 0;
     let failCount = 0;
-    results.forEach(r => {
+    results.forEach((r) => {
       if (r.wasSuccess) successCount++;
       if (r.botched) failCount++;
       if (r.resourcesGained) {
@@ -755,12 +785,12 @@ export class UI {
     if (failCount > 0) totalsStr += `✗${failCount} `;
     for (const [resId, amount] of Object.entries(resourceTotals)) {
       if (amount === 0) continue;
-      const resDef = this.engine.data.resources?.find(r => r.id === resId);
+      const resDef = this.engine.data.resources?.find((r) => r.id === resId);
       const resName = resDef?.name || resId;
       if (resId === "cash") {
         totalsStr += amount >= 0 ? `$${this.fmtNum(amount)} ` : `-$${this.fmtNum(Math.abs(amount))} `;
       } else {
-        totalsStr += `${amount > 0 ? '+' : ''}${amount} ${resName} `;
+        totalsStr += `${amount > 0 ? "+" : ""}${amount} ${resName} `;
       }
     }
     this.buffer.writeText(x, totalsY, totalsStr.substring(0, width) || "No gains", Palette.WHITE, bgColor);
@@ -827,18 +857,27 @@ export class UI {
     // Filter definitions
     const filters = [
       { id: "all", name: "All runs", filter: () => this.engine.state.runs },
-      { id: "active", name: "Active only", filter: () => this.engine.state.runs.filter(r => r.status !== 'completed') },
-      { id: "ending_soon", name: "Ending soon", filter: () => this.engine.state.runs.filter(r => r.status !== 'completed').sort((a, b) => (a.endsAt - this.engine.state.now) - (b.endsAt - this.engine.state.now)) },
-      { id: "by_branch", name: "By branch", filter: () => {
-        const branchIndex = this.ui.activeBranchFilter ?? 0;
-        const branches = this.getVisibleBranches();
-        const branch = branches[branchIndex];
-        return this.engine.state.runs.filter(r => {
-          const a = this.engine.data.activities.find(act => act.id === r.activityId);
-          return a && a.branchId === branch?.id;
-        });
-      }},
-      { id: "completed", name: "Completed", filter: () => this.engine.state.runs.filter(r => r.status === 'completed') }
+      { id: "active", name: "Active only", filter: () => this.engine.state.runs.filter((r) => r.status !== "completed") },
+      {
+        id: "ending_soon",
+        name: "Ending soon",
+        filter: () =>
+          this.engine.state.runs.filter((r) => r.status !== "completed").sort((a, b) => a.endsAt - this.engine.state.now - (b.endsAt - this.engine.state.now)),
+      },
+      {
+        id: "by_branch",
+        name: "By branch",
+        filter: () => {
+          const branchIndex = this.ui.activeBranchFilter ?? 0;
+          const branches = this.getVisibleBranches();
+          const branch = branches[branchIndex];
+          return this.engine.state.runs.filter((r) => {
+            const a = this.engine.data.activities.find((act) => act.id === r.activityId);
+            return a && a.branchId === branch?.id;
+          });
+        },
+      },
+      { id: "completed", name: "Completed", filter: () => this.engine.state.runs.filter((r) => r.status === "completed") },
     ];
 
     const currentFilter = filters[this.ui.activeFilter];
@@ -846,15 +885,15 @@ export class UI {
 
     // Sort runs: active first, then completed
     const sortedRuns = filteredRuns.slice().sort((a, b) => {
-      if (a.status === 'active' && b.status === 'completed') return -1;
-      if (a.status === 'completed' && b.status === 'active') return 1;
+      if (a.status === "active" && b.status === "completed") return -1;
+      if (a.status === "completed" && b.status === "active") return 1;
       return 0;
     });
 
     // Get selected run (if any)
     const selectedRunIndex = this.ui.selectedRun ?? 0;
     const selectedRun = sortedRuns[selectedRunIndex];
-    const rightFocused = this.ui.focus === 'runs';
+    const rightFocused = this.ui.focus === "runs";
 
     // Determine left/right focus colors
     const leftBorderColor = !rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
@@ -1024,7 +1063,7 @@ export class UI {
       return;
     }
 
-    const role = this.engine.data.roles.find(r => r.id === member.roleId);
+    const role = this.engine.data.roles.find((r) => r.id === member.roleId);
     const stars = this.engine.getStars(member);
     const maxStars = 5;
     const bgColor = Palette.BLACK;
@@ -1060,13 +1099,13 @@ export class UI {
 
     // If busy, show which job they're on
     if (member.status === "busy") {
-      const activeRun = this.engine.state.runs.find(r => r.assignedStaffIds.includes(member.id));
+      const activeRun = this.engine.state.runs.find((r) => r.assignedStaffIds.includes(member.id));
       if (activeRun) {
-        const activity = this.engine.data.activities.find(a => a.id === activeRun.activityId);
-        const option = activity?.options.find(o => o.id === activeRun.optionId);
+        const activity = this.engine.data.activities.find((a) => a.id === activeRun.activityId);
+        const option = activity?.options.find((o) => o.id === activeRun.optionId);
         const remainingMs = activeRun.endsAt - this.engine.state.now;
         const remainingText = this.engine.formatDuration(remainingMs);
-        const jobText = `${activity?.name || '?'} / ${option?.name || '?'}`;
+        const jobText = `${activity?.name || "?"} / ${option?.name || "?"}`;
         this.buffer.writeText(4, y, `Job: ${jobText}`, Palette.NEON_TEAL, bgColor);
         y += 1;
         this.buffer.writeText(4, y, `Time left: ${remainingText}`, Palette.DIM_GRAY, bgColor);
@@ -1087,7 +1126,7 @@ export class UI {
 
     // Show XP to next star
     if (role?.xpToStars && stars < maxStars) {
-      const nextTier = role.xpToStars.find(t => t.stars === stars + 1);
+      const nextTier = role.xpToStars.find((t) => t.stars === stars + 1);
       if (nextTier) {
         const xpNeeded = nextTier.minXp - (member.xp || 0);
         this.buffer.writeText(22, y, `(${xpNeeded} XP to next)`, Palette.DIM_GRAY, bgColor);
@@ -1106,7 +1145,7 @@ export class UI {
       this.buffer.writeText(4, y, "None yet", Palette.DIM_GRAY, bgColor);
       y += 1;
     } else {
-      perks.forEach(perkId => {
+      perks.forEach((perkId) => {
         const perk = this.engine.data.perks?.[perkId];
         if (perk) {
           this.buffer.writeText(4, y, `\u2022 ${perk.name}`, Palette.NEON_TEAL, bgColor);
@@ -1173,7 +1212,7 @@ export class UI {
     this.buffer.writeText(2, top - 1, "RESOURCES", Palette.SUCCESS_GREEN, Palette.BLACK);
 
     // Get all visible resources (revealed or has amount > 0)
-    const visibleResources = this.engine.data.resources.filter(res => {
+    const visibleResources = this.engine.data.resources.filter((res) => {
       const revealed = this.engine.state.reveals.resources[res.id];
       const amount = this.engine.state.resources[res.id] || 0;
       return revealed || amount > 0;
@@ -1211,7 +1250,7 @@ export class UI {
       // Get branch color if applicable
       let nameColor = isSelected ? Palette.NEON_CYAN : Palette.LIGHT_GRAY;
       if (res.branchId) {
-        const branch = this.engine.data.branches.find(b => b.id === res.branchId);
+        const branch = this.engine.data.branches.find((b) => b.id === res.branchId);
         if (branch?.ui?.color && isSelected) {
           nameColor = Palette[branch.ui.color] || nameColor;
         }
@@ -1226,9 +1265,9 @@ export class UI {
         reputation: Palette.BRIGHT_YELLOW,
         risk: Palette.HEAT_RED,
         territory: Palette.GOLD,
-        influence: Palette.NEON_PURPLE,
+        influence: Palette.PURPLE,
         infrastructure: Palette.NEON_TEAL,
-        document: Palette.MID_GRAY
+        document: Palette.MID_GRAY,
       };
       const catColor = categoryColors[res.category] || Palette.DIM_GRAY;
 
@@ -1274,7 +1313,7 @@ export class UI {
 
       // Branch tag if applicable
       if (selectedResource.branchId) {
-        const branch = this.engine.data.branches.find(b => b.id === selectedResource.branchId);
+        const branch = this.engine.data.branches.find((b) => b.id === selectedResource.branchId);
         if (branch) {
           const branchColor = Palette[branch.ui?.color] || Palette.MID_GRAY;
           this.buffer.writeText(2 + selectedResource.name.length + 2, descY + 1, `[${branch.name}]`, branchColor, Palette.BLACK);
@@ -1295,21 +1334,21 @@ export class UI {
 
     // Stat definitions
     const statDefs = [
-      { id: 'cash', name: 'Cash', format: v => '$' + this.fmtNum(v) },
-      { id: 'heat', name: 'Heat', format: v => String(v) },
-      { id: 'cred', name: 'Cred', format: v => String(v) },
-      { id: 'crewCount', name: 'Crew Size', format: v => String(v) },
-      { id: 'activeRuns', name: 'Active Runs', format: v => String(v) },
-      { id: 'successRate', name: 'Success Rate', format: v => v + '%' }
+      { id: "cash", name: "Cash", format: (v) => "$" + this.fmtNum(v) },
+      { id: "heat", name: "Heat", format: (v) => String(v) },
+      { id: "cred", name: "Cred", format: (v) => String(v) },
+      { id: "crewCount", name: "Crew Size", format: (v) => String(v) },
+      { id: "activeRuns", name: "Active Runs", format: (v) => String(v) },
+      { id: "successRate", name: "Success Rate", format: (v) => v + "%" },
     ];
 
     const periodDefs = [
-      { id: 'second', name: '1sec', duration: 64000 },      // 64 seconds total
-      { id: 'minute', name: '1min', duration: 60000 },      // ~64 minutes total
-      { id: 'fiveMin', name: '5min', duration: 300000 },    // 5 minutes total
-      { id: 'hour', name: '1hr', duration: 3600000 },       // 1 hour total
-      { id: 'day', name: '1day', duration: 86400000 },      // 1 day total
-      { id: 'month', name: '1month', duration: 2592000000 } // 30 days total
+      { id: "second", name: "1sec", duration: 64000 }, // 64 seconds total
+      { id: "minute", name: "1min", duration: 60000 }, // ~64 minutes total
+      { id: "fiveMin", name: "5min", duration: 300000 }, // 5 minutes total
+      { id: "hour", name: "1hr", duration: 3600000 }, // 1 hour total
+      { id: "day", name: "1day", duration: 86400000 }, // 1 day total
+      { id: "month", name: "1month", duration: 2592000000 }, // 30 days total
     ];
 
     // Get selection state
@@ -1320,12 +1359,12 @@ export class UI {
 
     // Get current values for each stat
     const getCurrentValue = (statId) => {
-      if (statId === 'cash') return this.engine.state.resources.cash || 0;
-      if (statId === 'heat') return this.engine.state.resources.heat || 0;
-      if (statId === 'cred') return this.engine.state.resources.cred || 0;
-      if (statId === 'crewCount') return this.engine.state.crew.staff.length;
-      if (statId === 'activeRuns') return this.engine.state.runs.length;
-      if (statId === 'successRate') return this.engine.calculateSuccessRate();
+      if (statId === "cash") return this.engine.state.resources.cash || 0;
+      if (statId === "heat") return this.engine.state.resources.heat || 0;
+      if (statId === "cred") return this.engine.state.resources.cred || 0;
+      if (statId === "crewCount") return this.engine.state.crew.staff.length;
+      if (statId === "activeRuns") return this.engine.state.runs.length;
+      if (statId === "successRate") return this.engine.calculateSuccessRate();
       return 0;
     };
 
@@ -1374,7 +1413,7 @@ export class UI {
       const last = data[data.length - 1];
       const trend = first !== 0 ? Math.round(((last - first) / Math.abs(first)) * 100) : 0;
       const trendStr = trend >= 0 ? `+${trend}%` : `${trend}%`;
-      const trendColor = trend > 0 ? Palette.SUCCESS_GREEN : (trend < 0 ? Palette.HEAT_RED : Palette.DIM_GRAY);
+      const trendColor = trend > 0 ? Palette.SUCCESS_GREEN : trend < 0 ? Palette.HEAT_RED : Palette.DIM_GRAY;
 
       this.buffer.writeText(periodX, infoY + 1, "RANGE: " + statDef.format(min) + " - " + statDef.format(max), Palette.MID_GRAY, Palette.BLACK);
       this.buffer.writeText(periodX, infoY + 2, "TREND: ", Palette.MID_GRAY, Palette.BLACK);
@@ -1392,10 +1431,10 @@ export class UI {
     }
 
     // Render the graph
-    const graphY = 13;  // Graph starts here
+    const graphY = 13; // Graph starts here
     const graphHeight = 10;
-    const graphWidth = 64;  // Width for 64 data points
-    const graphX = 8;  // X position for graph data area
+    const graphWidth = 64; // Width for 64 data points
+    const graphX = 8; // X position for graph data area
 
     // Draw horizontal separator
     this.buffer.drawHLine(2, graphY - 1, Layout.WIDTH - 4, "─", Palette.DIM_GRAY, Palette.BLACK);
@@ -1419,23 +1458,21 @@ export class UI {
     const now = new Date();
 
     // Check if the past time is on a different day
-    const isDifferentDay = pastTime.getDate() !== now.getDate() ||
-                          pastTime.getMonth() !== now.getMonth() ||
-                          pastTime.getFullYear() !== now.getFullYear();
+    const isDifferentDay = pastTime.getDate() !== now.getDate() || pastTime.getMonth() !== now.getMonth() || pastTime.getFullYear() !== now.getFullYear();
 
     // For periods >= 1 hour, include date if it's a different day
     if (durationMs >= 3600000 && isDifferentDay) {
       // Format as MM/DD HH:MM
-      const month = String(pastTime.getMonth() + 1).padStart(2, '0');
-      const day = String(pastTime.getDate()).padStart(2, '0');
-      const hours = String(pastTime.getHours()).padStart(2, '0');
-      const minutes = String(pastTime.getMinutes()).padStart(2, '0');
+      const month = String(pastTime.getMonth() + 1).padStart(2, "0");
+      const day = String(pastTime.getDate()).padStart(2, "0");
+      const hours = String(pastTime.getHours()).padStart(2, "0");
+      const minutes = String(pastTime.getMinutes()).padStart(2, "0");
       return `${month}/${day} ${hours}:${minutes}`;
     } else {
       // Format as HH:MM:SS for same-day or short periods
-      const hours = String(pastTime.getHours()).padStart(2, '0');
-      const minutes = String(pastTime.getMinutes()).padStart(2, '0');
-      const seconds = String(pastTime.getSeconds()).padStart(2, '0');
+      const hours = String(pastTime.getHours()).padStart(2, "0");
+      const minutes = String(pastTime.getMinutes()).padStart(2, "0");
+      const seconds = String(pastTime.getSeconds()).padStart(2, "0");
       return `${hours}:${minutes}:${seconds}`;
     }
   }
@@ -1449,7 +1486,7 @@ export class UI {
 
     if (useLogScale) {
       // Filter out zeros and negatives for log scale
-      const positiveData = data.map(v => Math.max(0.1, v)); // Minimum value of 0.1 to avoid log(0)
+      const positiveData = data.map((v) => Math.max(0.1, v)); // Minimum value of 0.1 to avoid log(0)
       min = Math.min(...positiveData);
       max = Math.max(...positiveData);
 
@@ -1458,13 +1495,13 @@ export class UI {
       const logMax = Math.log10(max);
       range = logMax - logMin || 1;
 
-      processedData = positiveData.map(v => Math.log10(v));
+      processedData = positiveData.map((v) => Math.log10(v));
       min = logMin;
       max = logMax;
     } else {
       min = Math.min(...data);
       max = Math.max(...data);
-      range = max - min || 1;  // Avoid division by zero
+      range = max - min || 1; // Avoid division by zero
       processedData = data;
     }
 
@@ -1671,17 +1708,19 @@ export class UI {
     this.buffer.drawBox(2, top, Layout.WIDTH - 4, 11, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
     this.buffer.writeText(4, top, " CONFIGURATION ", Palette.NEON_CYAN, Palette.BLACK);
 
-      const fontNames = {
-        fira: "Fira Mono (bold)",
-        "vga-9x8": "VGA 9x8 (compact)",
-        "vga-8x16": "VGA 8x16 (classic)",
-        "jetbrains-mono": "JetBrains Mono (bold)",
-        "ibm-bios": "IBM BIOS (retro)",
-      };
+    const fontNames = {
+      fira: "Fira Mono",
+      "vga-9x8": "VGA 9x8",
+      "vga-8x16": "VGA 8x16",
+      "jetbrains-mono": "JetBrains Mono",
+      "ibm-bios": "IBM BIOS",
+      "commodore-64": "C64",
+      scp: "Source Code Pro",
+    };
 
     // Determine category
     const fontId = this.ui.settings.font;
-      const isRetro = ["vga-9x8", "vga-8x16", "ibm-bios"].includes(fontId);
+    const isRetro = ["vga-9x8", "vga-8x16", "ibm-bios", "commodore-64"].includes(fontId);
     const categoryLabel = isRetro ? "RETRO" : "MODERN";
 
     // 1. Generation
@@ -1762,9 +1801,9 @@ export class UI {
   // 3 rows: Row 2 = top border (┌/┬/┐), Row 3 = │ LABEL │, Row 4 = bottom line with selected tab open
   // Tabs overwrite the main panel top line only within the tab span
   renderBranchTabBar(branches, selectedIndex, focused = false) {
-    const TAB_Y = 3;           // Label row
-    const TOP_Y = TAB_Y - 1;   // Top border row for tabs
-    const TAB_PADDING = 1;     // Space on each side of label inside tab
+    const TAB_Y = 3; // Label row
+    const TOP_Y = TAB_Y - 1; // Top border row for tabs
+    const TAB_PADDING = 1; // Space on each side of label inside tab
     const BOX = BoxStyles.SINGLE;
 
     // Calculate tab data with positions
@@ -1782,7 +1821,7 @@ export class UI {
         x: x,
         innerWidth: innerWidth,
         totalWidth: totalWidth,
-        isSelected: i === selectedIndex
+        isSelected: i === selectedIndex,
       });
 
       // Overlap one column so tab borders share a seam
@@ -1817,7 +1856,7 @@ export class UI {
 
     // Row 1 (y=3): │ LABEL │ for each tab
     const borderColor = focused ? Palette.WHITE : Palette.DIM_GRAY;
-    tabs.forEach(tab => {
+    tabs.forEach((tab) => {
       // Left border
       this.buffer.setCell(tab.x, TAB_Y, BOX.vertical, borderColor, Palette.BLACK);
 
@@ -1828,7 +1867,7 @@ export class UI {
 
       // When branches are focused, make the selected tab BRIGHT and inverted
       // When not focused, selected tab uses dimmer branch color, unselected are very dim
-      const labelColor = isFocusedTab ? Palette.BLACK : (tab.isSelected ? branchColor : Palette.DIM_GRAY);
+      const labelColor = isFocusedTab ? Palette.BLACK : tab.isSelected ? branchColor : Palette.DIM_GRAY;
       const labelBg = isFocusedTab ? Palette.WHITE : Palette.BLACK;
 
       // Clear the inside with spaces first (for consistent background)
@@ -1851,7 +1890,7 @@ export class UI {
     }
 
     // Now handle each tab's bottom
-    tabs.forEach(tab => {
+    tabs.forEach((tab) => {
       if (tab.isSelected) {
         // Selected tab: open bottom (┘ spaces └)
         this.buffer.setCell(tab.x, TAB_Y + 1, BOX.bottomRight, borderColor, Palette.BLACK);
@@ -1874,7 +1913,7 @@ export class UI {
   // Branch selection bar - horizontal bordered bar with arrows when focused
   // Simple design: [> branch1 | branch2 | branch3 <] with clear selection
   renderBranchSelectionBar(branches, selectedIndex, focused = false) {
-    const BAR_Y = 2;  // Start at row 2 (top border)
+    const BAR_Y = 2; // Start at row 2 (top border)
     const BOX = BoxStyles.SINGLE;
 
     // Colors based on focus state
@@ -1907,7 +1946,7 @@ export class UI {
     // Clear content area - always black inside
     this.buffer.fillRect(1, CONTENT_Y, Layout.WIDTH - 2, 1, " ", Palette.LIGHT_GRAY, Palette.BLACK);
 
-    let x = 2;  // Start position for content
+    let x = 2; // Start position for content
 
     // Draw branches
     branches.forEach((branch, i) => {
@@ -1996,27 +2035,23 @@ export class UI {
   }
 
   getBranchStats(branchId) {
-    const branchActivities = this.engine.data.activities.filter(a => a.branchId === branchId);
-    const branchActivityIds = new Set(branchActivities.map(a => a.id));
+    const branchActivities = this.engine.data.activities.filter((a) => a.branchId === branchId);
+    const branchActivityIds = new Set(branchActivities.map((a) => a.id));
 
     // Count active runs
-    const activeRuns = this.engine.state.runs.filter(r =>
-      r.status !== 'completed' && branchActivityIds.has(r.activityId)
-    );
+    const activeRuns = this.engine.state.runs.filter((r) => r.status !== "completed" && branchActivityIds.has(r.activityId));
 
     // Get completed runs for this branch and aggregate their results
-    const completedRuns = this.engine.state.runs.filter(r =>
-      r.status === 'completed' && branchActivityIds.has(r.activityId)
-    );
+    const completedRuns = this.engine.state.runs.filter((r) => r.status === "completed" && branchActivityIds.has(r.activityId));
 
     // Count successes/failures from results arrays
     let successCount = 0;
     let failCount = 0;
     let totalEarned = 0;
 
-    completedRuns.forEach(run => {
+    completedRuns.forEach((run) => {
       const results = run.results || [];
-      results.forEach(result => {
+      results.forEach((result) => {
         if (result.wasSuccess) {
           successCount++;
         }
@@ -2031,7 +2066,7 @@ export class UI {
       active: activeRuns.length,
       completed: successCount,
       failed: failCount,
-      earned: totalEarned
+      earned: totalEarned,
     };
   }
 
@@ -2081,8 +2116,8 @@ export class UI {
     const detail = this.ui.crimeDetail;
     if (!detail || !detail.active) return;
 
-    const activity = this.engine.data.activities.find(a => a.id === detail.activityId);
-    const option = activity?.options.find(o => o.id === detail.optionId);
+    const activity = this.engine.data.activities.find((a) => a.id === detail.activityId);
+    const option = activity?.options.find((o) => o.id === detail.optionId);
 
     if (!activity || !option) return;
 
@@ -2131,7 +2166,7 @@ export class UI {
     // Staff requirements (show all)
     const staffReqs = option.requirements?.staff || [];
     if (staffReqs.length > 0) {
-      staffReqs.forEach(req => {
+      staffReqs.forEach((req) => {
         this.buffer.writeText(4, y, `Crew: ${req.count}x ${req.roleId}`, Palette.WHITE, bgColor);
         y += 1;
       });
@@ -2167,7 +2202,7 @@ export class UI {
 
     // LEFT COLUMN: Outcomes
     let leftY = y;
-    if (option.resolution?.type === 'weighted_outcomes') {
+    if (option.resolution?.type === "weighted_outcomes") {
       this.buffer.writeText(leftCol.x, leftY, "Outcomes:", Palette.SUCCESS_GREEN, bgColor);
       leftY += 1;
 
@@ -2177,20 +2212,20 @@ export class UI {
 
       modifiedOutcomes.slice(0, 4).forEach((outcome) => {
         const pct = totalWeight > 0 ? Math.round((outcome.weight / totalWeight) * 100) : 0;
-        const name = outcome.id || 'Unknown';
+        const name = outcome.id || "Unknown";
 
         // Color based on outcome type
         let nameColor = Palette.NEON_TEAL;
-        let icon = ' ';
-        if (name.toLowerCase().includes('success')) {
+        let icon = " ";
+        if (name.toLowerCase().includes("success")) {
           nameColor = Palette.SUCCESS_GREEN;
-          icon = '✓';
-        } else if (name.toLowerCase().includes('botch')) {
+          icon = "✓";
+        } else if (name.toLowerCase().includes("botch")) {
           nameColor = Palette.ELECTRIC_ORANGE;
-          icon = '!';
-        } else if (name.toLowerCase().includes('bust')) {
+          icon = "!";
+        } else if (name.toLowerCase().includes("bust")) {
           nameColor = Palette.HEAT_RED;
-          icon = '✗';
+          icon = "✗";
         }
 
         this.buffer.writeText(leftCol.x, leftY, `${icon} ${name}`, nameColor, bgColor);
@@ -2204,14 +2239,14 @@ export class UI {
           });
         }
         if (outcome.credDelta) {
-          details.push(`${outcome.credDelta > 0 ? '+' : ''}${outcome.credDelta}C`);
+          details.push(`${outcome.credDelta > 0 ? "+" : ""}${outcome.credDelta}C`);
         }
         if (outcome.heatDelta) {
-          details.push(`${outcome.heatDelta > 0 ? '+' : ''}${outcome.heatDelta}H`);
+          details.push(`${outcome.heatDelta > 0 ? "+" : ""}${outcome.heatDelta}H`);
         }
 
         if (details.length > 0) {
-          const detailText = details.join(' ').substring(0, leftCol.width - 20);
+          const detailText = details.join(" ").substring(0, leftCol.width - 20);
           this.buffer.writeText(leftCol.x + 20, leftY, detailText, Palette.MID_GRAY, bgColor);
         }
         leftY += 1;
@@ -2228,7 +2263,7 @@ export class UI {
     } else {
       detail.crewSlots.forEach((slot, idx) => {
         const selected = detail.selectedSlotIndex === idx;
-        const prefix = selected ? '>' : ' ';
+        const prefix = selected ? ">" : " ";
         const labelColor = selected ? Palette.SUCCESS_GREEN : Palette.NEON_TEAL;
 
         // Slot label
@@ -2243,7 +2278,7 @@ export class UI {
           const crewText = stars > 0 ? `${staff.name} (${stars}★)` : staff.name;
           this.buffer.writeText(rightCol.x + 2, rightY, crewText.substring(0, rightCol.width - 4), Palette.WHITE, bgColor);
         } else {
-          this.buffer.writeText(rightCol.x + 2, rightY, 'None available', Palette.HEAT_RED, bgColor);
+          this.buffer.writeText(rightCol.x + 2, rightY, "None available", Palette.HEAT_RED, bgColor);
         }
         rightY += 1;
 
@@ -2262,14 +2297,14 @@ export class UI {
     if (option.repeatable) {
       this.buffer.writeText(2, controlsY, "[I] Iterate:", Palette.NEON_CYAN, bgColor);
       const mode = detail.repeatMode;
-      const modeText = mode === 'single' ? 'Single' : mode === 'multi' ? `Multi (${detail.repeatCount})` : 'Infinite';
+      const modeText = mode === "single" ? "Single" : mode === "multi" ? `Multi (${detail.repeatCount})` : "Infinite";
       this.buffer.writeText(15, controlsY, modeText, Palette.WHITE, bgColor);
-      if (mode === 'multi') {
-        this.buffer.writeText(15 + modeText.length + 1, controlsY, '[+/-]', Palette.DIM_GRAY, bgColor);
+      if (mode === "multi") {
+        this.buffer.writeText(15 + modeText.length + 1, controlsY, "[+/-]", Palette.DIM_GRAY, bgColor);
       }
 
       this.buffer.writeText(2, controlsY + 1, "[P] Policy:", Palette.NEON_CYAN, bgColor);
-      const policyText = detail.stopPolicy === 'stopOnFail' ? 'Stop on fail' : 'Retry regardless';
+      const policyText = detail.stopPolicy === "stopOnFail" ? "Stop on fail" : "Retry regardless";
       this.buffer.writeText(15, controlsY + 1, policyText, Palette.WHITE, bgColor);
     }
 
@@ -2310,7 +2345,7 @@ export class UI {
     let contentStartY = 1;
 
     // Render title if present
-    if (title && title.trim() !== '') {
+    if (title && title.trim() !== "") {
       const titleText = title.trim();
       const titleX = Math.floor((Layout.WIDTH - titleText.length) / 2); // Center title
       this.buffer.writeText(titleX, contentStartY, titleText, titleColor || Palette.NEON_CYAN, backgroundColor);

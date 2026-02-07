@@ -1,0 +1,7 @@
+{
+  "editor.fontSize": 13,
+  "writeAssistAi.openAi.customModel": "gemma3:4b",
+  "writeAssistAi.openAi.model": "custom",
+  "writeAssistAi.openAi.proxyUrl": "http://127.0.0.1:11434/",
+  "vscode-ollama.model": "gemma3:4b"
+}

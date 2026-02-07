@@ -276,15 +276,15 @@ function handleJobsInput(e) {
     }
     if (e.key === 'ArrowDown') ui.optionIndex = Math.min(Math.max(0, options.length - 1), ui.optionIndex + 1);
 
-    // ENTER opens crime detail window
-    if (e.key === 'Enter') {
+    // D opens crime detail window (details screen)
+    if (key === 'd') {
       const selectedOption = options[ui.optionIndex];
       if (selectedOption) {
         openCrimeDetail(activity, selectedOption);
       }
     }
 
-    // Q for quick start (skip detail window)
+    // Q for quick start
     if (key === 'q') {
       const opt = options[ui.optionIndex];
       if (opt) {
@@ -301,24 +301,6 @@ function handleJobsInput(e) {
         ui.focus = 'runs';
         const current = ui.selectedRun ?? 0;
         ui.selectedRun = Math.max(0, Math.min(activityRuns.length - 1, current));
-      }
-    }
-
-    // Repeat mode controls (only if selected option is repeatable)
-    const selectedOption = options[ui.optionIndex];
-    if (selectedOption?.repeatable) {
-      // Toggle repeat mode
-      if (key === 'n') ui.repeatMode = 'multi';  // N for multi (Number of runs)
-      if (key === 'i') ui.repeatMode = 'infinite';
-
-      // Adjust multi count
-      if (ui.repeatMode === 'multi') {
-        if (e.key === '+' || e.key === '=') {
-          ui.repeatCount = Math.min(999, (ui.repeatCount || 2) + 1);
-        }
-        if (e.key === '-' || e.key === '_') {
-          ui.repeatCount = Math.max(1, (ui.repeatCount || 2) - 1);  // Can go down to 1
-        }
       }
     }
   } else if (ui.focus === 'runs') {
@@ -812,12 +794,8 @@ function handleResourcesInput(e) {
   const key = (e.key || '').toLowerCase();
   if (key === 'i' || e.key === 'Enter') {
     const selectedResource = visibleResources[ui.resourceSelection.selectedIndex];
-    console.log('Resource selected:', selectedResource);
     if (selectedResource && selectedResource.modalId) {
-      console.log('Attempting to show modal:', selectedResource.modalId);
       showModal(selectedResource.modalId);
-    } else if (selectedResource) {
-      console.log('No modalId on resource:', selectedResource.id);
     }
   }
 
