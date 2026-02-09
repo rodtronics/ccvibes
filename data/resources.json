@@ -14,6 +14,13 @@
     "revealedByDefault": true
   },
   {
+    "id": "cred",
+    "name": "Cred",
+    "description": "Street reputation - opens doors to bigger crews and better jobs",
+    "category": "reputation",
+    "revealedByDefault": true
+  },
+  {
     "id": "intel",
     "name": "Intel",
     "description": "Information and knowledge about opportunities",

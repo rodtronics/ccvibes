@@ -1,12 +1,13 @@
 // Crime Committer VI - Main Controller
 // Handles input, manages UI state, coordinates render loop
 
-import { Engine } from './engine.js';
+import { Engine, sortRunsActiveFirst } from './engine.js';
 import { FrameBuffer } from './framebuffer.js';
 import { DOMRenderer } from './dom_renderer.js';
 import { UI, Layout } from './ui.js';
 import { ModalQueue, loadModalData, getModal } from './modal.js';
 import { getUsedCrewNames, generateUniqueCrewName, initCrewSystem } from './crew.js';
+import { BootScreen } from './boot.js';
 import {
   loadSettings,
   saveSettings,
@@ -95,15 +96,37 @@ window.addEventListener('beforeunload', () => saveSettings(ui.settings));
 
 // Main entry point
 async function main() {
-  // Hide the game container until fully initialized
-  const container = document.getElementById('game');
-  if (container) container.style.visibility = 'hidden';
+  // Boot screen - 286 POST style loading progress
+  const boot = new BootScreen(buffer);
+  boot.drawHeader();
+  renderer.render();
 
-  await engine.init();
-  await loadModalData(); // Load modal definitions from JSON
-  await initCrewSystem(); // Load name data for crew generation
+  // Load engine data with per-file progress
+  await engine.init((label) => {
+    boot.addProgress(label);
+    renderer.render();
+  });
+
+  // Load modal definitions
+  await loadModalData();
+  boot.addProgress('MODALS.DAT');
+  renderer.render();
+
+  // Initialize crew name generation
+  await initCrewSystem();
+  boot.addProgress('CREW SUBSYSTEM');
+  renderer.render();
+
+  // Boot complete
+  boot.drawComplete();
+  renderer.render();
+
+  // Switch from boot font to user's chosen font
   applyFont(ui.settings);
-  saveSettings(ui.settings); // Persist any new default fields (zoom/bloom) immediately
+  saveSettings(ui.settings);
+
+  // Clear boot screen and enter game
+  buffer.clear();
   render();
 
   // Show intro modal on launch (if enabled in settings)
@@ -114,9 +137,6 @@ async function main() {
       showModal(nextId);
     }
   }
-
-  // Reveal the game now that everything is ready
-  if (container) container.style.visibility = 'visible';
 
   // Game loop: tick engine and render at 20fps (50ms)
   setInterval(() => {
@@ -320,11 +340,7 @@ function handleJobsInput(e) {
     }
 
     // Sort: active first, then completed (matches renderActiveRunsPanel sorting)
-    contextRuns.sort((a, b) => {
-      if (a.status === 'active' && b.status === 'completed') return -1;
-      if (a.status === 'completed' && b.status === 'active') return 1;
-      return 0;
-    });
+    contextRuns.sort(sortRunsActiveFirst);
 
     if (contextRuns.length === 0) {
       ui.focus = activity ? 'option' : 'activity';
@@ -501,42 +517,6 @@ function handleCrimeDetailInput(e) {
   }
 }
 
-// Get all available crew choices that meet requirements (simplified)
-function getAvailableCrewChoices(requirements) {
-  const staffReqs = requirements?.staff || [];
-  if (staffReqs.length === 0) return [];
-
-  // For now, just get all available crew that match the role requirement
-  // and create simple combinations (first N available crew)
-
-  const choices = [];
-
-  // Get all matching crew for the requirement
-  if (staffReqs.length === 1) {
-    const req = staffReqs[0];
-    const available = engine.state.crew.staff.filter(
-      s => s.roleId === req.roleId && s.status === 'available'
-    );
-
-    // Create choices by picking different crew members
-    for (let i = 0; i + req.count - 1 < available.length; i++) {
-      const staffIds = available.slice(i, i + req.count).map(s => s.id);
-      choices.push({ staffIds, staff: available.slice(i, i + req.count) });
-    }
-  } else {
-    // Multiple requirements - just use auto-assign for now
-    const autoIds = engine.autoAssign(requirements);
-    if (autoIds.length > 0) {
-      choices.push({
-        staffIds: autoIds,
-        staff: autoIds.map(id => engine.state.crew.staff.find(s => s.id === id)).filter(Boolean)
-      });
-    }
-  }
-
-  return choices;
-}
-
 // Start run using crime detail settings
 function startRunFromDetail(activity, option, repeatMode) {
   const mode = repeatMode || ui.crimeDetail.repeatMode;
@@ -607,11 +587,7 @@ function handleActiveInput(e) {
     const filteredRuns = getFilteredRuns();
 
     // Sort: active first, then completed
-    filteredRuns.sort((a, b) => {
-      if (a.status === 'active' && b.status === 'completed') return -1;
-      if (a.status === 'completed' && b.status === 'active') return 1;
-      return 0;
-    });
+    filteredRuns.sort(sortRunsActiveFirst);
 
     if (filteredRuns.length === 0) {
       ui.focus = 'filter';

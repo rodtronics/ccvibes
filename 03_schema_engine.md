@@ -3,9 +3,18 @@
 Purpose: single source of truth for data structures and engine behavior. All game content must be expressible here; no custom per-activity code. Pair with `01_design_philosophy.md` for intent and `02_ui_spec.md` for presentation.
 
 ## 0. Global Conventions
-- IDs: stable string IDs; `snake_case` recommended; unique within each namespace. Examples: `activityId: shoplifting`, `optionId: shoplifting_grab_and_go`, `resourceId: dirtyMoney`, `roleId: thief`.
+- IDs: stable string IDs; `snake_case` recommended; unique within each namespace. Examples: `activityId: shoplifting`, `optionId: shoplifting_grab_and_go`, `resourceId: cash`, `roleId: thief`.
 - Time: all durations are in milliseconds; all timestamps are Unix epoch milliseconds.
 - All content is JSON-serialisable.
+
+### Data Files
+- `data/branches.json` — Branch definitions (UI grouping).
+- `data/activities.json` — Activities and their Options.
+- `data/resources.json` — Resource definitions (currencies, equipment, intel, reputation).
+- `data/roles.json` — Staff role definitions with XP/star progression.
+- `data/modals.json` — Modal content (story, lore, lessons).
+- `data/lexicon.json` — All UI-facing text strings (labels, actions, errors, tooltips, log templates).
+- `data/names.json` — Crew name generation pool (1528 entries); consumed by `crew.js`.
 
 ## 1. Runtime Game State (minimal shape)
 ```json
@@ -14,13 +23,10 @@ Purpose: single source of truth for data structures and engine behavior. All gam
   "now": 0,
   "resources": {
     "cash": 0,
-    "dirtyMoney": 0,
-    "cleanMoney": 0,
     "cred": 50,
     "heat": 0,
-    "notoriety": 0
+    "intel": 0
   },
-  "items": {},
   "flags": {},
   "reveals": {
     "branches": {},
@@ -40,17 +46,18 @@ Purpose: single source of truth for data structures and engine behavior. All gam
         "unavailableUntil": 0,
         "perks": [],
         "perkChoices": {},
+        "unchosen": [],
         "pendingPerkChoice": null
       }
     ]
   },
   "runs": [],
-  "persistentOperations": [],
-  "completions": {
-    "activity": {},
-    "option": {}
-  },
-  "log": []
+  "log": [],
+  "stats": {
+    "lastRecorded": { "second": 0, "minute": 0, "fiveMin": 0, "hour": 0, "day": 0, "month": 0 },
+    "series": {},
+    "totals": { "crimesCompleted": 0, "crimesSucceeded": 0, "crimesFailed": 0, "totalEarned": 0, "totalSpent": 0 }
+  }
 }
 ```
 
@@ -71,7 +78,12 @@ Repeat logic is now unified using a single `runsLeft` field on each run instance
   "endsAt": 1700000006000,
   "assignedStaffIds": ["s_001"],
   "runsLeft": 5,
-  "snapshot": { "inputsPaid": {}, "roll": null, "plannedOutcomeId": null }
+  "status": "active",
+  "totalRuns": 6,
+  "currentRun": 1,
+  "results": [],
+  "completedAt": null,
+  "snapshot": { "plannedOutcomeId": null }
 }
 ```
 
@@ -97,7 +109,7 @@ Repeat logic is now unified using a single `runsLeft` field on each run instance
   - Old `repeatQueues` structure is deleted.
 
 ### Availability
-- Only available when `option.repeatable === true` (can be progression-gated at option level).
+- Currently available for all options; `option.repeatable` gating is planned but not yet enforced.
 - Run-bound design allows multiple concurrent runs of the same option to each have independent repeat states.
 
 ## 3. Persistent Operations
@@ -134,49 +146,62 @@ Long-running passive operations distinct from runs.
 ```json
 {
   "id": "street",
-  "name": "street",
-  "description": "low stakes, high confidence",
-  "order": 10,
-  "ui": { "accent": "green" }
+  "name": "the streets",
+  "description": "Small-time hustles and petty crimes to get started",
+  "order": 20,
+  "hotkey": "s",
+  "revealedByDefault": false,
+  "ui": { "color": "NEON_CYAN" }
 }
 ```
 
 ### Resource
-Numeric counters; may be hidden until revealed.
+Unified numeric counters for all trackable values — currencies, reputation, equipment, intel, and items. May be hidden until revealed.
 ```json
-{ "id": "dirtyMoney", "name": "dirty money", "description": "money that feels slightly wet.", "revealedByDefault": false }
+{
+  "id": "lockpick",
+  "name": "lockpick",
+  "description": "technically it is a hobby tool.",
+  "category": "equipment",
+  "revealedByDefault": false,
+  "branchId": null,
+  "modalId": "lockpick_lore",
+  "discrete": true,
+  "persistent": false,
+  "singular": false
+}
 ```
+- `category`: UI grouping — `currency`, `risk`, `reputation`, `intel`, `equipment`.
+- `branchId` (optional): ties this resource to a specific branch (e.g. `"primordial"`).
+- `modalId` (optional): lore modal shown on first reveal.
+- `discrete` (optional, default false): integer-only values (e.g. items, tools).
+- `persistent` (optional, default false): not consumed on use.
+- `singular` (optional, default false): maximum quantity of 1.
+
 Special resources:
 - **Cred (0–100, capped)**: starting ~50; gates crew recruitment and activity unlocks; fluctuates on success/failure; recoverable through low-risk jobs.
-- **Heat (0+, uncapped)**: always positive; rises from crimes; decays over time (exponential); increases failure/discovery chances; never blocks actions directly.
-
-### Item
-Integer inventory counts.
-```json
-{ "id": "lockpick", "name": "lockpick", "description": "technically it is a hobby tool.", "stackable": true, "revealedByDefault": false }
-```
+- **Heat (0+, uncapped)**: always positive; rises from crimes; decays over time; increases failure/discovery chances; never blocks actions directly.
 
 ### Role
 Staff role definition with XP -> stars mapping.
 ```json
 {
-  "id": "thief",
-  "name": "thief",
-  "description": "handles doors, pockets, and ethics.",
+  "id": "player",
+  "name": "mastermind",
+  "description": "you.",
   "xpToStars": [
     { "stars": 0, "minXp": 0 },
     { "stars": 1, "minXp": 100 },
-    { "stars": 2, "minXp": 300 },
-    { "stars": 3, "minXp": 700 }
+    { "stars": 2, "minXp": 350 },
+    { "stars": 3, "minXp": 800 },
+    { "stars": 4, "minXp": 1500 },
+    { "stars": 5, "minXp": 2500 }
   ],
-  "revealedByDefault": false,
-  "perkChoices": [
-    { "tierId": "thief_1", "starsRequired": 1, "options": ["steady_hands", "cold_read"] },
-    { "tierId": "thief_2", "starsRequired": 2, "options": ["ghost_step", "hard_case"] }
-  ]
+  "revealedByDefault": true,
+  "perkChoices": []
 }
 ```
-Role archetypes:
+Planned role archetypes:
 - Core: thief (executor), driver (getaway/logistics), runner (starter), hacker (digital).
 - Specialists (optional bonuses): fixer (cred specialist), cleaner (heat reduction), planner (success/precision).
 - Reputation grinder roles: courier, lookout, consultant.
@@ -200,6 +225,7 @@ Perk state lives on the staff record:
 {
   "perks": ["steady_hands"],
   "perkChoices": { "thief_1": "steady_hands" },
+  "unchosen": ["cold_read"],
   "pendingPerkChoice": null
 }
 ```
@@ -207,7 +233,10 @@ Perk state lives on the staff record:
 Perk choice flow (permanent):
 - When a staff member gains a new star and a `perkChoices` tier is newly available, queue a `pendingPerkChoice` for that staff.
 - Only one pending choice per staff at a time; if multiple tiers unlock, queue in star order.
-- Selecting a perk adds it to `staff.perks` and records it in `staff.perkChoices`. The other option is never offered again.
+- Selecting a perk adds it to `staff.perks` and records it in `staff.perkChoices`. The other option is added to `staff.unchosen`.
+
+Redemption (tentative):
+- At star 5, if `unchosen` is non-empty, the staff member gets a redemption choice: pick one previously passed perk from `unchosen`. Chosen perk is removed from `unchosen` and added to `perks`.
 
 ### Activity
 UI container; never executes directly.
@@ -239,10 +268,9 @@ Executable recipe; each creates a Run.
     "staff": [
       { "roleId": "runner", "count": 1, "starsMin": 0, "required": true }
     ],
-    "items": [],
     "buildings": []
   },
-  "inputs": { "resources": {}, "items": {} },
+  "inputs": { "resources": {} },
   "durationMs": 6000,
   "xpRewards": { "onComplete": 8 },
   "resolution": {},
@@ -250,7 +278,7 @@ Executable recipe; each creates a Run.
   "cooldownMs": 0
 }
 ```
-- `repeatable` (optional, default false) controls whether repeat queue UI/behavior is available for this specific option. Set at option level for granular control.
+- `repeatable` (planned, not yet enforced) controls whether repeat queue UI/behavior is available for this specific option. Currently all options can repeat.
 - Staff requirements support `required` (default true) and optional slots; optional slots describe bonuses and are expressed via modifiers.
 
 ### Run (runtime instance)
@@ -263,10 +291,20 @@ Executable recipe; each creates a Run.
   "endsAt": 1700000006000,
   "assignedStaffIds": ["s_001"],
   "runsLeft": 0,
-  "snapshot": { "inputsPaid": {}, "roll": null, "plannedOutcomeId": null }
+  "status": "active",
+  "totalRuns": 1,
+  "currentRun": 1,
+  "results": [],
+  "completedAt": null,
+  "snapshot": { "plannedOutcomeId": null }
 }
 ```
 - `runsLeft`: Unified repeat field. `0` = single run, `N` = repeat N more times after this, `-1` = infinite repeat.
+- `status`: `"active"` while running, `"completed"` when finished. Completed runs persist for UI display.
+- `totalRuns`: Total runs planned (`1` for single, `N+1` for countdown, `-1` for infinite).
+- `currentRun`: Which sub-run is currently executing (increments on repeat).
+- `results`: Array of sub-run outcomes: `{ subRunIndex, completedAt, wasSuccess, resourcesGained, botched }`.
+- `completedAt`: Timestamp when the run (or final repeat) finished; `null` while active.
 - `plannedOutcomeId`, once chosen, must not change.
 
 ### Tech Node (optional, discovery-oriented)
@@ -278,20 +316,36 @@ Executable recipe; each creates a Run.
   "visibleIf": [],
   "unlockIf": [],
   "durationMs": 600000,
-  "inputs": { "resources": { "dirtyMoney": 200 }, "items": { "fakeID": 1 } },
+  "inputs": { "resources": { "cash": 200, "fakeID": 1 } },
   "effects": [
-    { "type": "revealActivity", "activityId": "laundering" },
-    { "type": "unlockOption", "activityId": "laundering", "optionId": "shell_shuffle" }
+    { "type": "revealActivity", "activityId": "laundering" }
   ]
 }
 ```
+
+### Modal
+Modals are the primary narrative and tutorial delivery system. They are intended to be used extensively — for telling the story, introducing new mechanics, and providing lore context as the player progresses. Modals are queued and displayed one at a time.
+```json
+{
+  "id": "intel_lore",
+  "title": "Intel",
+  "body": "**Intel** is the currency of the criminal underworld.\n\n{{neon_cyan}}knowledge is power{{/}}",
+  "type": "lore",
+  "showOnce": true
+}
+```
+- `type`: `"story"` (narrative progression), `"lore"` (world-building, mechanic introductions), `"lesson"` (tutorial/guidance).
+- `showOnce` (optional, default false): if true, only shown once per playthrough (tracked in localStorage).
+- `body` supports inline formatting: `**bold**`, `~~dim~~`, `{{color}}text{{/}}`, `{{bg:color}}text{{/}}`.
+- `borderColor`, `borderStyle`, `titleColor`, `bodyColor`, `backgroundColor` (all optional): style overrides.
+- Modals can be triggered by effects (`showModal`), by resource `modalId` on first reveal, or queued directly.
 
 ## 5. Resolution Types
 ### Deterministic
 ```json
 {
   "type": "deterministic",
-  "outputs": { "resources": { "cash": 50 }, "items": {} },
+  "outputs": { "resources": { "cash": 50 } },
   "credDelta": 2,
   "heatDelta": 1,
   "effects": []
@@ -301,8 +355,7 @@ Executable recipe; each creates a Run.
 ```json
 {
   "type": "ranged_outputs",
-  "outputs": { "resources": { "dirtyMoney": { "min": 20, "max": 60 } } },
-  "items": {},
+  "outputs": { "resources": { "cash": { "min": 20, "max": 60 } } },
   "credDelta": { "min": 1, "max": 5 },
   "heatDelta": { "min": 1, "max": 3 },
   "effects": []
@@ -313,9 +366,9 @@ Executable recipe; each creates a Run.
 {
   "type": "weighted_outcomes",
   "outcomes": [
-    { "id": "ok", "weight": 70, "outputs": { "resources": { "dirtyMoney": 40 } }, "items": {}, "credDelta": 3, "heatDelta": 2, "effects": [] },
-    { "id": "lucky", "weight": 20, "outputs": { "resources": { "dirtyMoney": 120 } }, "items": {}, "credDelta": 8, "heatDelta": 1, "effects": [{ "type": "revealActivity", "activityId": "fencing_goods" }] },
-    { "id": "caught", "weight": 10, "outputs": {}, "items": {}, "credDelta": -20, "heatDelta": 6, "jail": { "durationMs": 43200000 }, "effects": [] }
+    { "id": "ok", "weight": 70, "outputs": { "resources": { "cash": 40 } }, "credDelta": 3, "heatDelta": 2, "effects": [] },
+    { "id": "lucky", "weight": 20, "outputs": { "resources": { "cash": 120 } }, "credDelta": 8, "heatDelta": 1, "effects": [{ "type": "revealActivity", "activityId": "fencing_goods" }] },
+    { "id": "caught", "weight": 10, "outputs": {}, "credDelta": -20, "heatDelta": 6, "jail": { "durationMs": 43200000 }, "effects": [] }
   ]
 }
 ```
@@ -324,7 +377,7 @@ Executable recipe; each creates a Run.
 Modifiers adjust resolution parameters before rolling; they stack additively and apply before outcome selection.
 
 ### Canonical Modifier Types
-- Environment-based: `heatAbove`, `heatBelow`, `flagIs`, `resourceGte`, `hasItem`.
+- Environment-based: `heatAbove`, `heatBelow`, `flagIs`, `resourceGte`.
 - Crew-based: `staffStars`, `staffRole`, `staffCount`, `staffPerk`.
 
 ### Modifier Effects
@@ -356,7 +409,7 @@ Modifiers adjust resolution parameters before rolling; they stack additively and
 Design principle: modifiers only adjust numeric values; they do not execute logic or mutate state directly.
 
 ## 7. Conditions (visibleIf/unlockIf)
-Atomic types: `flagIs`, `resourceGte`, `itemGte`, `roleRevealed`, `activityRevealed`, `staffStarsGte`, `activityCompletedGte`, `crewHasPerk`.
+Atomic types: `flagIs`, `resourceGte`, `roleRevealed`, `activityRevealed`.
 Logical wrappers: `allOf`, `anyOf`, `not`.
 Example:
 ```json
@@ -368,22 +421,27 @@ Example:
   ]
 }
 ```
-`crewHasPerk` is true if any staff member in the roster has the perk.
 
 ## 8. Effects
 Reveal effects: `revealBranch`, `revealActivity`, `revealResource`, `revealRole`, `revealTab`.
-Capability effects: `unlockActivity`, `unlockOption`.
-State effects: `setFlag`, `incFlagCounter`, `logMessage`.
+Capability effects: `unlockActivity`.
+State effects: `setFlag`, `incFlagCounter`, `logMessage`, `showModal`.
 Examples:
 ```json
 { "type": "revealBranch", "branchId": "finance" }
-{ "type": "unlockOption", "activityId": "laundering", "optionId": "shell_shuffle" }
+{ "type": "unlockActivity", "activityId": "laundering" }
 ```
+
+### Visibility States (branches and activities only)
+- **Unrevealed**: the player has no knowledge of it; completely hidden.
+- **Revealed**: the player can see it exists (e.g. a branch tab appears, a job shows in the list) but cannot interact with it yet.
+- **Unlocked**: the player can see it and use it.
+- Options have no locked-but-visible state; they are either visible+unlocked or hidden entirely.
 
 ## 9. Engine Rules (non-negotiable)
 - No custom per-activity code; all behavior emerges from data.
 - Heat never blocks actions; consequences are time-based, not permanent.
-- Unlocking grants capability; revealing grants knowledge.
+- Unlocking grants capability; revealing grants knowledge. This distinction applies to branches and activities only.
 - The system must tolerate content being incomplete or hidden.
 - Engine validation for `Engine.startRun(activityId, optionId, assignedStaffIds, orderOverride, runsLeft)`:
   - All required roles filled.

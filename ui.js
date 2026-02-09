@@ -3,8 +3,8 @@
 // Uses Palette for colors, no direct DOM manipulation
 
 import { Palette, BoxStyles } from "./palette.js";
-import { interpolateColor, getGradientColors } from "./gradients.js";
 import { parseModalContent } from "./modal.js";
+import { sortRunsActiveFirst } from "./engine.js";
 
 // Layout constants for 80x25 viewport
 export const Layout = {
@@ -177,11 +177,7 @@ export class UI {
       });
 
       // Sort runs: active first, then completed
-      const sortedRuns = branchRuns.slice().sort((a, b) => {
-        if (a.status === "active" && b.status === "completed") return -1;
-        if (a.status === "completed" && b.status === "active") return 1;
-        return 0;
-      });
+      const sortedRuns = branchRuns.slice().sort(sortRunsActiveFirst);
 
       // Get selected run (if any)
       const selectedRunIndex = this.ui.selectedRun ?? 0;
@@ -298,11 +294,7 @@ export class UI {
       const activityRuns = this.engine.state.runs.filter((r) => r.activityId === activity.id);
 
       // Sort runs: active first, then completed
-      const sortedRuns = activityRuns.slice().sort((a, b) => {
-        if (a.status === "active" && b.status === "completed") return -1;
-        if (a.status === "completed" && b.status === "active") return 1;
-        return 0;
-      });
+      const sortedRuns = activityRuns.slice().sort(sortRunsActiveFirst);
 
       // Get selected run (if any)
       const selectedRunIndex = this.ui.selectedRun ?? 0;
@@ -586,11 +578,7 @@ export class UI {
   // contextPath is optional breadcrumb like "PRIMORDIAL > BEDTIME SHENANIGANS"
   renderActiveRunsPanel(runs, startX, startY, width, bgColor = Palette.BLACK, contextPath = null) {
     // Sort runs: active first, then completed
-    const sortedRuns = runs.slice().sort((a, b) => {
-      if (a.status === "active" && b.status === "completed") return -1;
-      if (a.status === "completed" && b.status === "active") return 1;
-      return 0; // preserve original order within same status
-    });
+    const sortedRuns = runs.slice().sort(sortRunsActiveFirst);
 
     // Draw context header if provided
     let runsStartY = startY;
@@ -811,38 +799,6 @@ export class UI {
     }
   }
 
-  // Render a single run card in 4-line format
-  renderRunCard(run, x, y, maxWidth, dimmed = false) {
-    const activity = this.engine.data.activities.find((a) => a.id === run.activityId);
-    const option = activity?.options.find((o) => o.id === run.optionId);
-
-    // Select colors based on dimmed state
-    const nameColor = dimmed ? Palette.NEON_TEAL_DIM : Palette.NEON_TEAL;
-    const textColor = dimmed ? Palette.DIM_GRAY : Palette.MID_GRAY;
-
-    // Line 1: Crime name
-    const nameText = `${activity?.name || "?"} → ${option?.name || "?"}`;
-    this.buffer.writeText(x, y, nameText.slice(0, maxWidth), nameColor, Palette.BLACK);
-
-    // Line 2: Staff assignment
-    const staffText = `Staff: ${run.assignedStaffIds?.join(", ") || "none"}`;
-    this.buffer.writeText(x, y + 1, staffText.slice(0, maxWidth), textColor, Palette.BLACK);
-
-    // Line 3: Remaining time
-    const remaining = Math.max(0, run.endsAt - this.engine.state.now);
-    const remainingText = `Remaining: ${this.formatMs(remaining)}`;
-    this.buffer.writeText(x, y + 2, remainingText.slice(0, maxWidth), textColor, Palette.BLACK);
-
-    // Line 4: Smooth gradient progress bar
-    const pct = Math.min(1, Math.max(0, (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt)));
-    const barWidth = Math.min(40, maxWidth - 6);
-    // Use dimmed colors if the run card itself is dimmed
-    const gradientStart = dimmed ? Palette.ELECTRIC_ORANGE : Palette.BRIGHT_YELLOW;
-    const gradientEnd = dimmed ? Palette.NEON_CYAN_DIM : Palette.NEON_CYAN;
-    this.buffer.drawSmoothProgressBar(x, y + 3, barWidth, pct, gradientStart, gradientEnd, Palette.DIM_GRAY, Palette.BLACK);
-    this.buffer.writeText(x + barWidth + 1, y + 3, "STOP", Palette.HEAT_RED, Palette.BLACK);
-  }
-
   renderActiveTab() {
     // 50/50 split: left=run detail/filters, right=filtered runs
     const listTop = 5;
@@ -884,11 +840,7 @@ export class UI {
     const filteredRuns = currentFilter.filter();
 
     // Sort runs: active first, then completed
-    const sortedRuns = filteredRuns.slice().sort((a, b) => {
-      if (a.status === "active" && b.status === "completed") return -1;
-      if (a.status === "completed" && b.status === "active") return 1;
-      return 0;
-    });
+    const sortedRuns = filteredRuns.slice().sort(sortRunsActiveFirst);
 
     // Get selected run (if any)
     const selectedRunIndex = this.ui.selectedRun ?? 0;
@@ -1752,9 +1704,8 @@ export class UI {
     this.buffer.writeText(4, top + 9, "<ESC/BACKSPACE> BACK", Palette.DIM_GRAY, Palette.BLACK);
   }
 
-  // Tab rendering helper - renders tab with colored hotkey letter and optional glow
-  renderTab(x, y, label, hotkey, isActive, activeFg, activeBg, inactiveFg, gradient = null) {
-    // Normalize inputs and locate the hotkey within the label
+  // Tab rendering helper - renders tab with colored hotkey letter
+  renderTab(x, y, label, hotkey, isActive, activeFg, activeBg, inactiveFg) {
     const safeLabel = label || "";
     const lowerLabel = safeLabel.toLowerCase();
     const normalizedHotkey = (hotkey || "").toString().trim().toLowerCase();
@@ -1763,155 +1714,15 @@ export class UI {
     const fg = isActive ? activeFg : inactiveFg;
     const bg = isActive ? activeBg : null;
 
-    // Visual toggles - gradients and hotkey glow are always off
-    const glowEnabled = false;
-    const useGradient = false;
-    const gradientColors = useGradient ? getGradientColors(gradient, safeLabel.length) : null;
-
-    // Write the label character by character, applying gradient/hotkey styling
     for (let i = 0; i < safeLabel.length; i++) {
-      const char = safeLabel[i];
-      const isHotkey = hotkeyIndex === i && hotkeyIndex >= 0;
-      const isGlow = !isActive && glowEnabled && hotkeyIndex >= 0 && Math.abs(i - hotkeyIndex) === 1;
-
-      // Base color comes from gradient (if enabled) or the tab foreground
-      const baseColor = gradientColors && gradientColors.length === safeLabel.length ? gradientColors[i] : fg;
-
-      // Dim gradient colors on inactive tabs so the hotkey stands out
-      const dimmedColor = useGradient && gradientColors ? interpolateColor(baseColor, inactiveFg, 0.5) : baseColor;
-
-      let charColor = dimmedColor;
-
-      if (isHotkey) {
-        charColor = Palette.NEON_CYAN;
-      } else if (isGlow) {
-        const glowBase = dimmedColor || inactiveFg;
-        charColor = interpolateColor(Palette.NEON_CYAN, glowBase, 0.67);
-      }
-
-      this.buffer.writeText(x + i, y, char, charColor, bg);
+      const charColor = (hotkeyIndex === i && hotkeyIndex >= 0) ? Palette.NEON_CYAN : fg;
+      this.buffer.writeText(x + i, y, safeLabel[i], charColor, bg);
     }
 
-    return safeLabel.length; // Return width for positioning next tab
-  }
-
-  // DEPRECATED: Old branch tab bar - replaced by renderBranchSelectionBar
-  // Kept for reference only, no longer in use
-  // Branch tab bar - visual tabs with box-drawing borders
-  // 3 rows: Row 2 = top border (┌/┬/┐), Row 3 = │ LABEL │, Row 4 = bottom line with selected tab open
-  // Tabs overwrite the main panel top line only within the tab span
-  renderBranchTabBar(branches, selectedIndex, focused = false) {
-    const TAB_Y = 3; // Label row
-    const TOP_Y = TAB_Y - 1; // Top border row for tabs
-    const TAB_PADDING = 1; // Space on each side of label inside tab
-    const BOX = BoxStyles.SINGLE;
-
-    // Calculate tab data with positions
-    const tabs = [];
-    let x = 2; // Start at column 2 to keep tabs off the left border
-
-    branches.forEach((b, i) => {
-      const label = b.name.toUpperCase();
-      const innerWidth = label.length + TAB_PADDING * 2; // Padding on each side
-      const totalWidth = innerWidth + 2; // +2 for │ borders on each side
-
-      tabs.push({
-        branch: b,
-        label: label,
-        x: x,
-        innerWidth: innerWidth,
-        totalWidth: totalWidth,
-        isSelected: i === selectedIndex,
-      });
-
-      // Overlap one column so tab borders share a seam
-      x += totalWidth - 1;
-    });
-
-    // Top border for tabs (replaces the main panel top line within the tab span)
-    if (tabs.length > 0) {
-      const firstX = tabs[0].x;
-      const lastTab = tabs[tabs.length - 1];
-      const lastX = lastTab.x + lastTab.totalWidth - 1;
-
-      // Clear the entire row so the main panel top border disappears under the tab caps
-      for (let i = 0; i < Layout.WIDTH; i++) {
-        this.buffer.setCell(i, TOP_Y, " ", Palette.BLACK, Palette.BLACK);
-      }
-
-      // Draw the tab top line with tee connectors
-      // Use bright borders when branches are focused
-      const borderColor = focused ? Palette.WHITE : Palette.DIM_GRAY;
-      tabs.forEach((tab, index) => {
-        const leftChar = index === 0 ? "┌" : "┬";
-        this.buffer.setCell(tab.x, TOP_Y, leftChar, borderColor, Palette.BLACK);
-        for (let i = 1; i < tab.totalWidth - 1; i++) {
-          this.buffer.setCell(tab.x + i, TOP_Y, "─", borderColor, Palette.BLACK);
-        }
-      });
-
-      // Right corner of the last tab
-      this.buffer.setCell(lastX, TOP_Y, "┐", borderColor, Palette.BLACK);
-    }
-
-    // Row 1 (y=3): │ LABEL │ for each tab
-    const borderColor = focused ? Palette.WHITE : Palette.DIM_GRAY;
-    tabs.forEach((tab) => {
-      // Left border
-      this.buffer.setCell(tab.x, TAB_Y, BOX.vertical, borderColor, Palette.BLACK);
-
-      // Label with padding
-      const labelStart = tab.x + 1 + TAB_PADDING;
-      const branchColor = tab.branch.ui?.color ? Palette[tab.branch.ui.color] : Palette.TERMINAL_GREEN;
-      const isFocusedTab = focused && tab.isSelected;
-
-      // When branches are focused, make the selected tab BRIGHT and inverted
-      // When not focused, selected tab uses dimmer branch color, unselected are very dim
-      const labelColor = isFocusedTab ? Palette.BLACK : tab.isSelected ? branchColor : Palette.DIM_GRAY;
-      const labelBg = isFocusedTab ? Palette.WHITE : Palette.BLACK;
-
-      // Clear the inside with spaces first (for consistent background)
-      for (let i = 1; i <= tab.innerWidth; i++) {
-        this.buffer.setCell(tab.x + i, TAB_Y, " ", labelBg, labelBg);
-      }
-
-      // Write label
-      this.buffer.writeText(labelStart, TAB_Y, tab.label, labelColor, labelBg);
-
-      // Right border
-      this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y, BOX.vertical, borderColor, Palette.BLACK);
-    });
-
-    // Row 2 (y=4): Bottom line - selected tab opens, others closed
-    // First, draw a continuous horizontal line across the full width
-    const bottomBorderColor = focused ? Palette.WHITE : Palette.DIM_GRAY;
-    for (let i = 0; i < Layout.WIDTH; i++) {
-      this.buffer.setCell(i, TAB_Y + 1, BOX.horizontal, bottomBorderColor, Palette.BLACK);
-    }
-
-    // Now handle each tab's bottom
-    tabs.forEach((tab) => {
-      if (tab.isSelected) {
-        // Selected tab: open bottom (┘ spaces └)
-        this.buffer.setCell(tab.x, TAB_Y + 1, BOX.bottomRight, borderColor, Palette.BLACK);
-        // Clear the bottom (spaces - tab merges with content)
-        for (let i = 1; i <= tab.innerWidth; i++) {
-          this.buffer.setCell(tab.x + i, TAB_Y + 1, " ", Palette.BLACK, Palette.BLACK);
-        }
-        this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y + 1, BOX.bottomLeft, borderColor, Palette.BLACK);
-      } else {
-        // Unselected tab: closed bottom with tee connectors
-        this.buffer.setCell(tab.x, TAB_Y + 1, BOX.teeUp, bottomBorderColor, Palette.BLACK);
-        for (let i = 1; i <= tab.innerWidth; i++) {
-          this.buffer.setCell(tab.x + i, TAB_Y + 1, BOX.horizontal, bottomBorderColor, Palette.BLACK);
-        }
-        this.buffer.setCell(tab.x + tab.innerWidth + 1, TAB_Y + 1, BOX.teeUp, bottomBorderColor, Palette.BLACK);
-      }
-    });
+    return safeLabel.length;
   }
 
   // Branch selection bar - horizontal bordered bar with arrows when focused
-  // Simple design: [> branch1 | branch2 | branch3 <] with clear selection
   renderBranchSelectionBar(branches, selectedIndex, focused = false) {
     const BAR_Y = 2; // Start at row 2 (top border)
     const BOX = BoxStyles.SINGLE;

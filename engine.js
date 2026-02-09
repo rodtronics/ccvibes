@@ -1,39 +1,47 @@
+function createDefaultState() {
+  return {
+    version: 6,
+    now: Date.now(),
+    resources: {
+      cash: 0,
+      cred: 50,
+      heat: 0,
+    },
+    flags: {},
+    reveals: {
+      branches: {},
+      activities: {},
+      resources: {},
+      roles: {},
+      tabs: { activities: true, log: true }
+    },
+    crew: {
+      staff: [
+        { id: "s_you", name: "you", roleId: "player", xp: 0, status: "available", unavailableUntil: 0, perks: [], perkChoices: {}, unchosen: [], pendingPerkChoice: null }
+      ]
+    },
+    runs: [],
+    log: [],
+    stats: {
+      lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
+      series: {},
+      totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
+    },
+    debugMode: false
+  };
+}
+
+/** Sort comparator: active runs first, completed last */
+export const sortRunsActiveFirst = (a, b) => {
+  if (a.status === "active" && b.status === "completed") return -1;
+  if (a.status === "completed" && b.status === "active") return 1;
+  return 0;
+};
+
 export class Engine {
   constructor(modalQueue = null) {
     this.modalQueue = modalQueue;
-    this.state = {
-      version: 6,
-      now: Date.now(),
-      resources: {
-        cash: 0,
-        dirtyMoney: 0,
-        cleanMoney: 0,
-        cred: 50,
-        heat: 0,
-        notoriety: 0
-      },
-      flags: {},
-      reveals: {
-        branches: {},
-        activities: {},
-        resources: {},
-        roles: {},
-        tabs: { activities: true, log: true }
-      },
-      crew: {
-        staff: [
-          { id: "s_you", name: "you", roleId: "player", xp: 0, status: "available", unavailableUntil: 0, perks: [], perkChoices: {}, unchosen: [], pendingPerkChoice: null }
-        ]
-      },
-      runs: [],
-      log: [],
-      stats: {
-        lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
-        series: {},
-        totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
-      },
-      debugMode: false
-    };
+    this.state = createDefaultState();
     this.data = {
       activities: [],
       branches: [],
@@ -48,14 +56,15 @@ export class Engine {
     this.lastTick = Date.now();
   }
 
-  async init() {
-    await this.loadData();
-    this.loadState();  // Load saved state before applying defaults
+  async init(onProgress) {
+    await this.loadData(onProgress);
+    this.loadState();
+    onProgress?.('SAVED STATE');
     this.applyDefaultReveals();
     this.log("System online.", "info");
   }
 
-  async loadData() {
+  async loadData(onProgress) {
     const files = [
       ["activities.json", "activities"],
       ["branches.json", "branches"],
@@ -64,8 +73,7 @@ export class Engine {
       ["resources.json", "resources"],
       ["roles.json", "roles"],
       ["tech.json", "tech"],
-      ["perks.json", "perks"],
-      ["modals.json", "modals"]
+      ["perks.json", "perks"]
     ];
 
     for (const [file, key] of files) {
@@ -76,6 +84,7 @@ export class Engine {
         console.warn(`Failed to load ${file}`, err);
         this.log(`Failed to load ${file}`, "warn");
       }
+      onProgress?.(file.replace('.json', '.DAT').toUpperCase());
     }
   }
 
@@ -173,40 +182,7 @@ export class Engine {
     // Clear game state from localStorage
     localStorage.removeItem('ccv_game_state');
     localStorage.removeItem('ccv_seen_modals');
-    // Reinitialize to default state
-    this.state = {
-      version: 6,
-      now: Date.now(),
-      resources: {
-        cash: 0,
-        dirtyMoney: 0,
-        cleanMoney: 0,
-        cred: 50,
-        heat: 0,
-        notoriety: 0
-      },
-      flags: {},
-      reveals: {
-        branches: {},
-        activities: {},
-        resources: {},
-        roles: {},
-        tabs: { activities: true, log: true }
-      },
-      crew: {
-        staff: [
-          { id: "s_you", name: "you", roleId: "player", xp: 0, status: "available", unavailableUntil: 0, perks: [], perkChoices: {}, unchosen: [], pendingPerkChoice: null }
-        ]
-      },
-      runs: [],
-      log: [],
-      stats: {
-        lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
-        series: {},
-        totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
-      },
-      debugMode: false
-    };
+    this.state = createDefaultState();
     this.applyDefaultReveals();
     this.log("Progress reset. Starting fresh.", "info");
     return { ok: true };
@@ -267,15 +243,6 @@ export class Engine {
   }
 
   recordStats(now) {
-    // Initialize stats if missing
-    if (!this.state.stats) {
-      this.state.stats = {
-        lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
-        series: {},
-        totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
-      };
-    }
-
     // 64 points per time period
     const intervals = {
       second: 1000,      // 64000 / 64 (64 seconds total)
@@ -634,19 +601,14 @@ export class Engine {
     const beforeResources = { ...this.state.resources };
 
     // Base XP reward for completing a job (scaled by difficulty/duration)
-    const baseXp = option.xpReward || 10;
+    const baseXp = option.xpRewards?.onComplete || 10;
     let wasSuccessful = true;
     let botched = false;
 
-    if (resolution.type === "deterministic") {
+    if (resolution.type === "deterministic" || resolution.type === "ranged_outputs") {
       this.applyOutputs(resolution.outputs);
       this.applyCred(resolution.credDelta);
       this.applyHeat(resolution.heatDelta);
-      this.applyEffects(resolution.effects);
-    } else if (resolution.type === "ranged_outputs") {
-      this.applyRangedOutputs(resolution.outputs);
-      this.applyRangedCred(resolution.credDelta);
-      this.applyRangedHeat(resolution.heatDelta);
       this.applyEffects(resolution.effects);
     } else if (resolution.type === "weighted_outcomes") {
       const outcome = resolution.outcomes.find((o) => o.id === run.snapshot.plannedOutcomeId) || resolution.outcomes[0];
@@ -684,13 +646,6 @@ export class Engine {
     }
 
     // Track stats totals
-    if (!this.state.stats) {
-      this.state.stats = {
-        lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
-        series: {},
-        totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
-      };
-    }
     this.state.stats.totals.crimesCompleted++;
     if (wasSuccessful) {
       this.state.stats.totals.crimesSucceeded++;
@@ -739,73 +694,32 @@ export class Engine {
   }
 
   applyOutputs(outputs) {
-    if (!outputs) return;
-    if (outputs.resources) {
-      Object.entries(outputs.resources).forEach(([id, amount]) => {
-        // Handle both simple numbers and ranged {min, max} objects
-        let numAmount;
-        if (typeof amount === 'object' && amount !== null && 'min' in amount && 'max' in amount) {
-          numAmount = Math.floor(Math.random() * (amount.max - amount.min + 1)) + amount.min;
-        } else {
-          numAmount = Number(amount);
-        }
-        this.state.resources[id] = (this.state.resources[id] || 0) + numAmount;
-        this.state.reveals.resources[id] = true;
-      });
-    }
-    if (outputs.items) {
-      Object.entries(outputs.items).forEach(([id, amount]) => {
-        // Handle both simple numbers and ranged {min, max} objects
-        let numAmount;
-        if (typeof amount === 'object' && amount !== null && 'min' in amount && 'max' in amount) {
-          numAmount = Math.floor(Math.random() * (amount.max - amount.min + 1)) + amount.min;
-        } else {
-          numAmount = Number(amount);
-        }
-        this.state.resources[id] = (this.state.resources[id] || 0) + numAmount;
-        this.state.reveals.resources[id] = true;
-      });
-    }
-  }
-
-  applyRangedOutputs(outputs) {
-    if (!outputs) return;
-    if (outputs.resources) {
-      Object.entries(outputs.resources).forEach(([id, range]) => {
-        const amount = this.randomBetween(Number(range.min), Number(range.max));
-        this.state.resources[id] = (this.state.resources[id] || 0) + amount;
-        this.state.reveals.resources[id] = true;
-      });
-    }
-    if (outputs.items) {
-      Object.entries(outputs.items).forEach(([id, range]) => {
-        const amount = this.randomBetween(Number(range.min), Number(range.max));
-        this.state.resources[id] = (this.state.resources[id] || 0) + amount;
-        this.state.reveals.resources[id] = true;
-      });
-    }
+    if (!outputs?.resources) return;
+    Object.entries(outputs.resources).forEach(([id, amount]) => {
+      // Handle both simple numbers and ranged {min, max} objects
+      let numAmount;
+      if (typeof amount === 'object' && amount !== null && 'min' in amount && 'max' in amount) {
+        numAmount = Math.floor(Math.random() * (amount.max - amount.min + 1)) + amount.min;
+      } else {
+        numAmount = Number(amount);
+      }
+      this.state.resources[id] = (this.state.resources[id] || 0) + numAmount;
+      this.state.reveals.resources[id] = true;
+    });
   }
 
   applyCred(delta) {
     if (delta === undefined || delta === null) return;
-    this.state.resources.cred = Math.max(0, Math.min(100, (this.state.resources.cred || 0) + delta));
+    const amount = (typeof delta === 'object' && 'min' in delta && 'max' in delta)
+      ? this.randomBetween(delta.min, delta.max) : delta;
+    this.state.resources.cred = Math.max(0, Math.min(100, (this.state.resources.cred || 0) + amount));
   }
 
   applyHeat(delta) {
     if (delta === undefined || delta === null) return;
-    this.state.resources.heat = Math.max(0, (this.state.resources.heat || 0) + delta);
-  }
-
-  applyRangedCred(range) {
-    if (!range) return;
-    const amount = this.randomBetween(range.min, range.max);
-    this.applyCred(amount);
-  }
-
-  applyRangedHeat(range) {
-    if (!range) return;
-    const amount = this.randomBetween(range.min, range.max);
-    this.applyHeat(amount);
+    const amount = (typeof delta === 'object' && 'min' in delta && 'max' in delta)
+      ? this.randomBetween(delta.min, delta.max) : delta;
+    this.state.resources.heat = Math.max(0, (this.state.resources.heat || 0) + amount);
   }
 
   formatDuration(ms) {
@@ -892,33 +806,18 @@ export class Engine {
   }
 
   checkInputs(inputs) {
-    if (!inputs) return { ok: true };
-    if (inputs.resources) {
-      for (const [id, amount] of Object.entries(inputs.resources)) {
-        if ((this.state.resources[id] || 0) < amount) return { ok: false, reason: `Need ${amount} ${id}` };
-      }
-    }
-    if (inputs.items) {
-      for (const [id, amount] of Object.entries(inputs.items)) {
-        if ((this.state.resources[id] || 0) < amount) return { ok: false, reason: `Need ${amount} ${id}` };
-      }
+    if (!inputs?.resources) return { ok: true };
+    for (const [id, amount] of Object.entries(inputs.resources)) {
+      if ((this.state.resources[id] || 0) < amount) return { ok: false, reason: `Need ${amount} ${id}` };
     }
     return { ok: true };
   }
 
   consumeInputs(inputs) {
-    if (!inputs) return;
-    if (inputs.resources) {
-      Object.entries(inputs.resources).forEach(([id, amount]) => {
-        this.state.resources[id] = (this.state.resources[id] || 0) - amount;
-      });
-    }
-    if (inputs.items) {
-      Object.entries(inputs.items).forEach(([id, amount]) => {
-        this.state.resources[id] = (this.state.resources[id] || 0) - amount;
-        if (this.state.resources[id] <= 0) delete this.state.resources[id];
-      });
-    }
+    if (!inputs?.resources) return;
+    Object.entries(inputs.resources).forEach(([id, amount]) => {
+      this.state.resources[id] = (this.state.resources[id] || 0) - amount;
+    });
   }
 
   isActivityVisible(activity) {
@@ -956,7 +855,6 @@ export class Engine {
   evalCondition(cond) {
     if (cond.type === "flagIs") return this.state.flags[cond.key] === cond.value;
     if (cond.type === "resourceGte") return (this.state.resources[cond.resourceId] || 0) >= cond.value;
-    if (cond.type === "itemGte") return (this.state.resources[cond.itemId] || 0) >= cond.value;
     if (cond.type === "roleRevealed") return !!this.state.reveals.roles[cond.roleId];
     if (cond.type === "activityRevealed") return !!this.state.reveals.activities[cond.activityId];
     if (cond.type === "allOf") return cond.conds.every((c) => this.evalCondition(c));

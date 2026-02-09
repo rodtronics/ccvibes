@@ -7,8 +7,7 @@
     "hotkey": "s",
     "revealedByDefault": false,
     "ui": {
-      "color": "NEON_CYAN",
-      "gradient": "street"
+      "color": "NEON_CYAN"
     }
   },
   {
@@ -19,8 +18,7 @@
     "hotkey": "",
     "revealedByDefault": true,
     "ui": {
-      "color": "ORANGE",
-      "gradient": "new_branch"
+      "color": "ORANGE"
     }
   }
 ]
