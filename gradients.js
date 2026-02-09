@@ -46,7 +46,7 @@ export const GRADIENTS = {
   heat: ['#ff4d4d', '#ff8844', '#ffcc55'],
   warm: ['#ff00ff', '#dd33aa', '#bb6688'],
   toxic: ['#00ff00', '#88ff00', '#ffff00'],
-  blackbody: ['#440000', '#ff4400', '#ffaa00', '#ffff88'],
+  blackbody: ['#330000', '#cc0000', '#ff4400', '#ff8800', '#ffcc00', '#ffffff'],
 
   // Natural themes
   ocean: ['#0066cc', '#0099dd', '#00cccc', '#00ffcc'],

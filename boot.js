@@ -22,7 +22,6 @@ export class BootScreen {
 
     // BIOS banner
     b.writeText(1, 0, 'CCVI BIOS v6.0', HEADER_COLOR);
-    b.writeText(16, 0, ' (C) 2024 Crime Committer Industries', Palette.MID_GRAY);
 
     // Hardware info
     b.writeText(1, 2, 'Main Processor', LABEL_COLOR);

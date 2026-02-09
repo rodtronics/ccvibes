@@ -6,6 +6,11 @@ export class DOMRenderer {
   constructor(buffer, containerId) {
     this.buffer = buffer;
     this.container = document.getElementById(containerId);
+    this.cellEls = [];
+    this.prevChar = [];
+    this.prevFg = [];
+    this.prevBg = [];
+    this.prevPb = [];
 
     if (!this.container) {
       throw new Error(`Container element #${containerId} not found`);
@@ -22,93 +27,119 @@ export class DOMRenderer {
     this.container.style.whiteSpace = 'pre';
     this.container.style.overflow = 'hidden';
     this.container.style.backgroundColor = '#000000';
+
+    this.buildGrid();
+  }
+
+  buildGrid() {
+    const width = this.buffer.width;
+    const height = this.buffer.height;
+    const fragment = document.createDocumentFragment();
+
+    this.container.innerHTML = '';
+
+    this.cellEls = new Array(width * height);
+    this.prevChar = new Array(width * height);
+    this.prevFg = new Array(width * height);
+    this.prevBg = new Array(width * height);
+    this.prevPb = new Array(width * height);
+
+    let idx = 0;
+    for (let y = 0; y < height; y++) {
+      const rowEl = document.createElement('div');
+      for (let x = 0; x < width; x++) {
+        const cellEl = document.createElement('span');
+        cellEl.className = 'c';
+        cellEl.textContent = ' ';
+        rowEl.appendChild(cellEl);
+
+        this.cellEls[idx] = cellEl;
+        this.prevChar[idx] = null;
+        this.prevFg[idx] = null;
+        this.prevBg[idx] = null;
+        this.prevPb[idx] = null;
+        idx++;
+      }
+      fragment.appendChild(rowEl);
+    }
+
+    this.container.appendChild(fragment);
   }
 
   render() {
-    // Full render: regenerate entire DOM from buffer
-    let html = '';
+    const width = this.buffer.width;
+    const height = this.buffer.height;
+    const cellEls = this.cellEls;
+    const prevChar = this.prevChar;
+    const prevFg = this.prevFg;
+    const prevBg = this.prevBg;
+    const prevPb = this.prevPb;
 
-    for (let y = 0; y < this.buffer.height; y++) {
-      let row = '';
-      let currentFg = null;
-      let currentBg = null;
-      let spanOpen = false;
-
-      for (let x = 0; x < this.buffer.width; x++) {
-        const cell = this.buffer.cells[y][x];
+    let idx = 0;
+    for (let y = 0; y < height; y++) {
+      const row = this.buffer.cells[y];
+      for (let x = 0; x < width; x++) {
+        const cell = row[x];
         const char = cell.char || ' ';
-        const fg = cell.fg;
-        const bg = cell.bg;
+        const fg = cell.fg || '';
+        const bg = cell.bg || '';
+        const pb = !!cell.progressBar;
 
-        // Check if we need to open/close/change span
-        if (fg !== currentFg || bg !== currentBg) {
-          // Close previous span if open
-          if (spanOpen) {
-            row += '</span>';
-            spanOpen = false;
-          }
+        const el = cellEls[idx];
 
-          // Open new span with current colors
-          if (fg || bg) {
-            let style = '';
-            if (fg) style += `color:${fg};`;
-            if (bg) style += `background-color:${bg};`;
-            row += `<span style="${style}">`;
-            spanOpen = true;
-          }
-
-          currentFg = fg;
-          currentBg = bg;
+        if (prevChar[idx] !== char) {
+          el.textContent = char;
+          prevChar[idx] = char;
+        }
+        if (prevFg[idx] !== fg) {
+          el.style.color = fg;
+          prevFg[idx] = fg;
+        }
+        if (prevBg[idx] !== bg) {
+          el.style.backgroundColor = bg;
+          prevBg[idx] = bg;
+        }
+        if (prevPb[idx] !== pb) {
+          el.className = pb ? 'c pb' : 'c';
+          prevPb[idx] = pb;
         }
 
-        // Add the character in a fixed-width cell (ensures consistent spacing across all fonts)
-        if (cell.progressBar) {
-          row += `<span class="c pb">${this.escapeHtml(char)}</span>`;
-        } else {
-          row += `<span class="c">${this.escapeHtml(char)}</span>`;
-        }
-      }
-
-      // Close any open span at end of row
-      if (spanOpen) {
-        row += '</span>';
-      }
-
-      html += row;
-      if (y < this.buffer.height - 1) {
-        html += '\n';
+        idx++;
       }
     }
 
-    this.container.innerHTML = html;
     this.buffer.clearDirtyFlags();
   }
 
   renderDirty() {
-    // For initial implementation, just do full render
-    // TODO: Optimize with dirty tracking in future
     this.render();
   }
 
-  escapeHtml(char) {
-    switch (char) {
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '&': return '&amp;';
-      case '"': return '&quot;';
-      case "'": return '&#39;';
-      default: return char;
-    }
-  }
-
   resize(width, height) {
-    // If buffer is resized externally, we don't need to do anything
-    // The buffer will handle its own resize, we just render it
+    const nextWidth = width ?? this.buffer.width;
+    const nextHeight = height ?? this.buffer.height;
+    const expectedCells = nextWidth * nextHeight;
+
+    if (this.cellEls.length !== expectedCells) {
+      this.buildGrid();
+      return;
+    }
+
+    if (nextWidth !== this.buffer.width || nextHeight !== this.buffer.height) {
+      // Buffer dimensions changed but cells weren't rebuilt (or caller passed a mismatch).
+      // Assume the buffer owner will update `buffer.cells` before the next render.
+      this.buildGrid();
+    }
   }
 
   destroy() {
     if (this.container) {
       this.container.innerHTML = '';
     }
+    this.cellEls = [];
+    this.prevChar = [];
+    this.prevFg = [];
+    this.prevBg = [];
+    this.prevPb = [];
   }
 }

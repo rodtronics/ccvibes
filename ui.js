@@ -3,6 +3,7 @@
 // Uses Palette for colors, no direct DOM manipulation
 
 import { Palette, BoxStyles } from "./palette.js";
+import { getGradientColors } from "./gradients.js";
 import { parseModalContent } from "./modal.js";
 import { sortRunsActiveFirst } from "./engine.js";
 
@@ -23,6 +24,8 @@ export class UI {
     this.buffer = buffer;
     this.engine = engine;
     this.ui = uiState;
+    this._clockSecond = -1;
+    this._clockText = '';
   }
 
   // Main render entry point using layered composition
@@ -76,17 +79,57 @@ export class UI {
     // Title (leftmost position)
     this.buffer.writeText(x, y, "CRIME COMMITTER VI", Palette.TITLE, Palette.BLACK);
 
-    // Resources
+    // Cash
     const cash = this.fmtNum(this.engine.state.resources.cash);
-    const heat = Math.floor(this.engine.state.resources.heat);
-    const cred = Math.floor(this.engine.state.resources.cred);
+    this.buffer.writeText(20, y, `CASH $${cash}`, Palette.SUCCESS_GREEN, Palette.BLACK);
 
-    this.buffer.writeText(22, y, `CASH $${cash}`, Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(38, y, `HEAT ${heat}`, heat > 50 ? Palette.HEAT_RED : Palette.BRIGHT_YELLOW, Palette.BLACK);
-    this.buffer.writeText(52, y, `CRED ${cred}`, Palette.TERMINAL_GREEN, Palette.BLACK);
+    // Heat bar - 20-char blackbody gradient thermometer
+    const heat = Math.min(100, Math.max(0, this.engine.state.resources.heat || 0));
+    const heatPct = heat / 100;
+    const barX = 46;
+    const barW = 20;
+    this.buffer.writeText(41, y, 'HEAT', Palette.MID_GRAY, Palette.BLACK);
+
+    // Cache gradient colors (same every frame)
+    if (!this._heatGrad) this._heatGrad = getGradientColors('blackbody', barW);
+    const gradColors = this._heatGrad;
+    const emptyColor = '#222222';
+    const fillChars = heatPct * barW;
+    const fullChars = Math.floor(fillChars);
+
+    for (let i = 0; i < barW; i++) {
+      let color;
+      if (i < fullChars) {
+        color = gradColors[i];
+      } else if (i === fullChars && fillChars > fullChars) {
+        // Leading edge - dim the target color toward empty
+        const partial = fillChars - fullChars;
+        // Simple blend: use empty color at low partial, gradient color at high
+        const r1 = parseInt(emptyColor.slice(1, 3), 16);
+        const g1 = parseInt(emptyColor.slice(3, 5), 16);
+        const b1 = parseInt(emptyColor.slice(5, 7), 16);
+        const r2 = parseInt(gradColors[i].slice(1, 3), 16);
+        const g2 = parseInt(gradColors[i].slice(3, 5), 16);
+        const b2 = parseInt(gradColors[i].slice(5, 7), 16);
+        const r = Math.round(r1 + (r2 - r1) * partial);
+        const g = Math.round(g1 + (g2 - g1) * partial);
+        const b = Math.round(b1 + (b2 - b1) * partial);
+        const toHex = n => n.toString(16).padStart(2, '0');
+        color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      } else {
+        color = emptyColor;
+      }
+      this.buffer.setCell(barX + i, y, '█', color, Palette.BLACK);
+    }
 
     // Clock
-    const clock = new Date(this.engine.state.now).toLocaleTimeString();
+    const now = this.engine.state.now;
+    const second = Math.floor(now / 1000);
+    if (second !== this._clockSecond) {
+      this._clockSecond = second;
+      this._clockText = new Date(now).toLocaleTimeString();
+    }
+    const clock = this._clockText;
     this.buffer.writeTextRight(Layout.WIDTH - 2, y, clock, Palette.MID_GRAY, Palette.BLACK);
   }
 
@@ -1288,7 +1331,6 @@ export class UI {
     const statDefs = [
       { id: "cash", name: "Cash", format: (v) => "$" + this.fmtNum(v) },
       { id: "heat", name: "Heat", format: (v) => String(v) },
-      { id: "cred", name: "Cred", format: (v) => String(v) },
       { id: "crewCount", name: "Crew Size", format: (v) => String(v) },
       { id: "activeRuns", name: "Active Runs", format: (v) => String(v) },
       { id: "successRate", name: "Success Rate", format: (v) => v + "%" },
@@ -1313,7 +1355,6 @@ export class UI {
     const getCurrentValue = (statId) => {
       if (statId === "cash") return this.engine.state.resources.cash || 0;
       if (statId === "heat") return this.engine.state.resources.heat || 0;
-      if (statId === "cred") return this.engine.state.resources.cred || 0;
       if (statId === "crewCount") return this.engine.state.crew.staff.length;
       if (statId === "activeRuns") return this.engine.state.runs.length;
       if (statId === "successRate") return this.engine.calculateSuccessRate();

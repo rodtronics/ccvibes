@@ -90,9 +90,63 @@ const ui = {
 // Create UI layer
 const uiLayer = new UI(buffer, engine, ui);
 
+const LOOP_MS_ACTIVE = 50;
+const LOOP_MS_IDLE = 250;
+const LOOP_MS_HIDDEN = 1000;
+
+let loopTimeoutId = null;
+let loopStarted = false;
+
 // Input handling
 document.addEventListener('keydown', handleInput);
-window.addEventListener('beforeunload', () => saveSettings(ui.settings));
+window.addEventListener('beforeunload', () => {
+  stopLoop();
+  saveSettings(ui.settings);
+});
+
+document.addEventListener('visibilitychange', () => {
+  scheduleLoop(0);
+});
+
+function hasActiveRuns() {
+  const runs = engine.state?.runs;
+  if (!runs || runs.length === 0) return false;
+  for (let i = 0; i < runs.length; i++) {
+    if (runs[i]?.status === 'active') return true;
+  }
+  return false;
+}
+
+function getLoopDelay() {
+  if (document.hidden) return LOOP_MS_HIDDEN;
+  return hasActiveRuns() ? LOOP_MS_ACTIVE : LOOP_MS_IDLE;
+}
+
+function startLoop() {
+  loopStarted = true;
+  scheduleLoop(0);
+}
+
+function stopLoop() {
+  loopStarted = false;
+  if (loopTimeoutId !== null) {
+    clearTimeout(loopTimeoutId);
+    loopTimeoutId = null;
+  }
+}
+
+function scheduleLoop(delayOverride = null) {
+  if (!loopStarted) return;
+  if (loopTimeoutId !== null) clearTimeout(loopTimeoutId);
+  const delay = delayOverride ?? getLoopDelay();
+  loopTimeoutId = setTimeout(loopStep, delay);
+}
+
+function loopStep() {
+  engine.tick();
+  if (!document.hidden) render();
+  scheduleLoop();
+}
 
 // Main entry point
 async function main() {
@@ -138,11 +192,7 @@ async function main() {
     }
   }
 
-  // Game loop: tick engine and render at 20fps (50ms)
-  setInterval(() => {
-    engine.tick();
-    render();
-  }, 50);
+  startLoop();
 }
 
 // Input handling by tab

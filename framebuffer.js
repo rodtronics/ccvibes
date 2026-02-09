@@ -34,9 +34,18 @@ export class FrameBuffer {
   setCell(x, y, char, fg, bg) {
     if (!this.inBounds(x, y)) return;
     const cell = this.cells[y][x];
-    cell.char = char || ' ';
-    cell.fg = fg || Palette.LIGHT_GRAY;
-    cell.bg = bg || Palette.BLACK;
+    const nextChar = char || ' ';
+    const nextFg = fg || Palette.LIGHT_GRAY;
+    const nextBg = bg || Palette.BLACK;
+
+    if (cell.char === nextChar && cell.fg === nextFg && cell.bg === nextBg && cell.progressBar === false) {
+      return;
+    }
+
+    cell.char = nextChar;
+    cell.fg = nextFg;
+    cell.bg = nextBg;
+    cell.progressBar = false;
     cell.dirty = true;
   }
 
