@@ -16,6 +16,19 @@ export const MIN_ZOOM = 100; // %
 export const MAX_ZOOM = 300; // %
 export const ZOOM_STEP = 50; // %
 
+export const FPS_OPTIONS = [1, 2, 5, 10, 20, 30, 60, 120, 240];
+export const FPS_TO_MS = {
+  1: 1000,
+  2: 500,
+  5: 200,
+  10: 100,
+  20: 50,
+  30: 33,
+  60: 16,
+  120: 8,
+  240: 4
+};
+
 function clamp(value, min, max) {
   if (max < min) return min;
   return Math.min(max, Math.max(min, value));
@@ -39,6 +52,8 @@ export function loadSettings() {
     zoom: 150, // Font size zoom percentage (100, 150, 200, 250, etc.)
     showIntro: true,     // Show intro modal on launch
     skipTutorials: false, // Skip tutorial and story modals
+    authenticBoot: false, // Slow boot with DOS CLI prompt every time
+    fps: 60, // Active frame rate (20/30/60/120/240)
   };
 
   try {
@@ -49,6 +64,11 @@ export function loadSettings() {
       if (parsed.font === 'vga') parsed.font = 'vga-9x8';
       if (parsed.fontScale && !parsed.zoom) parsed.zoom = Math.round(parsed.fontScale * 100);
       if (parsed.zoom && parsed.zoom < MIN_ZOOM) parsed.zoom = MIN_ZOOM;
+
+      // Validate FPS
+      if (parsed.fps && !FPS_OPTIONS.includes(parsed.fps)) {
+        parsed.fps = 60; // Default to 60 if invalid
+      }
 
       // Merge with defaults to ensure new settings exist
       const loaded = { ...defaults, ...parsed };
@@ -134,4 +154,19 @@ export function applyBloom(settings) {
   const overlay = document.getElementById(BLOOM_OVERLAY_ID);
   if (!overlay) return;
   overlay.style.display = settings.bloom ? 'block' : 'none';
+}
+
+// Cycle FPS setting (clamped, no wrap-around)
+export function cycleFpsSetting(settings, direction = 1) {
+  const currentIndex = FPS_OPTIONS.indexOf(settings.fps);
+  const nextIndex = currentIndex + direction;
+
+  // Clamp to valid range (no wrap-around)
+  if (nextIndex < 0 || nextIndex >= FPS_OPTIONS.length) {
+    return; // Already at the end, do nothing
+  }
+
+  settings.fps = FPS_OPTIONS[nextIndex];
+  console.log(`FPS changed to: ${settings.fps}`);
+  saveSettings(settings);
 }

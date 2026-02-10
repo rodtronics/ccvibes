@@ -23,7 +23,7 @@ Settings persisted to localStorage as `ccv_tui_settings`, game state as `ccv_gam
 | `framebuffer.js` (~295 lines) | Renderer-agnostic 80x25 cell grid. Each cell has char/fg/bg/dirty/progressBar. Text, box-drawing, gradient progress bars, dirty tracking. |
 | `dom_renderer.js` (~115 lines) | Converts FrameBuffer to HTML. Each char wrapped in `<span class="c">` with `display:inline-block;width:1ch` for fixed-width alignment. |
 | `modal.js` (~425 lines) | Modal system. `ModalQueue` class (seen tracking, showOnce), `loadModalData()` fetches modals.json, `getModal()` resolves type-based styling, `parseModalContent()` for rich text rendering. |
-| `boot.js` (~70 lines) | 286-style POST boot screen shown during loading. `BootScreen` class renders BIOS header + per-file progress lines to FrameBuffer. |
+| `boot.js` (~285 lines) | Boot screen + DOS prompt. `BootScreen` class renders 286-style POST with optional slow boot (RAM counting, delays). `DosPrompt` class provides interactive DOS CLI (`C:\CCVI>`) for authentic boot mode. |
 | `settings.js` (~135 lines) | Font/zoom/bloom settings. `FONTS` array, `FONT_CATEGORIES` (modern/retro), load/save to localStorage, `applyFont()`, `cycleFontSetting()`, `switchFontCategory()`. |
 | `crew.js` (~165 lines) | Crew name generation. Loads `data/names.json`, generates random names with titles/initials/middle names, uniqueness checking. |
 | `palette.js` (~140 lines) | Color constants (`Palette`) and box-drawing character sets (`BoxStyles`: SINGLE, DOUBLE, HEAVY, ASCII). |
@@ -62,3 +62,4 @@ Settings persisted to localStorage as `ccv_tui_settings`, game state as `ccv_gam
 - **Items**: Fully merged into resources. All `items` code paths removed.
 - **Modals**: Loaded once by `modal.js` (not engine). Engine triggers modals via `showModal` effect type -> `modalQueue`.
 - **Run sorting**: Use `sortRunsActiveFirst` from engine.js (shared comparator, 6 call sites).
+- **Boot system**: Three tiers: (1) first load = slow boot + straight to game, (2) normal = fast boot, (3) `authenticBoot` setting ON = slow boot + DOS CLI prompt. First-boot flag is `ccv_has_booted` in localStorage, cleared by `resetProgress()`. Options tab has 9 items (indices 0-8).

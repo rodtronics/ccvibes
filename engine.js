@@ -59,7 +59,7 @@ export class Engine {
   async init(onProgress) {
     await this.loadData(onProgress);
     this.loadState();
-    onProgress?.('SAVED STATE');
+    await onProgress?.('SAVED STATE');
     this.applyDefaultReveals();
     this.log("System online.", "info");
   }
@@ -84,7 +84,7 @@ export class Engine {
         console.warn(`Failed to load ${file}`, err);
         this.log(`Failed to load ${file}`, "warn");
       }
-      onProgress?.(file.replace('.json', '.DAT').toUpperCase());
+      await onProgress?.(file.replace('.json', '.DAT').toUpperCase());
     }
   }
 
@@ -182,6 +182,7 @@ export class Engine {
     // Clear game state from localStorage
     localStorage.removeItem('ccv_game_state');
     localStorage.removeItem('ccv_seen_modals');
+    localStorage.removeItem('ccv_has_booted');
     this.state = createDefaultState();
     this.applyDefaultReveals();
     this.log("Progress reset. Starting fresh.", "info");

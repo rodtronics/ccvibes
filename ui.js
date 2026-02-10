@@ -1550,7 +1550,7 @@ export class UI {
     }
 
     this.buffer.writeText(2, top - 2, "OPTIONS", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 16, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 17, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
     this.buffer.writeText(4, top, " DISPLAY ", Palette.NEON_CYAN, Palette.BLACK);
 
     // 1. Font (Submenu)
@@ -1606,31 +1606,51 @@ export class UI {
       this.buffer.writeText(Layout.WIDTH - 18, skipTutRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 6. About
-    const aboutRow = top + 7;
-    const aboutSelected = selectedSetting === 5;
+    // 6. Authentic boot toggle
+    const authBootRow = top + 7;
+    const authBootSelected = selectedSetting === 5;
+    const authBootOn = !!this.ui.settings.authenticBoot;
+    this.buffer.writeText(3, authBootRow, authBootSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, authBootRow, "6. Authentic boot", authBootSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(valueCol, authBootRow, authBootOn ? "ENABLED" : "DISABLED", authBootOn ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
+    if (authBootSelected) {
+      this.buffer.writeText(Layout.WIDTH - 18, authBootRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
+    }
+
+    // 7. Exit to DOS
+    const dosRow = top + 8;
+    const dosSelected = selectedSetting === 6;
+    this.buffer.writeText(3, dosRow, dosSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, dosRow, "7. Exit to DOS", dosSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    if (dosSelected) {
+      this.buffer.writeText(Layout.WIDTH - 22, dosRow, "<ENTER> DROP TO CLI", Palette.SUCCESS_GREEN, Palette.BLACK);
+    }
+
+    // 8. About
+    const aboutRow = top + 9;
+    const aboutSelected = selectedSetting === 7;
     this.buffer.writeText(3, aboutRow, aboutSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, aboutRow, "6. About", aboutSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(4, aboutRow, "8. About", aboutSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
     if (aboutSelected) {
       this.buffer.writeText(Layout.WIDTH - 20, aboutRow, "<ENTER> VIEW INFO", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 7. Debug mode
-    const debugRow = top + 9;
-    const debugSelected = selectedSetting === 6;
+    // 9. Debug mode
+    const debugRow = top + 11;
+    const debugSelected = selectedSetting === 8;
     const debugOn = !!this.engine.state.debugMode;
     this.buffer.writeText(3, debugRow, debugSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, debugRow, "7. Debug - unlock all", debugSelected ? Palette.BRIGHT_YELLOW : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(4, debugRow, "9. Debug - unlock all", debugSelected ? Palette.BRIGHT_YELLOW : Palette.NEON_TEAL, Palette.BLACK);
     this.buffer.writeText(valueCol + 4, debugRow, debugOn ? "ON" : "OFF", debugOn ? Palette.BRIGHT_YELLOW : Palette.DIM_GRAY, Palette.BLACK);
     if (debugSelected) {
       this.buffer.writeText(Layout.WIDTH - 18, debugRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 8. Reset progress
-    const resetRow = top + 10;
-    const resetSelected = selectedSetting === 7;
+    // 0. Reset progress
+    const resetRow = top + 12;
+    const resetSelected = selectedSetting === 9;
     this.buffer.writeText(3, resetRow, resetSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, resetRow, "8. Reset progress", resetSelected ? Palette.HEAT_RED : Palette.HEAT_ORANGE, Palette.BLACK);
+    this.buffer.writeText(4, resetRow, "0. Reset progress", resetSelected ? Palette.HEAT_RED : Palette.HEAT_ORANGE, Palette.BLACK);
     if (resetSelected) {
       if (this.ui.confirmReset) {
         this.buffer.writeText(Layout.WIDTH - 28, resetRow, "<ENTER> CONFIRM RESET", Palette.HEAT_RED, Palette.BLACK);
@@ -1644,7 +1664,7 @@ export class UI {
     }
 
     // Help text
-    this.buffer.writeText(4, top + 13, "Arrows to move | 1-8 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(4, top + 15, "Arrows to move | 0-9 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
   }
 
   renderFontSubMenu() {
@@ -1653,7 +1673,7 @@ export class UI {
     const valueCol = 22;
 
     this.buffer.writeText(2, top - 2, "OPTIONS > FONT", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 11, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 12, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
     this.buffer.writeText(4, top, " CONFIGURATION ", Palette.NEON_CYAN, Palette.BLACK);
 
     const fontNames = {
@@ -1704,7 +1724,16 @@ export class UI {
     this.buffer.writeText(valueCol, zoomRow, `${zoom}%`, Palette.WHITE, Palette.BLACK);
     if (zoomSelected) this.buffer.writeText(Layout.WIDTH - 25, zoomRow, "[ARROWS] RESIZE", Palette.SUCCESS_GREEN, Palette.BLACK);
 
-    this.buffer.writeText(4, top + 9, "<ESC/BACKSPACE> BACK", Palette.DIM_GRAY, Palette.BLACK);
+    // 4. FPS
+    const fpsRow = top + 5;
+    const fpsSelected = selected === 3;
+    const fps = this.ui.settings.fps || 60;
+    this.buffer.writeText(3, fpsRow, fpsSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, fpsRow, "4. Frame Rate", fpsSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(valueCol, fpsRow, `${fps} FPS`, Palette.WHITE, Palette.BLACK);
+    if (fpsSelected) this.buffer.writeText(Layout.WIDTH - 25, fpsRow, "[ARROWS] CYCLE", Palette.SUCCESS_GREEN, Palette.BLACK);
+
+    this.buffer.writeText(4, top + 10, "<ESC/BACKSPACE> BACK", Palette.DIM_GRAY, Palette.BLACK);
   }
 
   // Tab rendering helper - renders tab with colored hotkey letter

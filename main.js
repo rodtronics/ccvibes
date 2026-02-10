@@ -7,7 +7,7 @@ import { DOMRenderer } from './dom_renderer.js';
 import { UI, Layout } from './ui.js';
 import { ModalQueue, loadModalData, getModal } from './modal.js';
 import { getUsedCrewNames, generateUniqueCrewName, initCrewSystem } from './crew.js';
-import { BootScreen } from './boot.js';
+import { BootScreen, DosPrompt } from './boot.js';
 import {
   loadSettings,
   saveSettings,
@@ -15,6 +15,7 @@ import {
   applyBloom,
   cycleFontSetting,
   switchFontCategory,
+  cycleFpsSetting,
   MIN_ZOOM,
   MAX_ZOOM,
   ZOOM_STEP
@@ -90,7 +91,8 @@ const ui = {
 // Create UI layer
 const uiLayer = new UI(buffer, engine, ui);
 
-const LOOP_MS_ACTIVE = 50;
+import { FPS_TO_MS } from './settings.js';
+
 const LOOP_MS_IDLE = 250;
 const LOOP_MS_HIDDEN = 1000;
 
@@ -119,7 +121,11 @@ function hasActiveRuns() {
 
 function getLoopDelay() {
   if (document.hidden) return LOOP_MS_HIDDEN;
-  return hasActiveRuns() ? LOOP_MS_ACTIVE : LOOP_MS_IDLE;
+  if (hasActiveRuns()) {
+    const fps = ui.settings.fps || 60;
+    return FPS_TO_MS[fps] || 16; // Default to 60fps (16ms) if invalid
+  }
+  return LOOP_MS_IDLE;
 }
 
 function startLoop() {
@@ -144,59 +150,118 @@ function scheduleLoop(delayOverride = null) {
 
 function loopStep() {
   engine.tick();
-  if (!document.hidden) render();
+  // Skip game rendering while DOS prompt is active
+  if (!document.hidden && !ui.dosPrompt) render();
   scheduleLoop();
 }
 
 // Main entry point
 async function main() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const authentic = ui.settings.authenticBoot || urlParams.has('ab');
+  const firstBoot = !localStorage.getItem('ccv_has_booted');
+  const slowBoot = authentic || firstBoot;
+  const delay = (ms) => new Promise(r => setTimeout(r, ms));
+  // Squared random biases toward short pauses with occasional longer ones
+  const bootDelay = () => delay(50 + Math.random() * Math.random() * 800);
+
+  // Apply saved zoom for boot screen (font stays as ibm-bios from HTML)
+  const container = document.getElementById('game');
+  if (container) {
+    const zoom = ui.settings.zoom || 150;
+    container.style.fontSize = `${zoom}%`;
+  }
+
   // Boot screen - 286 POST style loading progress
   const boot = new BootScreen(buffer);
-  boot.drawHeader();
+  boot.drawHeader(slowBoot);
   renderer.render();
 
-  // Load engine data with per-file progress
-  await engine.init((label) => {
+  // Animate RAM counting on slow boot
+  if (slowBoot) {
+    await boot.countRAM(() => renderer.render());
+  }
+
+  // Load engine data with per-file progress (+ artificial delays on slow boot)
+  await engine.init(async (label) => {
     boot.addProgress(label);
     renderer.render();
+    if (slowBoot) await bootDelay();
   });
 
   // Load modal definitions
   await loadModalData();
   boot.addProgress('MODALS.DAT');
   renderer.render();
+  if (slowBoot) await bootDelay();
 
   // Initialize crew name generation
   await initCrewSystem();
   boot.addProgress('CREW SUBSYSTEM');
   renderer.render();
+  if (slowBoot) await bootDelay();
 
   // Boot complete
   boot.drawComplete();
   renderer.render();
 
-  // Switch from boot font to user's chosen font
-  applyFont(ui.settings);
-  saveSettings(ui.settings);
+  // Mark first boot as seen
+  localStorage.setItem('ccv_has_booted', '1');
 
-  // Clear boot screen and enter game
-  buffer.clear();
-  render();
-
-  // Show intro modal on launch (if enabled in settings)
-  if (ui.settings.showIntro) {
-    modalQueue.enqueue('intro', true); // Force show bypassing showOnce check
-    if (modalQueue.hasNext()) {
-      const nextId = modalQueue.dequeue();
-      showModal(nextId);
+  if (authentic) {
+    // Authentic boot: pause then drop to DOS CLI
+    await delay(800);
+    const dos = new DosPrompt(buffer);
+    dos.start();
+    renderer.render();
+    ui.dosPrompt = dos;
+  } else {
+    // First boot or normal boot: straight to game
+    applyFont(ui.settings);
+    saveSettings(ui.settings);
+    buffer.clear();
+    render();
+    if (ui.settings.showIntro) {
+      modalQueue.enqueue('intro', true);
+      if (modalQueue.hasNext()) {
+        const nextId = modalQueue.dequeue();
+        showModal(nextId);
+      }
     }
   }
 
   startLoop();
 }
 
+// Transition from DOS prompt to game
+function exitDosPrompt() {
+  ui.dosPrompt = null;
+  applyFont(ui.settings);
+  saveSettings(ui.settings);
+  buffer.clear();
+  render();
+  if (ui.settings.showIntro) {
+    modalQueue.enqueue('intro', true);
+    if (modalQueue.hasNext()) {
+      const nextId = modalQueue.dequeue();
+      showModal(nextId);
+    }
+  }
+}
+
 // Input handling by tab
 function handleInput(e) {
+  // DOS prompt takes priority over everything
+  if (ui.dosPrompt) {
+    e.preventDefault();
+    const result = ui.dosPrompt.handleKey(e.key);
+    renderer.render();
+    if (result === 'launch') {
+      exitDosPrompt();
+    }
+    return;
+  }
+
   // Modal takes priority over all other input
   if (ui.modal.active) {
     handleModalInput(e);
@@ -247,6 +312,7 @@ function handleInput(e) {
   if (ui.tab === 'log') handleLogInput(e);
   if (ui.tab === 'options') handleOptionsInput(e);
 
+  if (ui.dosPrompt) return;
   render();
 }
 
@@ -1063,23 +1129,27 @@ function handleOptionsInput(e) {
     ui.confirmReset = false;
   }
 
-  // Arrow navigation for settings list (8 options: 0-7)
+  // Arrow navigation for settings list (10 options: 0-9)
   if (e.key === 'ArrowUp') {
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.selectedSetting = Math.min(7, ui.selectedSetting + 1);
+    ui.selectedSetting = Math.min(9, ui.selectedSetting + 1);
   }
 
-  // Number key selection (1-8)
-  if (e.key >= '1' && e.key <= '8') {
+  // Number key selection (1-9 and 0)
+  if (e.key >= '1' && e.key <= '9') {
     const newSetting = parseInt(e.key) - 1;
     if (newSetting !== ui.selectedSetting) ui.confirmReset = false;
     ui.selectedSetting = newSetting;
   }
+  if (e.key === '0') {
+    if (ui.selectedSetting !== 9) ui.confirmReset = false;
+    ui.selectedSetting = 9;
+  }
 
   // Enter/space to toggle or cycle
-  // Options: 0=Font..., 1=Bloom, 2=Funny names, 3=Show intro, 4=Skip tutorials, 5=About, 6=Debug, 7=Reset
+  // Options: 0=Font, 1=Bloom, 2=Funny names, 3=Show intro, 4=Skip tutorials, 5=Authentic boot, 6=Exit to DOS, 7=About, 8=Debug, 9=Reset
   if (e.key === 'Enter' || e.key === ' ') {
     if (ui.selectedSetting === 0) {
       ui.inFontSubMenu = true;
@@ -1098,10 +1168,20 @@ function handleOptionsInput(e) {
       ui.settings.skipTutorials = !ui.settings.skipTutorials;
       saveSettings(ui.settings);
     } else if (ui.selectedSetting === 5) {
-      showModal('about');
+      ui.settings.authenticBoot = !ui.settings.authenticBoot;
+      saveSettings(ui.settings);
     } else if (ui.selectedSetting === 6) {
-      engine.state.debugMode = !engine.state.debugMode;
+      // Exit to DOS - switch to BIOS font, clear screen, drop to CLI
+      applyFont({ ...ui.settings, font: 'ibm-bios' });
+      const dos = new DosPrompt(buffer);
+      dos.start();
+      renderer.render();
+      ui.dosPrompt = dos;
     } else if (ui.selectedSetting === 7) {
+      showModal('about');
+    } else if (ui.selectedSetting === 8) {
+      engine.state.debugMode = !engine.state.debugMode;
+    } else if (ui.selectedSetting === 9) {
       // Reset progress with confirmation
       if (ui.confirmReset) {
         engine.resetProgress();
@@ -1133,7 +1213,7 @@ function handleFontSubMenuInput(e) {
     ui.fontSubMenuIndex = Math.max(0, ui.fontSubMenuIndex - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.fontSubMenuIndex = Math.min(2, ui.fontSubMenuIndex + 1);
+    ui.fontSubMenuIndex = Math.min(3, ui.fontSubMenuIndex + 1);
   }
 
   // 0: Generation (Toggle)
@@ -1163,6 +1243,15 @@ function handleFontSubMenuInput(e) {
       ui.settings.zoom = Math.min(MAX_ZOOM, (ui.settings.zoom || MIN_ZOOM) + ZOOM_STEP);
       applyFont(ui.settings);
       saveSettings(ui.settings);
+    }
+  }
+
+  // 3: FPS (Cycle)
+  if (ui.fontSubMenuIndex === 3) {
+    if (e.key === 'ArrowLeft') {
+      cycleFpsSetting(ui.settings, -1);
+    } else if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
+      cycleFpsSetting(ui.settings, 1);
     }
   }
 }
