@@ -34,3 +34,5 @@ LARGE / FUTURE
 - idle game progression: large numbers with formatting (K, M, B, etc)
 - primordial branch phase-out: when player progresses past primordial era, branch and its specific resources disappear
 - default focus on game start: jobs menu should default to branches view (not activity list)
+
+random bug - the bloom filter was a diff size to the rest of the game.

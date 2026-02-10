@@ -142,6 +142,42 @@ body {
   letter-spacing: 0;
 }
 
+.font-courier-prime {
+  font-family: "Courier Prime", "Courier New", monospace;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+}
+
+.font-vt323 {
+  font-family: "VT323", monospace;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+}
+
+.font-share-tech-mono {
+  font-family: "Share Tech Mono", monospace;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+}
+
+.font-nova-mono {
+  font-family: "Nova Mono", monospace;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+}
+
+.font-doto {
+  font-family: "Doto", monospace;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+}
+
+.font-workbench {
+  font-family: "Workbench", monospace;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+}
+
 /* Fixed-width character cell - forces every glyph (including fallback box-drawing chars) to 1ch */
 .c {
   display: inline-block;

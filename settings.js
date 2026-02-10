@@ -4,11 +4,12 @@
 const BLOOM_OVERLAY_ID = 'bloom-overlay';
 
 // Settings constants
-export const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono', 'ibm-bios', 'commodore-64', 'scp'];
+export const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono', 'ibm-bios', 'commodore-64', 'scp', 'courier-prime', 'vt323', 'share-tech-mono', 'nova-mono', 'doto', 'workbench'];
 const FONT_CLASSES = [...FONTS];
 export const FONT_CATEGORIES = {
   modern: ['fira', 'jetbrains-mono', 'scp'],
-  retro: ['vga-9x8', 'vga-8x16', 'ibm-bios', 'commodore-64']
+  retro: ['vga-9x8', 'vga-8x16', 'ibm-bios', 'commodore-64'],
+  other: ['courier-prime', 'vt323', 'share-tech-mono', 'nova-mono', 'doto', 'workbench']
 };
 
 export const MIN_ZOOM = 100; // %
@@ -22,6 +23,7 @@ function clamp(value, min, max) {
 
 export function getFontCategory(fontId) {
   if (FONT_CATEGORIES.modern.includes(fontId)) return 'modern';
+  if (FONT_CATEGORIES.other.includes(fontId)) return 'other';
   return 'retro';
 }
 
@@ -115,7 +117,10 @@ export function cycleFontSetting(settings, direction = 1) {
 export function switchFontCategory(settings) {
   const currentFont = settings.font;
   const currentCategory = getFontCategory(currentFont);
-  const nextCategory = currentCategory === 'modern' ? 'retro' : 'modern';
+  const categories = ['modern', 'retro', 'other'];
+  const currentIndex = categories.indexOf(currentCategory);
+  const nextIndex = (currentIndex + 1) % categories.length;
+  const nextCategory = categories[nextIndex];
 
   // Pick the first font of the new category
   settings.font = FONT_CATEGORIES[nextCategory][0];

@@ -3,7 +3,6 @@
 // Uses Palette for colors, no direct DOM manipulation
 
 import { Palette, BoxStyles } from "./palette.js";
-import { getGradientColors } from "./gradients.js";
 import { parseModalContent } from "./modal.js";
 import { sortRunsActiveFirst } from "./engine.js";
 
@@ -73,54 +72,10 @@ export class UI {
   }
 
   renderStatusRail() {
-    const x = 0;
     const y = 0;
 
     // Title (leftmost position)
-    this.buffer.writeText(x, y, "CRIME COMMITTER VI", Palette.TITLE, Palette.BLACK);
-
-    // Cash
-    const cash = this.fmtNum(this.engine.state.resources.cash);
-    this.buffer.writeText(20, y, `CASH $${cash}`, Palette.SUCCESS_GREEN, Palette.BLACK);
-
-    // Heat bar - 20-char blackbody gradient thermometer
-    const heat = Math.min(100, Math.max(0, this.engine.state.resources.heat || 0));
-    const heatPct = heat / 100;
-    const barX = 46;
-    const barW = 20;
-    this.buffer.writeText(41, y, 'HEAT', Palette.MID_GRAY, Palette.BLACK);
-
-    // Cache gradient colors (same every frame)
-    if (!this._heatGrad) this._heatGrad = getGradientColors('blackbody', barW);
-    const gradColors = this._heatGrad;
-    const emptyColor = '#222222';
-    const fillChars = heatPct * barW;
-    const fullChars = Math.floor(fillChars);
-
-    for (let i = 0; i < barW; i++) {
-      let color;
-      if (i < fullChars) {
-        color = gradColors[i];
-      } else if (i === fullChars && fillChars > fullChars) {
-        // Leading edge - dim the target color toward empty
-        const partial = fillChars - fullChars;
-        // Simple blend: use empty color at low partial, gradient color at high
-        const r1 = parseInt(emptyColor.slice(1, 3), 16);
-        const g1 = parseInt(emptyColor.slice(3, 5), 16);
-        const b1 = parseInt(emptyColor.slice(5, 7), 16);
-        const r2 = parseInt(gradColors[i].slice(1, 3), 16);
-        const g2 = parseInt(gradColors[i].slice(3, 5), 16);
-        const b2 = parseInt(gradColors[i].slice(5, 7), 16);
-        const r = Math.round(r1 + (r2 - r1) * partial);
-        const g = Math.round(g1 + (g2 - g1) * partial);
-        const b = Math.round(b1 + (b2 - b1) * partial);
-        const toHex = n => n.toString(16).padStart(2, '0');
-        color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-      } else {
-        color = emptyColor;
-      }
-      this.buffer.setCell(barX + i, y, '█', color, Palette.BLACK);
-    }
+    this.buffer.writeText(0, y, "CRIME COMMITTER VI", Palette.TITLE, Palette.BLACK);
 
     // Clock
     const now = this.engine.state.now;
@@ -1709,12 +1664,19 @@ export class UI {
       "ibm-bios": "IBM BIOS",
       "commodore-64": "C64",
       scp: "Source Code Pro",
+      "courier-prime": "Courier Prime",
+      vt323: "VT323",
+      "share-tech-mono": "Share Tech Mono",
+      "nova-mono": "Nova Mono",
+      doto: "Doto",
+      workbench: "Workbench",
     };
 
     // Determine category
     const fontId = this.ui.settings.font;
     const isRetro = ["vga-9x8", "vga-8x16", "ibm-bios", "commodore-64"].includes(fontId);
-    const categoryLabel = isRetro ? "RETRO" : "MODERN";
+    const isOther = ["courier-prime", "vt323", "share-tech-mono", "nova-mono", "doto", "workbench"].includes(fontId);
+    const categoryLabel = isRetro ? "RETRO" : isOther ? "OTHER" : "MODERN";
 
     // 1. Generation
     const catRow = top + 2;
