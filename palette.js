@@ -37,6 +37,9 @@ export const Palette = {
   // Semantic colors
   HEAT_ORANGE: "#ff4500",
   HEAT_RED: "#ff0000",
+  EXECUTABLE: "#ff5858",
+  ACTIVE_SLOT: "#87ff87",
+  ACTIVE_BORDER: "#00ffff",
   SUCCESS_GREEN: "#00ff00",
 
   // Branch UI colors

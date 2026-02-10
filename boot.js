@@ -2,11 +2,24 @@
 // 286-style POST screen shown during loading, optional DOS CLI
 
 import { Palette } from './palette.js';
+import {
+  SLOT_IDS,
+  ensureSaveSlotStorage,
+  getActiveSaveSlot,
+  getDefaultPlayerName,
+  getSeenModalsKey,
+  getSlotFileName,
+  getSlotPlayerName,
+  getSlotRawState,
+  normalizeSlotId,
+  saveSlotExists
+} from './save_slots.js';
 
 const HEADER_COLOR = Palette.NEON_CYAN;
 const LABEL_COLOR = Palette.LIGHT_GRAY;
 const VALUE_COLOR = Palette.WHITE;
 const OK_COLOR = Palette.TERMINAL_GREEN;
+const ACTIVE_SLOT_COLOR = Palette.ACTIVE_SLOT;
 const DOT_COLOR = Palette.DIM_GRAY;
 const ERROR_COLOR = Palette.HEAT_RED;
 const PROMPT_COLOR = Palette.LIGHT_GRAY;
@@ -92,32 +105,161 @@ export class BootScreen {
 
 const PROMPT_STR = 'C:\\CCVI>';
 const MAX_Y = 24; // last usable row (0-indexed, 25 rows)
-const VIEWER_STATUS_Y = 24;
-const VIEWER_CONTENT_HEIGHT = 24;
 const STORAGE_KEYS = {
-  GAME_STATE: 'ccv_game_state',
-  SEEN_MODALS: 'ccv_seen_modals',
   SETTINGS: 'ccv_tui_settings',
+};
+const HISTORY_MAX = 100;
+
+// DOS Help Content (edit this block to change HELP output)
+const DOS_HELP_SUMMARY = [
+  { command: 'HELP.EXE', summary: 'Displays command help topics.' },
+  { command: 'CC.EXE', summary: 'Launches the game and can switch slots.' },
+  { command: 'DIR / LS', summary: 'Lists files in C:\\CCVI.' },
+  { command: 'EXPORT', summary: 'Exports a save slot to file or clipboard.' },
+  { command: 'IMPORT', summary: 'Imports a save file into a slot.' },
+  { command: 'COPY', summary: 'Copies one save slot to another slot.' },
+  { command: 'DEL', summary: 'Deletes a save slot file.' },
+  { command: 'NAME', summary: 'Lists or edits save slot player names.' },
+  { command: 'SAVE / STATUS', summary: 'Shows active slot status details.' },
+  { command: 'AUTHBOOT', summary: 'Toggles authentic boot behavior.' },
+  { command: 'CLS', summary: 'Clears the DOS screen.' },
+  { command: 'VER', summary: 'Displays DOS version info.' },
+  { command: 'CD', summary: 'Directory command (not supported here).' },
+  { command: 'FORMAT', summary: 'Denied command (flavor response).' },
+];
+
+const DOS_HELP_DETAILS = {
+  'help.exe': [
+    'HELP.EXE',
+    'Shows this command list.',
+    'Run HELP <command> for command-specific notes.',
+  ],
+  'cc.exe': [
+    'CC.EXE',
+    'Launches Crime Committer VI.',
+    'You can pass a slot alias before launch.',
+  ],
+  cc: [
+    'CC',
+    'Alias for CC.EXE.',
+  ],
+  run: [
+    'RUN',
+    'Alias for CC.EXE.',
+  ],
+  start: [
+    'START',
+    'Alias for CC.EXE.',
+  ],
+  exit: [
+    'EXIT',
+    'Alias for CC.EXE.',
+  ],
+  dir: [
+    'DIR',
+    'Lists files available in C:\\CCVI.',
+  ],
+  ls: [
+    'LS',
+    'Alias for DIR.',
+  ],
+  export: [
+    'EXPORT',
+    'Exports one slot at a time using -D (download) or -C (clipboard).',
+    'Prompts for an optional visible password.',
+  ],
+  import: [
+    'IMPORT',
+    'Opens a file picker and imports the selected save into a slot.',
+    'Prompts for password if required and asks overwrite confirmation.',
+  ],
+  copy: [
+    'COPY',
+    'Copies one save slot to another.',
+    'Confirms before overwrite when target exists.',
+  ],
+  del: [
+    'DEL',
+    'Deletes one save slot file.',
+    'Confirms before deletion.',
+  ],
+  delete: [
+    'DELETE',
+    'Alias for DEL.',
+  ],
+  name: [
+    'NAME',
+    'Without args: lists slot names.',
+    'With args: NAME <slot> <newName> updates player name (max 8 chars).',
+  ],
+  save: [
+    'SAVE',
+    'Shows summary of active slot save data.',
+  ],
+  slot: [
+    'SLOT',
+    'Alias for SAVE.',
+  ],
+  status: [
+    'STATUS',
+    'Shows active slot and authentic boot state.',
+  ],
+  authboot: [
+    'AUTHBOOT',
+    'Shows or changes authentic boot mode.',
+  ],
+  cls: [
+    'CLS',
+    'Clears the screen and redraws DOS banner.',
+  ],
+  ver: [
+    'VER',
+    'Shows DOS version string.',
+  ],
+  cd: [
+    'CD',
+    'Directory switching is not available in this shell.',
+  ],
+  format: [
+    'FORMAT',
+    'This command is intentionally blocked.',
+  ],
+};
+
+const HELP_ALIAS_MAP = {
+  help: 'help.exe',
+  cc: 'cc.exe',
+  run: 'cc.exe',
+  start: 'cc.exe',
+  exit: 'cc.exe',
+  ls: 'dir',
+  slot: 'save',
+  delete: 'del',
+  rm: 'del',
 };
 
 export class DosPrompt {
-  constructor(buffer) {
+  constructor(buffer, options = {}) {
     this.buffer = buffer;
+    this.engine = options.engine || null;
+    this.onRender = typeof options.onRender === 'function' ? options.onRender : null;
     this.inputBuffer = '';
     this.currentY = 0;
-    this.pendingLines = null; // Paged output waiting for user to advance
-    this.pendingConfirm = null; // Waiting for YES/NO confirmation
-    this.textViewer = null;
-    this.viewerSnapshot = null;
-    this.viewerReturnY = 0;
+    this.pendingAction = null;
+    this.commandHistory = [];
+    this.historyIndex = -1;
+    this.historyDraft = '';
   }
 
   start() {
+    ensureSaveSlotStorage();
     this.buffer.clear();
+    this.inputBuffer = '';
     this.currentY = 0;
-    this.pendingConfirm = null;
-    this.textViewer = null;
-    this.viewerSnapshot = null;
+    this.pendingAction = null;
+    this.commandHistory = [];
+    this.historyIndex = -1;
+    this.historyDraft = '';
     this.drawBanner();
     this.drawPromptLine();
   }
@@ -127,28 +269,20 @@ export class DosPrompt {
     const bytes = new Uint8Array(4);
     crypto.getRandomValues(bytes);
     const ver = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    const year = new Date().getFullYear();
 
     this.writeLine(`WFOS [WAVEFRONT OPERATING SYSTEM v ${ver}]`, HEADER_COLOR);
-    this.writeLine('(c) 2026 WFPRODUCTIONSNZ. ALL RIGHTS RESERVED.', LABEL_COLOR);
+    this.writeLine(`(c) ${year} WFPRODUCTIONSNZ. ALL RIGHTS RESERVED.`, LABEL_COLOR);
     this.advanceLine();
   }
 
   handleKey(key) {
-    if (this.textViewer) {
-      this.handleTextViewerKey(key);
+    if (!this.pendingAction && key === 'ArrowUp') {
+      this.recallHistoryUp();
       return null;
     }
-
-    // Paging mode — waiting for user to advance or cancel
-    if (this.pendingLines) {
-      if (key === ' ' || key === 'Enter') {
-        this.showNextPage();
-      } else if (key === 'Escape' || key === 'q' || key === 'Q') {
-        this.pendingLines = null;
-        this.clearCurrentLine();
-        this.advanceLine();
-        this.drawPromptLine();
-      }
+    if (!this.pendingAction && key === 'ArrowDown') {
+      this.recallHistoryDown();
       return null;
     }
 
@@ -169,21 +303,34 @@ export class DosPrompt {
   }
 
   execute() {
-    const cmd = this.inputBuffer.trim().toLowerCase();
+    const rawCmd = this.inputBuffer.trim();
+    const cmd = rawCmd.toLowerCase();
     this.inputBuffer = '';
 
     // Advance past the typed command line
     this.advanceLine();
 
-    // Confirmations block command execution until resolved.
-    if (this.pendingConfirm) {
-      const lines = this.resolveConfirmation(cmd);
-      this.outputWithPaging(lines);
+    if (this.pendingAction) {
+      const lines = this.resolvePendingAction(rawCmd);
+      if (Array.isArray(lines) && lines.length > 0) {
+        this.outputLines(lines);
+      } else {
+        this.drawPromptLine();
+      }
       return null;
     }
 
-    if (cmd === 'cc.exe' || cmd === 'cc' || cmd === 'run' || cmd === 'start' || cmd === 'exit') {
-      return 'launch';
+    if (rawCmd) {
+      this.pushHistory(rawCmd);
+    }
+
+    const launchResult = this.tryHandleLaunchCommand(rawCmd);
+    if (launchResult === 'launch') {
+      return launchResult;
+    }
+    if (launchResult?.lines?.length) {
+      this.outputLines(launchResult.lines);
+      return null;
     }
 
     if (cmd === '') {
@@ -191,81 +338,38 @@ export class DosPrompt {
       return null;
     }
 
-    const lines = this.getResponse(cmd);
-    if (this.textViewer) {
-      return null;
-    }
+    const lines = this.getResponse(rawCmd);
     if (lines.length === 0) {
       this.drawPromptLine();
       return null;
     }
-    this.outputWithPaging(lines);
+    this.outputLines(lines);
     return null;
   }
 
-  getResponse(cmd) {
-    // Strip extra spaces for multi-word matching
+  getResponse(command) {
+    const cmd = String(command || '').trim();
     const parts = cmd.split(/\s+/);
-    const base = parts[0];
+    const base = (parts[0] || '').toLowerCase();
 
     if (base === 'dir' || base === 'ls') {
-      const save = localStorage.getItem(STORAGE_KEYS.GAME_STATE);
-      const saveSize = save ? save.length : 0;
-      const saveSizeStr = saveSize.toLocaleString().padStart(10);
-      const fileCount = saveSize > 0 ? 3 : 2;
-      const totalBytes = (49664 + saveSize).toLocaleString();
-      const lines = [
-        { text: ' Volume in drive C is CCVI', color: LABEL_COLOR },
-        { text: ' Directory of C:\\CCVI', color: LABEL_COLOR },
-        { text: '', color: LABEL_COLOR },
-        { text: 'CC       EXE        49,152  01-15-96  12:00a', color: VALUE_COLOR },
-        { text: 'README   TXT           512  01-15-96  12:00a', color: VALUE_COLOR },
-      ];
-      if (saveSize > 0) {
-        lines.push({ text: `SAVE     SAV    ${saveSizeStr}  ${new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}  ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase().replace(' ', '')}`, color: VALUE_COLOR });
-      }
-      lines.push(
-        { text: `         ${fileCount} File(s)     ${totalBytes} bytes`, color: LABEL_COLOR },
-        { text: '         0 Dir(s)     524,288 bytes free', color: LABEL_COLOR },
-      );
-      return lines;
+      return this.getDirectoryLines();
     }
 
     if (base === 'ver') {
       return [{ text: 'CCVI-DOS Version 6.22', color: VALUE_COLOR }];
     }
 
-    if (base === 'help') {
-      return [
-        { text: 'DIR     Displays directory contents', color: VALUE_COLOR },
-        { text: 'CLS     Clears the screen', color: VALUE_COLOR },
-        { text: 'VER     Displays DOS version', color: VALUE_COLOR },
-        { text: 'SAVE    Displays save summary', color: VALUE_COLOR },
-        { text: 'SEED    Copies compact snapshot seed', color: VALUE_COLOR },
-        { text: 'CLEAR SAVE  Deletes save (with confirmation)', color: VALUE_COLOR },
-        { text: 'STATUS  Displays save + boot settings status', color: VALUE_COLOR },
-        { text: 'AUTHBOOT [ON|OFF|TOGGLE]  Sets authentic boot mode', color: VALUE_COLOR },
-        { text: 'TYPE    Opens scrollable text viewer', color: VALUE_COLOR },
-        { text: 'TYPE <file> [-C] [-D]  copy/download file text', color: VALUE_COLOR },
-        { text: 'HELP    Displays this help', color: VALUE_COLOR },
-        { text: 'CC.EXE  Launches Crime Committer VI', color: VALUE_COLOR },
-      ];
+    if (base === 'help' || base === 'help.exe') {
+      return this.getHelpLines(parts[1]?.toLowerCase());
     }
 
-    if (base === 'save') {
+    if (base === 'save' || base === 'slot') {
       return this.getSaveSummary();
-    }
-
-    if (base === 'seed' || base === 'snapshot') {
-      return this.getSeedSnapshotLines();
     }
 
     if (base === 'status') {
       return this.getStatusSummary();
-    }
-
-    if ((base === 'clear' && parts[1] === 'save') || cmd === 'clear save') {
-      return this.beginClearSave();
     }
 
     if (base === 'authboot') {
@@ -279,38 +383,20 @@ export class DosPrompt {
       return [];
     }
 
-    if (base === 'type' || base === 'type.exe') {
-      const args = this.parseTypeArgs(parts);
-      if (!args.target) {
-        return [{ text: 'Usage: TYPE <file> [-C] [-D]', color: ERROR_COLOR }];
-      }
+    if (base === 'export') {
+      return this.beginExport(parts);
+    }
 
-      const file = this.readTypeFile(args.target);
-      if (!file.ok) {
-        return [{ text: file.reason, color: ERROR_COLOR }];
-      }
+    if (base === 'import') {
+      return this.beginImport(parts);
+    }
 
-      if (args.copy) {
-        this.copyToClipboard(file.text);
-      }
-      if (args.download) {
-        this.downloadTextFile(file.name, file.text);
-      }
+    if (base === 'copy') {
+      return this.beginCopy(parts);
+    }
 
-      if (args.copy || args.download) {
-        const status = [];
-        if (args.copy) {
-          status.push({ text: 'Clipboard copy requested.', color: LABEL_COLOR });
-        }
-        if (args.download) {
-          status.push({ text: `Download requested: ${file.name}`, color: LABEL_COLOR });
-        }
-        status.push({ text: 'Tip: TYPE <file> to open scrollable viewer.', color: DOT_COLOR });
-        return status;
-      }
-
-      this.openTextViewer(file.name, file.text);
-      return [];
+    if (base === 'name') {
+      return this.handleName(parts);
     }
 
     if (base === 'format') {
@@ -318,24 +404,29 @@ export class DosPrompt {
     }
 
     if (base === 'del' || base === 'delete' || base === 'rm') {
-      return [{ text: 'Access denied.', color: ERROR_COLOR }];
+      return this.beginDelete(parts);
     }
 
     if (base === 'cd') {
       return [{ text: 'Invalid directory', color: ERROR_COLOR }];
     }
 
-    return [{ text: 'Bad command or file name', color: ERROR_COLOR }];
+    return [
+      { text: 'Bad command or file name', color: ERROR_COLOR },
+      { text: 'Type HELP.EXE for command list.', color: DOT_COLOR },
+    ];
   }
 
   getSaveSummary() {
-    const raw = localStorage.getItem(STORAGE_KEYS.GAME_STATE);
+    const activeSlot = this.getActiveSlot();
+    const fileName = getSlotFileName(activeSlot) || activeSlot.toUpperCase();
+    const raw = getSlotRawState(activeSlot);
     if (!raw) {
-      return [{ text: 'SAVE.SAV not found', color: ERROR_COLOR }];
+      return [{ text: `${fileName} not found`, color: ERROR_COLOR }];
     }
 
     const sizeText = raw.length.toLocaleString();
-    const lines = [{ text: `SAVE.SAV present (${sizeText} bytes)`, color: OK_COLOR }];
+    const lines = [{ text: `${fileName} present (${sizeText} bytes)`, color: OK_COLOR }];
 
     try {
       const parsed = JSON.parse(raw);
@@ -344,7 +435,9 @@ export class DosPrompt {
       const cred = Math.floor(parsed?.resources?.cred ?? 0);
       const crew = parsed?.crew?.staff?.length ?? 0;
       const runs = parsed?.runs?.length ?? 0;
+      const name = parsed?.playerName || getDefaultPlayerName(activeSlot);
       lines.push(
+        { text: `Slot: ${activeSlot.toUpperCase()}  Name: ${name}`, color: VALUE_COLOR },
         { text: `Resources: cash=${cash} heat=${heat} cred=${cred}`, color: VALUE_COLOR },
         { text: `Crew: ${crew}  Runs tracked: ${runs}`, color: VALUE_COLOR },
       );
@@ -357,211 +450,626 @@ export class DosPrompt {
 
   getStatusSummary() {
     const settings = this.readSettings();
-    const saveExists = !!localStorage.getItem(STORAGE_KEYS.GAME_STATE);
-    const seenModalsExists = !!localStorage.getItem(STORAGE_KEYS.SEEN_MODALS);
+    const activeSlot = this.getActiveSlot();
+    const saveExists = saveSlotExists(activeSlot);
+    const seenKey = getSeenModalsKey(activeSlot);
+    const seenModalsExists = seenKey ? !!localStorage.getItem(seenKey) : false;
     const authenticBoot = !!settings.authenticBoot;
 
     return [
-      { text: `SAVE.SAV: ${saveExists ? 'present' : 'missing'}`, color: saveExists ? OK_COLOR : ERROR_COLOR },
+      { text: `Active slot: ${activeSlot.toUpperCase()}`, color: VALUE_COLOR },
+      { text: `${getSlotFileName(activeSlot)}: ${saveExists ? 'present' : 'missing'}`, color: saveExists ? OK_COLOR : ERROR_COLOR },
       { text: `Seen modals cache: ${seenModalsExists ? 'present' : 'missing'}`, color: seenModalsExists ? LABEL_COLOR : DOT_COLOR },
       { text: `Authentic boot: ${authenticBoot ? 'ON' : 'OFF'}`, color: authenticBoot ? OK_COLOR : LABEL_COLOR },
       { text: 'Tip: AUTHBOOT ON|OFF|TOGGLE to change startup mode', color: DOT_COLOR },
     ];
   }
 
-  parseTypeArgs(parts) {
-    const args = { target: '', copy: false, download: false };
-    for (let i = 1; i < parts.length; i++) {
-      const token = parts[i];
-      if (!token) continue;
-
-      if (token === '-c' || token === '/c') {
-        args.copy = true;
-        continue;
-      }
-      if (token === '-d' || token === '/d') {
-        args.download = true;
-        continue;
-      }
-      if (!args.target) {
-        args.target = token;
-      }
+  getActiveSlot() {
+    if (this.engine?.getActiveSaveSlot) {
+      return this.engine.getActiveSaveSlot();
     }
-    return args;
+    return getActiveSaveSlot();
   }
 
-  readTypeFile(target) {
-    const file = String(target || '').toLowerCase();
-    if (file === 'save.sav' || file === 'save') {
-      const raw = localStorage.getItem(STORAGE_KEYS.GAME_STATE);
-      if (!raw) {
-        return { ok: false, reason: 'File is empty' };
-      }
-      try {
-        return { ok: true, name: 'save.sav', text: JSON.stringify(JSON.parse(raw), null, 2) };
-      } catch {
-        return { ok: true, name: 'save.sav', text: raw };
-      }
-    }
-
-    if (file === 'readme.txt' || file === 'readme') {
-      return { ok: true, name: 'readme.txt', text: this.getReadmeText() };
-    }
-
-    return { ok: false, reason: 'File not found' };
-  }
-
-  getReadmeText() {
-    return [
-      '========================================',
-      '  CRIME COMMITTER VI - README',
-      '========================================',
-      '',
-      'Welcome to Crime Committer VI.',
-      'To begin, run CC.EXE from this prompt.',
-      'Use SAVE / STATUS to inspect local progress.',
-      'Use SEED to copy a compact progress snapshot.',
-      '',
-      'Good luck. You\'ll need it.',
-    ].join('\n');
-  }
-
-  openTextViewer(fileName, text) {
-    this.viewerSnapshot = this.buffer.clone();
-    this.viewerReturnY = this.currentY;
-
-    const lines = String(text || '').split('\n');
-    this.textViewer = {
-      fileName: fileName || 'file.txt',
-      lines,
-      offset: 0,
-    };
-
-    this.renderTextViewer();
-  }
-
-  handleTextViewerKey(key) {
-    if (!this.textViewer) return;
-
-    const totalLines = this.textViewer.lines.length;
-    const maxOffset = Math.max(0, totalLines - VIEWER_CONTENT_HEIGHT);
-    let offset = this.textViewer.offset;
-
-    if (key === 'Escape' || key === 'q' || key === 'Q' || key === 'Enter') {
-      this.closeTextViewer();
-      return;
-    }
-
-    if (key === 'ArrowUp') offset -= 1;
-    if (key === 'ArrowDown') offset += 1;
-    if (key === 'PageUp') offset -= VIEWER_CONTENT_HEIGHT;
-    if (key === 'PageDown' || key === ' ') offset += VIEWER_CONTENT_HEIGHT;
-    if (key === 'Home') offset = 0;
-    if (key === 'End') offset = maxOffset;
-
-    offset = Math.max(0, Math.min(maxOffset, offset));
-    if (offset !== this.textViewer.offset) {
-      this.textViewer.offset = offset;
-      this.renderTextViewer();
-    }
-  }
-
-  closeTextViewer() {
-    if (this.viewerSnapshot) {
-      this.buffer.swap(this.viewerSnapshot);
-    }
-    this.viewerSnapshot = null;
-    this.textViewer = null;
-    this.currentY = this.viewerReturnY;
-    this.drawPromptLine();
-  }
-
-  renderTextViewer() {
-    if (!this.textViewer) return;
-
-    const b = this.buffer;
-    const { lines, offset, fileName } = this.textViewer;
-
-    b.fill(' ', Palette.LIGHT_GRAY, Palette.BLACK);
-
-    for (let row = 0; row < VIEWER_CONTENT_HEIGHT; row++) {
-      const line = lines[offset + row];
-      if (line === undefined) continue;
-      b.writeText(0, row, line.slice(0, 80), VALUE_COLOR, Palette.BLACK);
-    }
-
-    const start = lines.length === 0 ? 0 : offset + 1;
-    const end = Math.min(lines.length, offset + VIEWER_CONTENT_HEIGHT);
-    const status = `${fileName} ${start}-${end}/${lines.length}  [UP/DN][PGUP/PGDN][HOME/END][ESC]`;
-    b.writeText(0, VIEWER_STATUS_Y, status.slice(0, 80), DOT_COLOR, Palette.BLACK);
-  }
-
-  getSeedSnapshotLines() {
-    const raw = localStorage.getItem(STORAGE_KEYS.GAME_STATE);
-    if (!raw) {
-      return [{ text: 'Cannot generate seed: SAVE.SAV not found', color: ERROR_COLOR }];
-    }
-
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return [{ text: 'Cannot generate seed: save is invalid', color: ERROR_COLOR }];
-    }
-
-    const resources = parsed?.resources || {};
-    const totals = parsed?.stats?.totals || {};
-    const reveals = parsed?.reveals || {};
-    const runs = Array.isArray(parsed?.runs) ? parsed.runs : [];
-    const snapshot = {
-      v: 1,
-      n: Date.now(),
-      r: [
-        Math.floor(resources.cash || 0),
-        Math.floor(resources.heat || 0),
-        Math.floor(resources.cred || 0),
-      ],
-      c: Array.isArray(parsed?.crew?.staff) ? parsed.crew.staff.length : 0,
-      a: runs.filter((run) => run?.status === 'active').length,
-      t: [
-        Math.floor(totals.crimesCompleted || 0),
-        Math.floor(totals.crimesSucceeded || 0),
-        Math.floor(totals.crimesFailed || 0),
-      ],
-      u: [
-        this.countTruthy(reveals.branches),
-        this.countTruthy(reveals.activities),
-        this.countTruthy(reveals.resources),
-        this.countTruthy(reveals.roles),
-      ],
-    };
-
-    const seedPayload = JSON.stringify(snapshot);
-    const seed = `CC6S1.${this.toBase64Url(seedPayload)}`;
-
-    this.copyToClipboard(seed);
-
-    const lines = [
-      { text: `Seed generated (${seed.length} chars)`, color: OK_COLOR },
-      { text: 'Clipboard copy requested (browser permission may apply).', color: LABEL_COLOR },
-      { text: 'Fallback: copy the seed shown below.', color: DOT_COLOR },
+  getDirectoryLines() {
+    const activeSlot = this.getActiveSlot();
+    const files = [
+      { name: 'CC.EXE', size: 49152, color: Palette.EXECUTABLE },
+      { name: 'HELP.EXE', size: this.getHelpExecutableSize(), color: Palette.EXECUTABLE },
     ];
-    this.wrapText(seed, 76).forEach((line) => lines.push({ text: line, color: VALUE_COLOR }));
+
+    SLOT_IDS.forEach((slotId) => {
+      const raw = getSlotRawState(slotId);
+      if (!raw) return;
+      files.push({
+        name: getSlotFileName(slotId),
+        size: raw.length,
+        color: slotId === activeSlot ? ACTIVE_SLOT_COLOR : VALUE_COLOR
+      });
+    });
+
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    const lines = [
+      { text: ' Volume in drive C is CCVI', color: LABEL_COLOR },
+      { text: ' Directory of C:\\CCVI', color: LABEL_COLOR },
+      { text: '', color: LABEL_COLOR },
+    ];
+
+    const timestamp = this.getDosTimestamp();
+    files.forEach((file) => {
+      const base = file.name.replace(/\.[^/.]+$/, '').padEnd(8, ' ');
+      const ext = file.name.split('.').pop().padEnd(3, ' ');
+      const line = `${base} ${ext}  ${file.size.toLocaleString().padStart(10)}  ${timestamp}`;
+      lines.push({ text: line, color: file.color });
+    });
+
+    lines.push(
+      { text: `         ${files.length} File(s)     ${totalBytes.toLocaleString()} bytes`, color: LABEL_COLOR },
+      { text: '         0 Dir(s)     524,288 bytes free', color: LABEL_COLOR },
+    );
     return lines;
   }
 
-  countTruthy(obj) {
-    if (!obj || typeof obj !== 'object') return 0;
-    return Object.values(obj).reduce((sum, value) => sum + (value ? 1 : 0), 0);
+  getHelpLines(topic = '') {
+    const normalizedTopic = HELP_ALIAS_MAP[topic] || topic;
+    if (!normalizedTopic) {
+      const lines = [{ text: 'CCVI-DOS Command List', color: HEADER_COLOR }];
+      DOS_HELP_SUMMARY.forEach((entry) => {
+        lines.push({ text: `${entry.command.padEnd(12)} ${entry.summary}`, color: VALUE_COLOR });
+      });
+      lines.push({ text: 'Use HELP <command> for command details.', color: DOT_COLOR });
+      lines.push({ text: 'Slot aliases: 0-7, SAV1-SAV8, CC_SAVE1-CC_SAVE8', color: DOT_COLOR });
+      return lines;
+    }
+
+    const detail = DOS_HELP_DETAILS[normalizedTopic];
+    if (!detail) {
+      return [
+        { text: `No help topic for "${topic}"`, color: ERROR_COLOR },
+        { text: 'Run HELP.EXE for available commands.', color: DOT_COLOR },
+      ];
+    }
+
+    return detail.map((line, index) => ({ text: line, color: index === 0 ? HEADER_COLOR : VALUE_COLOR }));
+  }
+
+  getHelpExecutableSize() {
+    return JSON.stringify({ summary: DOS_HELP_SUMMARY, details: DOS_HELP_DETAILS }).length;
+  }
+
+  tryHandleLaunchCommand(command) {
+    const cmd = String(command || '').trim();
+    if (!cmd) return null;
+
+    const parts = cmd.split(/\s+/);
+    const base = (parts[0] || '').toLowerCase();
+    if (!['cc.exe', 'cc', 'run', 'start', 'exit'].includes(base)) {
+      return null;
+    }
+
+    const slotToken = parts[1];
+    if (!slotToken) {
+      return 'launch';
+    }
+
+    const slotId = normalizeSlotId(slotToken);
+    if (!slotId) {
+      return {
+        lines: [{ text: 'Invalid slot. Use 0-7, SAV1-SAV8, or CC_SAVE1-CC_SAVE8', color: ERROR_COLOR }]
+      };
+    }
+
+    if (this.engine?.switchSaveSlot) {
+      const result = this.engine.switchSaveSlot(slotId, { saveCurrent: true, createIfMissing: true });
+      if (!result.ok) {
+        return { lines: [{ text: result.reason || 'Failed to switch slot', color: ERROR_COLOR }] };
+      }
+      return 'launch';
+    }
+
+    return 'launch';
+  }
+
+  beginCopy(parts) {
+    const sourceId = normalizeSlotId(parts[1]);
+    const targetId = normalizeSlotId(parts[2]);
+
+    if (!sourceId || !targetId) {
+      return [{ text: 'Usage: COPY <sourceSlot> <targetSlot>', color: ERROR_COLOR }];
+    }
+    if (sourceId === targetId) {
+      return [{ text: 'Source and target must differ', color: ERROR_COLOR }];
+    }
+
+    if (!this.engine?.slotExists?.(sourceId)) {
+      return [{ text: 'Source slot is empty', color: ERROR_COLOR }];
+    }
+
+    const targetExists = this.engine?.slotExists?.(targetId);
+    if (targetExists) {
+      this.pendingAction = { type: 'copy_confirm', sourceId, targetId };
+      return [{ text: `Overwrite ${getSlotFileName(targetId)}? Type YES or NO.`, color: VALUE_COLOR }];
+    }
+
+    return this.executeCopy(sourceId, targetId, false);
+  }
+
+  executeCopy(sourceId, targetId, overwrite) {
+    if (!this.engine?.copySaveSlot) {
+      return [{ text: 'Copy unavailable in this mode', color: ERROR_COLOR }];
+    }
+
+    const result = this.engine.copySaveSlot(sourceId, targetId, { overwrite });
+    if (!result.ok) {
+      return [{ text: result.reason || 'Copy failed', color: ERROR_COLOR }];
+    }
+
+    return [{
+      text: `Copied ${getSlotFileName(sourceId)} -> ${getSlotFileName(targetId)}`,
+      color: OK_COLOR
+    }];
+  }
+
+  beginDelete(parts) {
+    const slotId = normalizeSlotId(parts[1]);
+    if (!slotId) {
+      return [{ text: 'Usage: DEL <slot>', color: ERROR_COLOR }];
+    }
+
+    if (!this.engine?.slotExists?.(slotId)) {
+      return [{ text: `${getSlotFileName(slotId)} is already empty`, color: LABEL_COLOR }];
+    }
+
+    this.pendingAction = { type: 'delete_confirm', slotId };
+    return [{ text: `Delete ${getSlotFileName(slotId)}? Type YES or NO.`, color: ERROR_COLOR }];
+  }
+
+  executeDelete(slotId) {
+    if (!this.engine?.deleteSaveSlot) {
+      return [{ text: 'Delete unavailable in this mode', color: ERROR_COLOR }];
+    }
+
+    const result = this.engine.deleteSaveSlot(slotId);
+    if (!result.ok) {
+      return [{ text: result.reason || 'Delete failed', color: ERROR_COLOR }];
+    }
+    const lines = [{ text: `Deleted ${getSlotFileName(slotId)}`, color: OK_COLOR }];
+    if (result.activeCleared) {
+      lines.push({ text: 'Active slot reset to defaults in memory.', color: DOT_COLOR });
+    }
+    return lines;
+  }
+
+  handleName(parts) {
+    if (!parts[1]) {
+      return this.listSlotNames();
+    }
+
+    const slotId = normalizeSlotId(parts[1]);
+    if (!slotId) {
+      return [{ text: 'Usage: NAME <slot> <newName>', color: ERROR_COLOR }];
+    }
+
+    const newName = parts.slice(2).join(' ').trim();
+    if (!newName) {
+      return [{ text: 'Usage: NAME <slot> <newName>', color: ERROR_COLOR }];
+    }
+
+    if (!this.engine?.setSlotName) {
+      return [{ text: 'Rename unavailable in this mode', color: ERROR_COLOR }];
+    }
+
+    const result = this.engine.setSlotName(slotId, newName);
+    if (!result.ok) {
+      return [{ text: result.reason || 'Rename failed', color: ERROR_COLOR }];
+    }
+    return [{ text: `${getSlotFileName(slotId)} renamed to ${result.name}`, color: OK_COLOR }];
+  }
+
+  listSlotNames() {
+    const activeSlot = this.getActiveSlot();
+    const lines = [{ text: 'Save Slots', color: HEADER_COLOR }];
+
+    SLOT_IDS.forEach((slotId) => {
+      const marker = slotId === activeSlot ? '*' : ' ';
+      const fileName = getSlotFileName(slotId);
+      const exists = this.engine?.slotExists?.(slotId) || saveSlotExists(slotId);
+      if (!exists) {
+        lines.push({ text: `${marker} ${fileName}  <empty>`, color: DOT_COLOR });
+        return;
+      }
+
+      const name = this.engine?.getSlotName?.(slotId) || getSlotPlayerName(slotId) || getDefaultPlayerName(slotId);
+      lines.push({ text: `${marker} ${fileName}  ${name}`, color: VALUE_COLOR });
+    });
+
+    lines.push({ text: '* = active slot', color: DOT_COLOR });
+    return lines;
+  }
+
+  beginExport(parts) {
+    const flag = (parts[1] || '').toLowerCase();
+    const slotId = normalizeSlotId(parts[2]);
+
+    if (!flag || !slotId || parts.length !== 3) {
+      return [{ text: 'Usage: EXPORT -D|-C <slot>', color: ERROR_COLOR }];
+    }
+    if (flag !== '-d' && flag !== '/d' && flag !== '-c' && flag !== '/c') {
+      return [{ text: 'Usage: EXPORT -D|-C <slot>', color: ERROR_COLOR }];
+    }
+    if (!this.engine?.slotExists?.(slotId)) {
+      return [{ text: 'Slot is empty', color: ERROR_COLOR }];
+    }
+
+    const mode = flag.includes('d') ? 'download' : 'copy';
+    this.pendingAction = { type: 'export_password', slotId, mode };
+    return [{ text: 'Password (optional, visible):', color: VALUE_COLOR }];
+  }
+
+  beginImport(parts) {
+    const slotId = normalizeSlotId(parts[1]);
+    if (!slotId || parts.length !== 2) {
+      return [{ text: 'Usage: IMPORT <slot>', color: ERROR_COLOR }];
+    }
+
+    this.pendingAction = { type: 'import_wait_file', slotId };
+    this.pickImportFile(slotId);
+    return [{ text: 'Select a .SAV file to import...', color: VALUE_COLOR }];
+  }
+
+  pickImportFile(slotId) {
+    if (typeof document === 'undefined') {
+      this.pendingAction = null;
+      this.writeAsyncLines([{ text: 'Import unavailable in this environment', color: ERROR_COLOR }]);
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.sav,.json,text/plain';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      document.body.removeChild(input);
+
+      if (!file) {
+        this.pendingAction = null;
+        this.writeAsyncLines([{ text: 'Import canceled.', color: LABEL_COLOR }]);
+        return;
+      }
+
+      file.text().then((text) => {
+        this.handleImportFileText(slotId, text);
+      }).catch(() => {
+        this.pendingAction = null;
+        this.writeAsyncLines([{ text: 'Failed to read import file.', color: ERROR_COLOR }]);
+      });
+    });
+
+    input.click();
+  }
+
+  handleImportFileText(slotId, text) {
+    const preview = this.decodeImportText(text);
+    if (!preview.ok) {
+      this.pendingAction = null;
+      this.writeAsyncLines([{ text: preview.reason, color: ERROR_COLOR }]);
+      return;
+    }
+
+    if (preview.needsPassword) {
+      this.pendingAction = { type: 'import_password', slotId, rawText: text };
+      this.writeAsyncLines([{ text: 'Password:', color: VALUE_COLOR }]);
+      return;
+    }
+
+    this.beginImportOverwrite(slotId, preview.rawSaveJson);
+  }
+
+  beginImportOverwrite(slotId, rawSaveJson) {
+    const exists = this.engine?.slotExists?.(slotId);
+    if (exists) {
+      this.pendingAction = { type: 'import_confirm', slotId, rawSaveJson };
+      this.writeAsyncLines([{ text: `Overwrite ${getSlotFileName(slotId)}? Type YES or NO.`, color: VALUE_COLOR }]);
+      return;
+    }
+
+    const lines = this.executeImport(slotId, rawSaveJson, false);
+    this.pendingAction = null;
+    this.writeAsyncLines(lines);
+  }
+
+  executeImport(slotId, rawSaveJson, overwrite) {
+    if (!this.engine?.importSaveSlot) {
+      return [{ text: 'Import unavailable in this mode', color: ERROR_COLOR }];
+    }
+
+    const result = this.engine.importSaveSlot(slotId, rawSaveJson, { overwrite });
+    if (!result.ok) {
+      return [{ text: result.reason || 'Import failed', color: ERROR_COLOR }];
+    }
+
+    return [{ text: `Imported into ${getSlotFileName(slotId)}`, color: OK_COLOR }];
+  }
+
+  resolvePendingAction(inputText) {
+    const value = String(inputText || '').trim();
+    const lower = value.toLowerCase();
+    const action = this.pendingAction;
+    if (!action) return [{ text: 'No pending action', color: ERROR_COLOR }];
+
+    if (action.type === 'copy_confirm') {
+      this.pendingAction = null;
+      if (lower === 'yes' || lower === 'y') {
+        return this.executeCopy(action.sourceId, action.targetId, true);
+      }
+      return [{ text: 'Copy canceled.', color: LABEL_COLOR }];
+    }
+
+    if (action.type === 'delete_confirm') {
+      this.pendingAction = null;
+      if (lower === 'yes' || lower === 'y') {
+        return this.executeDelete(action.slotId);
+      }
+      return [{ text: 'Delete canceled.', color: LABEL_COLOR }];
+    }
+
+    if (action.type === 'export_password') {
+      this.pendingAction = null;
+      return this.completeExport(action.slotId, action.mode, value);
+    }
+
+    if (action.type === 'import_password') {
+      const decoded = this.decodeImportText(action.rawText, value);
+      if (decoded.ok && decoded.needsPassword) {
+        return [{ text: 'Password required. Try again or type CANCEL.', color: ERROR_COLOR }];
+      }
+      if (!decoded.ok) {
+        return [{ text: decoded.reason, color: ERROR_COLOR }];
+      }
+      this.beginImportOverwrite(action.slotId, decoded.rawSaveJson);
+      return [];
+    }
+
+    if (action.type === 'import_wait_file') {
+      if (lower === 'cancel' || lower === 'c') {
+        this.pendingAction = null;
+        return [{ text: 'Import canceled.', color: LABEL_COLOR }];
+      }
+      return [{ text: 'Waiting for file selection... (type CANCEL to abort)', color: DOT_COLOR }];
+    }
+
+    if (action.type === 'import_confirm') {
+      this.pendingAction = null;
+      if (lower === 'yes' || lower === 'y') {
+        return this.executeImport(action.slotId, action.rawSaveJson, true);
+      }
+      return [{ text: 'Import canceled.', color: LABEL_COLOR }];
+    }
+
+    return [{ text: 'Unhandled pending action', color: ERROR_COLOR }];
+  }
+
+  completeExport(slotId, mode, password) {
+    if (!this.engine?.exportSaveSlot) {
+      return [{ text: 'Export unavailable in this mode', color: ERROR_COLOR }];
+    }
+
+    const result = this.engine.exportSaveSlot(slotId);
+    if (!result.ok) {
+      return [{ text: result.reason || 'Export failed', color: ERROR_COLOR }];
+    }
+
+    const envelopeText = this.buildExportEnvelope(slotId, result.raw, password);
+    if (mode === 'copy') {
+      this.copyToClipboard(envelopeText);
+      return [{ text: `Copied export for ${getSlotFileName(slotId)}`, color: OK_COLOR }];
+    }
+
+    this.downloadTextFile(getSlotFileName(slotId), envelopeText);
+    return [{ text: `Downloaded ${getSlotFileName(slotId)}`, color: OK_COLOR }];
+  }
+
+  buildExportEnvelope(slotId, rawSaveJson, password) {
+    const usePassword = !!password;
+    let payload;
+    if (usePassword) {
+      payload = this.bytesToBase64Url(this.xorBytes(new TextEncoder().encode(rawSaveJson), password));
+    } else {
+      payload = this.toBase64Url(rawSaveJson);
+    }
+
+    const envelope = {
+      magic: 'CCVI_SAVE',
+      version: 1,
+      slot: slotId,
+      file: getSlotFileName(slotId),
+      mode: usePassword ? 'pw' : 'plain',
+      checksum: this.simpleChecksum(rawSaveJson),
+      payload
+    };
+
+    return JSON.stringify(envelope, null, 2);
+  }
+
+  decodeImportText(rawText, password = '') {
+    const trimmed = String(rawText || '').trim();
+    if (!trimmed) return { ok: false, reason: 'Import file is empty' };
+
+    let parsed;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      return { ok: false, reason: 'Import file is not valid JSON' };
+    }
+
+    if (parsed?.magic === 'CCVI_SAVE' && typeof parsed.payload === 'string') {
+      const mode = parsed.mode || 'plain';
+      let rawSaveJson = '';
+
+      if (mode === 'plain') {
+        try {
+          rawSaveJson = this.fromBase64UrlToText(parsed.payload);
+        } catch {
+          return { ok: false, reason: 'Invalid plain export payload' };
+        }
+      } else if (mode === 'pw') {
+        if (!password) {
+          return { ok: true, needsPassword: true };
+        }
+
+        try {
+          const encryptedBytes = this.base64UrlToBytes(parsed.payload);
+          const decrypted = this.xorBytes(encryptedBytes, password);
+          rawSaveJson = new TextDecoder().decode(decrypted);
+        } catch {
+          return { ok: false, reason: 'Failed to decode encrypted payload' };
+        }
+      } else {
+        return { ok: false, reason: 'Unsupported export mode' };
+      }
+
+      try {
+        JSON.parse(rawSaveJson);
+      } catch {
+        if (mode === 'pw') {
+          return { ok: false, reason: 'Invalid password or corrupted file' };
+        }
+        return { ok: false, reason: 'Export payload is invalid' };
+      }
+
+      if (parsed.checksum && this.simpleChecksum(rawSaveJson) !== parsed.checksum) {
+        return { ok: false, reason: 'Checksum mismatch (wrong password or corrupted file)' };
+      }
+
+      return { ok: true, rawSaveJson };
+    }
+
+    if (parsed?.resources && parsed?.crew) {
+      return { ok: true, rawSaveJson: JSON.stringify(parsed) };
+    }
+
+    return { ok: false, reason: 'File is not a recognized save format' };
+  }
+
+  writeAsyncLines(lines) {
+    this.outputLines(lines);
+    if (this.onRender) this.onRender();
+  }
+
+  outputLines(lines) {
+    for (const line of lines) {
+      this.writeLine(line.text, line.color);
+    }
+    this.advanceLine();
+    this.drawPromptLine();
+  }
+
+  getDosTimestamp() {
+    const date = new Date();
+    const dateText = date.toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: '2-digit'
+    });
+    const timeText = date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).toLowerCase().replace(' ', '');
+    return `${dateText}  ${timeText}`;
+  }
+
+  pushHistory(rawCmd) {
+    this.commandHistory.push(rawCmd);
+    if (this.commandHistory.length > HISTORY_MAX) {
+      this.commandHistory.shift();
+    }
+    this.historyIndex = -1;
+    this.historyDraft = '';
+  }
+
+  recallHistoryUp() {
+    if (this.commandHistory.length === 0) return;
+    if (this.historyIndex === -1) {
+      this.historyDraft = this.inputBuffer;
+      this.historyIndex = this.commandHistory.length - 1;
+    } else if (this.historyIndex > 0) {
+      this.historyIndex -= 1;
+    }
+
+    this.inputBuffer = this.commandHistory[this.historyIndex] || '';
+    this.drawPromptLine();
+  }
+
+  recallHistoryDown() {
+    if (this.commandHistory.length === 0 || this.historyIndex === -1) return;
+    if (this.historyIndex < this.commandHistory.length - 1) {
+      this.historyIndex += 1;
+      this.inputBuffer = this.commandHistory[this.historyIndex] || '';
+    } else {
+      this.historyIndex = -1;
+      this.inputBuffer = this.historyDraft || '';
+      this.historyDraft = '';
+    }
+    this.drawPromptLine();
   }
 
   toBase64Url(text) {
+    const bytes = new TextEncoder().encode(String(text ?? ''));
+    return this.bytesToBase64Url(bytes);
+  }
+
+  bytesToBase64Url(bytes) {
     let binary = '';
-    const bytes = new TextEncoder().encode(text);
     for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
     return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
+  base64UrlToBytes(base64Url) {
+    const normalized = String(base64Url || '').replace(/-/g, '+').replace(/_/g, '/');
+    const padLength = (4 - (normalized.length % 4)) % 4;
+    const padded = normalized + '='.repeat(padLength);
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  fromBase64UrlToText(base64Url) {
+    const bytes = this.base64UrlToBytes(base64Url);
+    return new TextDecoder().decode(bytes);
+  }
+
+  xorBytes(bytes, password) {
+    const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    const keyBytes = new TextEncoder().encode(String(password || ''));
+    if (keyBytes.length === 0) {
+      return input.slice();
+    }
+
+    const output = new Uint8Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      output[i] = input[i] ^ keyBytes[i % keyBytes.length];
+    }
+    return output;
+  }
+
+  simpleChecksum(text) {
+    const bytes = new TextEncoder().encode(String(text || ''));
+    let hash = 2166136261;
+    for (let i = 0; i < bytes.length; i++) {
+      hash ^= bytes[i];
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
   }
 
   copyToClipboard(text) {
@@ -581,7 +1089,7 @@ export class DosPrompt {
       try {
         document.execCommand('copy');
       } catch {
-        // Ignore failures; seed is still displayed for manual copy.
+        // Ignore clipboard failures; caller still gets DOS feedback.
       } finally {
         document.body.removeChild(textarea);
       }
@@ -606,49 +1114,6 @@ export class DosPrompt {
     } catch {
       // Ignore failures; caller still gets DOS feedback.
     }
-  }
-
-  wrapText(text, width = 76) {
-    if (!text) return [''];
-    const lines = [];
-    for (let i = 0; i < text.length; i += width) {
-      lines.push(text.slice(i, i + width));
-    }
-    return lines;
-  }
-
-  beginClearSave() {
-    const hasSaveData = !!localStorage.getItem(STORAGE_KEYS.GAME_STATE) || !!localStorage.getItem(STORAGE_KEYS.SEEN_MODALS);
-    if (!hasSaveData) {
-      return [{ text: 'No save data found to clear', color: ERROR_COLOR }];
-    }
-
-    this.pendingConfirm = 'clear_save';
-    return [
-      { text: 'WARNING: This will permanently delete SAVE.SAV progress.', color: ERROR_COLOR },
-      { text: 'Type YES to confirm or NO to cancel.', color: VALUE_COLOR },
-    ];
-  }
-
-  resolveConfirmation(cmd) {
-    if (this.pendingConfirm !== 'clear_save') {
-      this.pendingConfirm = null;
-      return [{ text: 'Pending action canceled', color: LABEL_COLOR }];
-    }
-
-    if (cmd === 'yes' || cmd === 'y') {
-      localStorage.removeItem(STORAGE_KEYS.GAME_STATE);
-      localStorage.removeItem(STORAGE_KEYS.SEEN_MODALS);
-      this.pendingConfirm = null;
-      return [{ text: 'Save data cleared.', color: OK_COLOR }];
-    }
-
-    if (cmd === 'no' || cmd === 'n' || cmd === 'cancel') {
-      this.pendingConfirm = null;
-      return [{ text: 'Clear save canceled.', color: LABEL_COLOR }];
-    }
-
-    return [{ text: 'Please type YES or NO.', color: ERROR_COLOR }];
   }
 
   handleAuthBoot(arg) {
@@ -697,59 +1162,6 @@ export class DosPrompt {
       // Ignore storage errors in DOS shell.
     }
   }
-
-  // ── Paged output ───────────────────────────────────────
-
-  outputWithPaging(lines) {
-    const available = MAX_Y - this.currentY; // rows left on screen
-    if (lines.length <= available) {
-      // Everything fits — no paging needed
-      for (const line of lines) {
-        this.writeLine(line.text, line.color);
-      }
-      this.advanceLine();
-      this.drawPromptLine();
-      return;
-    }
-    // Show first batch (leave last row for "more" prompt)
-    const batchSize = Math.max(1, available - 1);
-    for (let i = 0; i < batchSize; i++) {
-      this.writeLine(lines[i].text, lines[i].color);
-    }
-    this.pendingLines = lines.slice(batchSize);
-    this.drawMorePrompt();
-  }
-
-  showNextPage() {
-    this.clearCurrentLine(); // erase "more" prompt
-    const pageSize = MAX_Y - 1; // lines per subsequent page
-    const batch = this.pendingLines.slice(0, pageSize);
-    const remaining = this.pendingLines.slice(pageSize);
-    for (const line of batch) {
-      this.writeLine(line.text, line.color);
-    }
-    if (remaining.length > 0) {
-      this.pendingLines = remaining;
-      this.drawMorePrompt();
-    } else {
-      this.pendingLines = null;
-      this.advanceLine();
-      this.drawPromptLine();
-    }
-  }
-
-  drawMorePrompt() {
-    this.buffer.writeText(0, this.currentY,
-      '-- Press SPACE or ENTER for next page, ESC to cancel --', DOT_COLOR);
-  }
-
-  clearCurrentLine() {
-    for (let x = 0; x < 80; x++) {
-      this.buffer.writeText(x, this.currentY, ' ', Palette.BLACK, Palette.BLACK);
-    }
-  }
-
-  // ── Drawing helpers ─────────────────────────────────────
 
   drawPromptLine() {
     const b = this.buffer;

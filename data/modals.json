@@ -27,5 +27,29 @@
     "body": "**Lockpicks** — the tools of the trade for anyone serious about B&E.\n\nYou bought this set from a {{soft_yellow}}\"hobby shop\"{{/}} that definitely wasn't asking questions. The clerk winked as they handed you the case: {{dim_gray}}\"For educational purposes only, yeah?\"{{/}}\n\nInside the worn leather pouch, you'll find a full set of tension wrenches, hooks, and rakes — everything you need to convince a lock that you're supposed to be on the other side of it.\n\nIt's amazing what doors open when you have the right tools. Literally.\n\n~~just don't tell your mom where you got them~~",
     "type": "lore",
     "showOnce": false
+  },
+  {
+    "id": "onboardingIntroductionModal",
+    "title": "CRIME COMMITTER VI",
+    "body": "this is the game. please welcome. the aim of this game is crime, and lots of it. you start out as a grown baby (toddler) and you are just about to learn just how delicious and nutritious doing something naughty is.\n\nyou start in your bedroom, and you're tempted to break some rules, you're tempted to stay up past your bedtime. if you do this, you start down a slippery slope and a life of crime. your only real opportunity to escape this life is to quit this god foreskin game right this second, and go outside and feel some sweet blades of grass. \n\nif on the other hand you dare to dive headfirst into this life of crime, then this is the game for you. \n\ntake your time. committe a crime. find a crime, and press D to sort out the details before you start, or Q to just go for it. and then wait. this game is about waiting but hopefully not too long. after waiting, you'll maybe have success or not. use this succcess to access more crime. use more crime to access more waiting. you can literally do both of those things in game. one is fictional but waiting is for life. \n\nenjoy\n",
+    "type": "lesson",
+    "showOnce": true,
+    "titleColor": "INTRO_B",
+    "bodyColor": "PURPLE",
+    "backgroundColor": "",
+    "borderColor": "ROSE",
+    "borderStyle": "DOUBLE"
+  },
+  {
+    "id": "legallyBound",
+    "title": "LEGALLY BINDING CONTRACT",
+    "body": "this is a {{emerald}}GAME{{/}}\n\nif you do anything because of this game that gets you in any form of trouble, then that your own god damn fault. \n\n{{lava_red}}DONT DO CRIMES. DONT DO DRUGS{{/}}\n\nthe world sucks. you dont kneed to make it worse. be kind to people. open the door for people. put yourself in other people's shoes. we weren't all born to the same households or to the same upbringings. the world will be a better place because of you, and the great things you do in it.\n\nkia kaha\n\n{{purple}}\nPRESS ANY KEY TO BE LEGALLY BOUND{{/}}",
+    "type": "lesson",
+    "showOnce": true,
+    "borderStyle": "DOUBLE",
+    "borderColor": "BRIGHT_YELLOW",
+    "backgroundColor": "BLACK",
+    "titleColor": "ROSE",
+    "bodyColor": ""
   }
 ]

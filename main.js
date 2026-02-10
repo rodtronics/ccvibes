@@ -5,7 +5,7 @@ import { Engine, sortRunsActiveFirst } from './engine.js';
 import { FrameBuffer } from './framebuffer.js';
 import { DOMRenderer } from './dom_renderer.js';
 import { UI, Layout } from './ui.js';
-import { ModalQueue, loadModalData, getModal } from './modal.js';
+import { ModalQueue, loadModalData, getModal, parseModalContent } from './modal.js';
 import { getUsedCrewNames, generateUniqueCrewName, initCrewSystem } from './crew.js';
 import { BootScreen, DosPrompt } from './boot.js';
 import {
@@ -70,6 +70,10 @@ const ui = {
     borderColor: null,
     backgroundColor: null,
     scroll: 0,
+    countdownActive: false,
+    countdownDurationMs: 0,
+    countdownEndsAt: 0,
+    countdownRemainingMs: 0,
   },
   crimeDetail: {
     active: false,
@@ -95,6 +99,8 @@ import { FPS_TO_MS } from './settings.js';
 
 const LOOP_MS_IDLE = 250;
 const LOOP_MS_HIDDEN = 1000;
+const MODAL_COUNTDOWN_MS = 3000;
+const STARTUP_MODAL_IDS = ['onboardingIntroductionModal', 'legallyBound'];
 
 let loopTimeoutId = null;
 let loopStarted = false;
@@ -150,9 +156,40 @@ function scheduleLoop(delayOverride = null) {
 
 function loopStep() {
   engine.tick();
+  updateModalCountdown();
   // Skip game rendering while DOS prompt is active
   if (!document.hidden && !ui.dosPrompt) render();
   scheduleLoop();
+}
+
+function enqueueStartupModals() {
+  if (ui.settings.showIntro) {
+    modalQueue.enqueue('intro', true);
+  }
+  STARTUP_MODAL_IDS.forEach((modalId) => modalQueue.enqueue(modalId));
+}
+
+function showNextQueuedModal() {
+  if (!modalQueue.hasNext()) return;
+  const nextId = modalQueue.dequeue();
+  showModal(nextId);
+}
+
+function updateModalCountdown() {
+  if (!ui.modal.active || !ui.modal.countdownActive) return;
+
+  const remainingMs = Math.max(0, ui.modal.countdownEndsAt - Date.now());
+  ui.modal.countdownRemainingMs = remainingMs;
+  if (remainingMs === 0) {
+    dismissModal();
+  }
+}
+
+function enterDosPrompt() {
+  const dos = new DosPrompt(buffer, { engine, onRender: () => renderer.render() });
+  dos.start();
+  renderer.render();
+  ui.dosPrompt = dos;
 }
 
 // Main entry point
@@ -211,23 +248,15 @@ async function main() {
   if (authentic) {
     // Authentic boot: pause then drop to DOS CLI
     await delay(800);
-    const dos = new DosPrompt(buffer);
-    dos.start();
-    renderer.render();
-    ui.dosPrompt = dos;
+    enterDosPrompt();
   } else {
     // First boot or normal boot: straight to game
     applyFont(ui.settings);
     saveSettings(ui.settings);
     buffer.clear();
     render();
-    if (ui.settings.showIntro) {
-      modalQueue.enqueue('intro', true);
-      if (modalQueue.hasNext()) {
-        const nextId = modalQueue.dequeue();
-        showModal(nextId);
-      }
-    }
+    enqueueStartupModals();
+    showNextQueuedModal();
   }
 
   startLoop();
@@ -236,17 +265,13 @@ async function main() {
 // Transition from DOS prompt to game
 function exitDosPrompt() {
   ui.dosPrompt = null;
+  modalQueue.refreshForActiveSlot?.();
   applyFont(ui.settings);
   saveSettings(ui.settings);
   buffer.clear();
   render();
-  if (ui.settings.showIntro) {
-    modalQueue.enqueue('intro', true);
-    if (modalQueue.hasNext()) {
-      const nextId = modalQueue.dequeue();
-      showModal(nextId);
-    }
-  }
+  enqueueStartupModals();
+  showNextQueuedModal();
 }
 
 // Input handling by tab
@@ -1173,10 +1198,7 @@ function handleOptionsInput(e) {
     } else if (ui.selectedSetting === 6) {
       // Exit to DOS - switch to BIOS font, clear screen, drop to CLI
       applyFont({ ...ui.settings, font: 'ibm-bios' });
-      const dos = new DosPrompt(buffer);
-      dos.start();
-      renderer.render();
-      ui.dosPrompt = dos;
+      enterDosPrompt();
     } else if (ui.selectedSetting === 7) {
       showModal('about');
     } else if (ui.selectedSetting === 8) {
@@ -1264,12 +1286,22 @@ function handleModalInput(e) {
   const modal = getModal(ui.modal.id);
   if (!modal) return;
 
-  const contentHeight = 25 - 4; // Layout.HEIGHT - 4
-  const parsedLines = modal.content.split('\n').length; // Rough estimate for max scroll
+  const hasTitle = !!(modal.title && modal.title.trim() !== '');
+  const contentStartY = hasTitle ? 3 : 1;
+  const contentWidth = Layout.WIDTH - 4;
+  const contentHeight = Layout.HEIGHT - contentStartY - 1;
+  const parsedLines = parseModalContent(
+    modal.content || '',
+    contentWidth,
+    modal.backgroundColor,
+    modal.bodyColor || undefined
+  );
+  const maxScroll = Math.max(0, parsedLines.length - contentHeight);
+  ui.modal.scroll = Math.min(ui.modal.scroll, maxScroll);
 
   // Scroll with arrow keys
   if (e.key === 'ArrowDown') {
-    ui.modal.scroll = Math.min(ui.modal.scroll + 1, Math.max(0, parsedLines - contentHeight));
+    ui.modal.scroll = Math.min(ui.modal.scroll + 1, maxScroll);
     e.preventDefault();
   }
   if (e.key === 'ArrowUp') {
@@ -1279,6 +1311,10 @@ function handleModalInput(e) {
 
   // Dismiss with SPACE, ENTER, or ESC
   if (e.key === ' ' || e.key === 'Enter' || e.key === 'Escape') {
+    if (ui.modal.countdownActive && ui.modal.countdownRemainingMs > 0) {
+      e.preventDefault();
+      return;
+    }
     dismissModal();
     e.preventDefault();
   }
@@ -1313,6 +1349,10 @@ function showModal(modalId) {
   ui.modal.titleColor = modal.titleColor;
   ui.modal.bodyColor = modal.bodyColor;
   ui.modal.scroll = 0;
+  ui.modal.countdownActive = !!modal.countdown;
+  ui.modal.countdownDurationMs = ui.modal.countdownActive ? MODAL_COUNTDOWN_MS : 0;
+  ui.modal.countdownEndsAt = ui.modal.countdownActive ? Date.now() + MODAL_COUNTDOWN_MS : 0;
+  ui.modal.countdownRemainingMs = ui.modal.countdownDurationMs;
 
   console.log(`Showing modal: ${modalId}`);
 }
@@ -1329,6 +1369,10 @@ function dismissModal() {
   ui.modal.borderColor = null;
   ui.modal.backgroundColor = null;
   ui.modal.scroll = 0;
+  ui.modal.countdownActive = false;
+  ui.modal.countdownDurationMs = 0;
+  ui.modal.countdownEndsAt = 0;
+  ui.modal.countdownRemainingMs = 0;
 
   // Mark as seen
   if (modalId) {

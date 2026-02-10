@@ -716,7 +716,8 @@ function addModal() {
     title: 'New Modal',
     body: 'Modal body text goes here. Use {{neon_cyan}}color tags{{/}} for formatting.',
     type: 'story',
-    showOnce: true
+    showOnce: true,
+    countdown: false
   };
   store.modals.push(modal);
   store.modalMap.set(newId, modal);
@@ -799,9 +800,15 @@ function renderModalEditor() {
               <option value="lesson" ${m.type === 'lesson' ? 'selected' : ''}>Lesson</option>
             </select>
           </div>
-          <div class="flex">
-            <label class="muted" style="margin:0">Show Once?</label>
-            <input type="checkbox" data-focus-id="modal-show-once" ${m.showOnce ? 'checked' : ''} onchange="_world.updateModal('showOnce', this.checked)">
+          <div style="display:flex;gap:14px;align-items:center">
+            <div class="flex">
+              <label class="muted" style="margin:0">Show Once?</label>
+              <input type="checkbox" data-focus-id="modal-show-once" ${m.showOnce ? 'checked' : ''} onchange="_world.updateModal('showOnce', this.checked)">
+            </div>
+            <div class="flex">
+              <label class="muted" style="margin:0">Countdown?</label>
+              <input type="checkbox" data-focus-id="modal-countdown" ${m.countdown ? 'checked' : ''} onchange="_world.updateModal('countdown', this.checked)">
+            </div>
           </div>
         </div>
 

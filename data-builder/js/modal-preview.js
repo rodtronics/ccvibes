@@ -92,6 +92,12 @@ export function renderPreview(modal) {
     });
   });
 
+  if (modal.countdown) {
+    const countdownText = 'AUTO-CLOSE IN 3s';
+    const countdownX = Math.max(2, PREVIEW_WIDTH - countdownText.length - 2);
+    previewBuffer.writeText(countdownX, PREVIEW_HEIGHT - 2, countdownText, Palette.BRIGHT_YELLOW, bgColor);
+  }
+
   // Scrollbar indicator if content overflows
   if (parsedLines.length > contentHeight) {
     const scrollbarX = PREVIEW_WIDTH - 2;

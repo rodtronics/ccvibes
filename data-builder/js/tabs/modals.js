@@ -7,6 +7,14 @@ let container = null;
 let previewInitialized = false;
 let debounceTimer = null;
 
+function escapeJsSingleQuoted(value) {
+  return String(value ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n');
+}
+
 // ── Color options for the formatting toolbar ──
 const fgColors = [
   { tag: 'neon_cyan',       label: 'Cyan',        hex: '#00ffff' },
@@ -49,22 +57,26 @@ export function init(el) {
 
 export function activate() {
   render();
-  // Initialize preview after DOM is ready
-  setTimeout(() => {
-    if (!previewInitialized) {
-      initPreview('modalPreviewCanvas');
-      previewInitialized = true;
-    }
-    refreshPreview();
-  }, 50);
 }
 
-export function deactivate() {}
+export function deactivate() {
+  clearTimeout(debounceTimer);
+  debounceTimer = null;
+  if (previewInitialized) {
+    destroyPreview();
+    previewInitialized = false;
+  }
+}
 
 // ── Render ──
 
 function render() {
   if (!container) return;
+
+  if (previewInitialized) {
+    destroyPreview();
+    previewInitialized = false;
+  }
 
   if (!store.selectedModalId && store.modals.length > 0) {
     store.selectedModalId = store.modals[0].id;
@@ -94,7 +106,7 @@ function render() {
             const isSelected = modal.id === store.selectedModalId;
             const typeIcon = modal.type === 'story' ? '📖' : modal.type === 'lore' ? '🔮' : modal.type === 'lesson' ? '💡' : '📄';
             return `
-              <div class="item" style="cursor:pointer;${isSelected ? 'border-color:var(--accent)' : ''}" onclick="_modals.selectModal('${safe(modal.id)}')">
+              <div class="item" style="cursor:pointer;${isSelected ? 'border-color:var(--accent)' : ''}" onclick="_modals.selectModal('${escapeJsSingleQuoted(modal.id)}')">
                 <div class="flex" style="justify-content:space-between;margin-bottom:2px">
                   <strong style="font-size:0.85rem">${safe(modal.title || modal.id)}</strong>
                   <span style="font-size:0.85rem">${typeIcon}</span>
@@ -128,10 +140,8 @@ function render() {
   // Reinit and refresh preview after render
   setTimeout(() => {
     if (!document.getElementById('modalPreviewCanvas')) return;
-    if (!previewInitialized) {
-      initPreview('modalPreviewCanvas');
-      previewInitialized = true;
-    }
+    initPreview('modalPreviewCanvas');
+    previewInitialized = true;
     refreshPreview();
   }, 50);
 }
@@ -163,7 +173,7 @@ function renderEditor(m) {
   return `
     <!-- Top row: metadata fields -->
     <div class="panel" style="flex-shrink:0;padding:12px">
-      <div style="display:grid;grid-template-columns:1fr 1fr 120px 120px auto;gap:10px;align-items:end">
+      <div style="display:grid;grid-template-columns:1fr 1fr 120px 120px 120px auto;gap:10px;align-items:end">
         <div><label>ID</label><input type="text" data-focus-id="modal-id" value="${safe(m.id)}" onchange="_modals.updateModal('id', this.value)" style="padding:6px 8px;font-size:0.85rem"></div>
         <div><label>Title</label><input type="text" data-focus-id="modal-title" value="${safe(m.title)}" oninput="_modals.updateModal('title', this.value); _modals.refreshPreview()" style="padding:6px 8px;font-size:0.85rem"></div>
         <div>
@@ -178,8 +188,12 @@ function renderEditor(m) {
           <label class="muted" style="margin:0;font-size:0.8rem;white-space:nowrap">Show Once</label>
           <input type="checkbox" ${m.showOnce ? 'checked' : ''} onchange="_modals.updateModal('showOnce', this.checked)">
         </div>
+        <div class="flex" style="gap:6px;padding-bottom:2px">
+          <label class="muted" style="margin:0;font-size:0.8rem;white-space:nowrap">Countdown</label>
+          <input type="checkbox" ${m.countdown ? 'checked' : ''} onchange="_modals.updateModal('countdown', this.checked); _modals.refreshPreview()">
+        </div>
         <div>
-          <button class="danger small" onclick="_modals.deleteModal('${safe(m.id)}')" style="padding:6px 10px;font-size:0.8rem">Delete</button>
+          <button class="danger small" onclick="_modals.deleteModal('${escapeJsSingleQuoted(m.id)}')" style="padding:6px 10px;font-size:0.8rem">Delete</button>
         </div>
       </div>
 
@@ -290,11 +304,23 @@ function updateModal(field, value) {
 
   if (field === 'id') {
     const oldId = m.id;
-    m.id = value;
-    store.selectedModalId = value;
+    const nextId = String(value ?? '').trim();
+    if (!nextId) {
+      showToast('Modal ID cannot be empty', 'error');
+      render();
+      return;
+    }
+    if (nextId !== oldId && store.modalMap.has(nextId)) {
+      showToast(`Modal ID "${nextId}" already exists`, 'error');
+      render();
+      return;
+    }
+
+    m.id = nextId;
+    store.selectedModalId = nextId;
     store.modalMap.delete(oldId);
-    store.modalMap.set(value, m);
-    cascadeModalRename(oldId, value);
+    store.modalMap.set(nextId, m);
+    cascadeModalRename(oldId, nextId);
     render();
     return;
   }
@@ -319,7 +345,8 @@ function addModal() {
     title: 'New Modal',
     body: 'Modal body text goes here.\n\nUse {{neon_cyan}}color tags{{/}} for formatting.\nUse **bold** for emphasis.\nUse ~~dim~~ for subtle text.',
     type: 'lore',
-    showOnce: false
+    showOnce: false,
+    countdown: false
   };
   store.modals.push(modal);
   store.modalMap.set(newId, modal);

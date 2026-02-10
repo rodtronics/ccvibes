@@ -74,8 +74,9 @@ export class UI {
   renderStatusRail() {
     const y = 0;
 
-    // Title (leftmost position)
-    this.buffer.writeText(0, y, "CRIME COMMITTER VI", Palette.TITLE, Palette.BLACK);
+    const playerName = (this.engine.state.playerName || "PLAYER").substring(0, 8).toUpperCase();
+    const title = `CRIME COMMITTER VI - ${playerName}`;
+    this.buffer.writeText(0, y, title, Palette.TITLE, Palette.BLACK);
 
     // Clock
     const now = this.engine.state.now;
@@ -146,7 +147,6 @@ export class UI {
     const leftFocused = focus === "activity" || focus === "option";
     const rightFocused = focus === "runs";
     const leftBorderColor = leftFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
-    const rightBorderColor = rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
 
     // Content area borders (start below branch bar at row 5)
     // Left edge (from row 5 down)
@@ -154,11 +154,16 @@ export class UI {
     // Bottom-left corner and left portion of bottom border
     this.buffer.setCell(0, Layout.HEIGHT - 1, "└", leftBorderColor, Palette.BLACK);
     this.buffer.drawHLine(1, Layout.HEIGHT - 1, 38, "─", leftBorderColor, Palette.BLACK);
-    // Right edge (from row 5 down)
-    this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, "│", rightBorderColor, Palette.BLACK);
-    // Right portion of bottom border
-    this.buffer.drawHLine(40, Layout.HEIGHT - 1, 39, "─", rightBorderColor, Palette.BLACK);
-    this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, "┘", rightBorderColor, Palette.BLACK);
+
+    if (rightFocused) {
+      // DOUBLE border box around the entire right panel
+      this.buffer.drawBox(39, 4, 41, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
+    } else {
+      // Subtle right-side borders when not focused
+      this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, "│", Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.drawHLine(40, Layout.HEIGHT - 1, 39, "─", Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, "┘", Palette.DIM_GRAY, Palette.BLACK);
+    }
 
     if (!showingOptions) {
       // ACTIVITY LIST VIEW (50/50 split: left=activities/run detail, right=active runs for branch)
@@ -260,10 +265,11 @@ export class UI {
         }
       }
 
-      // Vertical divider (colored by right panel focus)
-      const divColor = rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
-      this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", divColor, Palette.BLACK);
-      this.buffer.setCell(dividerX, Layout.HEIGHT - 1, "┴", divColor, Palette.BLACK);
+      // Vertical divider (skip when rightFocused - DOUBLE box handles it)
+      if (!rightFocused) {
+        this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", Palette.DIM_GRAY, Palette.BLACK);
+        this.buffer.setCell(dividerX, Layout.HEIGHT - 1, "┴", Palette.DIM_GRAY, Palette.BLACK);
+      }
 
       // RIGHT HALF: Active runs for this branch
       const branchContext = branch?.name || "?";
@@ -283,10 +289,11 @@ export class UI {
       // Redraw branch selection bar over the background (preserves visual)
       this.renderBranchSelectionBar(branches, this.ui.branchIndex, false);
 
-      // Vertical divider (colored by focus)
-      const divColor = rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
-      this.buffer.drawVLine(dividerX, optionsTop, Layout.HEIGHT - 2, "│", divColor, branchBgColor);
-      this.buffer.setCell(dividerX, Layout.HEIGHT - 1, "┴", divColor, Palette.BLACK);
+      // Vertical divider (skip when rightFocused - DOUBLE box handles it)
+      if (!rightFocused) {
+        this.buffer.drawVLine(dividerX, optionsTop, Layout.HEIGHT - 2, "│", Palette.DIM_GRAY, branchBgColor);
+        this.buffer.setCell(dividerX, Layout.HEIGHT - 1, "┴", Palette.DIM_GRAY, Palette.BLACK);
+      }
 
       // Get runs for this activity (needed for both panels)
       const activityRuns = this.engine.state.runs.filter((r) => r.activityId === activity.id);
@@ -578,12 +585,16 @@ export class UI {
     // Sort runs: active first, then completed
     const sortedRuns = runs.slice().sort(sortRunsActiveFirst);
 
+    // When focused, push content down to sit inside the DOUBLE border
+    const focusedOnRuns = this.ui.focus === "runs";
+    let runsStartY = focusedOnRuns ? startY + 1 : startY;
+
     // Draw context header if provided
-    let runsStartY = startY;
     if (contextPath) {
       const header = `RUNS > ${contextPath}`.toUpperCase();
-      this.buffer.writeText(startX, startY, header.substring(0, width), Palette.DIM_GRAY, bgColor);
-      runsStartY = startY + 1;
+      const headerColor = focusedOnRuns ? Palette.ACTIVE_BORDER : Palette.DIM_GRAY;
+      this.buffer.writeText(startX, runsStartY, header.substring(0, width), headerColor, bgColor);
+      runsStartY += 1;
     }
 
     // Panel dimensions (adjusted for header if present)
@@ -592,7 +603,6 @@ export class UI {
     const maxVisibleRuns = Math.floor(panelHeight / runCardHeight);
 
     // Scroll handling
-    const focusedOnRuns = this.ui.focus === "runs";
     let selectedRun = this.ui.selectedRun ?? 0;
     selectedRun = Math.max(0, Math.min(selectedRun, sortedRuns.length - 1));
     this.ui.selectedRun = selectedRun;
@@ -845,12 +855,13 @@ export class UI {
     const selectedRun = sortedRuns[selectedRunIndex];
     const rightFocused = this.ui.focus === "runs";
 
-    // Determine left/right focus colors
-    const leftBorderColor = !rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
-    const rightBorderColor = rightFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
-
-    // Vertical divider
-    this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", rightBorderColor, Palette.BLACK);
+    if (rightFocused) {
+      // DOUBLE border box around the entire right panel
+      this.buffer.drawBox(39, 4, 41, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
+    } else {
+      // Vertical divider when not focused
+      this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", Palette.DIM_GRAY, Palette.BLACK);
+    }
 
     if (rightFocused) {
       // RUNS FOCUSED: Show run detail in left panel
@@ -2177,7 +2188,17 @@ export class UI {
     const modal = this.ui.modal;
     if (!modal || !modal.active) return;
 
-    const { title, content, borderStyle, borderColor, backgroundColor, titleColor, bodyColor } = modal;
+    const {
+      title,
+      content,
+      borderStyle,
+      borderColor,
+      backgroundColor,
+      titleColor,
+      bodyColor,
+      countdownActive,
+      countdownRemainingMs
+    } = modal;
 
     // Fill entire screen with solid background first
     this.buffer.fill(" ", bodyColor || Palette.LIGHT_GRAY, backgroundColor);
@@ -2216,6 +2237,13 @@ export class UI {
         x += segment.text.length;
       });
     });
+
+    if (countdownActive && countdownRemainingMs > 0) {
+      const secondsLeft = Math.max(1, Math.ceil(countdownRemainingMs / 1000));
+      const countdownText = `AUTO-CLOSE IN ${secondsLeft}s`;
+      const countdownX = Math.max(2, Layout.WIDTH - countdownText.length - 2);
+      this.buffer.writeText(countdownX, Layout.HEIGHT - 2, countdownText, Palette.BRIGHT_YELLOW, backgroundColor);
+    }
 
     // Draw scrollbar if content exceeds visible area
     if (parsedLines.length > contentHeight) {

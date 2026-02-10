@@ -1,7 +1,23 @@
-function createDefaultState() {
+import {
+  ensureSaveSlotStorage,
+  getActiveSaveSlot,
+  getDefaultPlayerName,
+  getGameStateKey,
+  getSeenModalsKey,
+  normalizeSlotId,
+  saveSlotExists,
+  setActiveSaveSlot,
+  setSlotRawState,
+  getSlotRawState,
+  removeSlotState,
+  sanitizePlayerName
+} from './save_slots.js';
+
+function createDefaultState(playerName = 'player1') {
   return {
     version: 6,
     now: Date.now(),
+    playerName,
     resources: {
       cash: 0,
       cred: 50,
@@ -41,7 +57,9 @@ export const sortRunsActiveFirst = (a, b) => {
 export class Engine {
   constructor(modalQueue = null) {
     this.modalQueue = modalQueue;
-    this.state = createDefaultState();
+    ensureSaveSlotStorage();
+    this.activeSaveSlot = getActiveSaveSlot();
+    this.state = createDefaultState(getDefaultPlayerName(this.activeSaveSlot));
     this.data = {
       activities: [],
       branches: [],
@@ -89,10 +107,15 @@ export class Engine {
   }
 
   loadState() {
+    ensureSaveSlotStorage();
+    this.activeSaveSlot = getActiveSaveSlot();
+    this.state = createDefaultState(getDefaultPlayerName(this.activeSaveSlot));
+
     try {
-      const saved = localStorage.getItem('ccv_game_state');
+      const saveKey = getGameStateKey(this.activeSaveSlot);
+      const saved = saveKey ? localStorage.getItem(saveKey) : null;
       if (!saved) {
-        console.log('No saved state found, starting fresh');
+        console.log(`No saved state found in ${this.activeSaveSlot}, starting fresh`);
         return;
       }
 
@@ -103,6 +126,7 @@ export class Engine {
       this.state = {
         ...this.state,
         ...parsed,
+        playerName: sanitizePlayerName(parsed.playerName, getDefaultPlayerName(this.activeSaveSlot)),
         now: Date.now()  // Always use current time
       };
 
@@ -171,7 +195,7 @@ export class Engine {
 
       const stillActive = this.state.runs.filter(r => r.status === 'active' && r.endsAt > now);
       const completed = this.state.runs.filter(r => r.status === 'completed');
-      console.log(`State loaded: ${completedCount} sub-runs completed offline, ${stillActive.length} active, ${completed.length} completed`);
+      console.log(`State loaded (${this.activeSaveSlot}): ${completedCount} sub-runs completed offline, ${stillActive.length} active, ${completed.length} completed`);
     } catch (err) {
       console.warn('Failed to load state:', err);
       this.log('Failed to load saved state', 'warn');
@@ -179,11 +203,12 @@ export class Engine {
   }
 
   resetProgress() {
-    // Clear game state from localStorage
-    localStorage.removeItem('ccv_game_state');
-    localStorage.removeItem('ccv_seen_modals');
+    const stateKey = getGameStateKey(this.activeSaveSlot);
+    const seenKey = getSeenModalsKey(this.activeSaveSlot);
+    if (stateKey) localStorage.removeItem(stateKey);
+    if (seenKey) localStorage.removeItem(seenKey);
     localStorage.removeItem('ccv_has_booted');
-    this.state = createDefaultState();
+    this.state = createDefaultState(getDefaultPlayerName(this.activeSaveSlot));
     this.applyDefaultReveals();
     this.log("Progress reset. Starting fresh.", "info");
     return { ok: true };
@@ -205,6 +230,7 @@ export class Engine {
 
       const toSave = {
         version: this.state.version,
+        playerName: sanitizePlayerName(this.state.playerName, getDefaultPlayerName(this.activeSaveSlot)),
         resources: this.state.resources,
         flags: this.state.flags,
         reveals: this.state.reveals,
@@ -214,11 +240,201 @@ export class Engine {
         stats: this.state.stats
       };
 
-      localStorage.setItem('ccv_game_state', JSON.stringify(toSave));
-      console.log('State saved:', toSave);
+      const saveKey = getGameStateKey(this.activeSaveSlot);
+      if (!saveKey) {
+        console.warn('Failed to save state: invalid active slot', this.activeSaveSlot);
+        return;
+      }
+      localStorage.setItem(saveKey, JSON.stringify(toSave));
+      console.log(`State saved (${this.activeSaveSlot}):`, toSave);
     } catch (err) {
       console.warn('Failed to save state:', err);
     }
+  }
+
+  getActiveSaveSlot() {
+    return this.activeSaveSlot;
+  }
+
+  getActivePlayerName() {
+    return sanitizePlayerName(this.state.playerName, getDefaultPlayerName(this.activeSaveSlot));
+  }
+
+  setActivePlayerName(name) {
+    const nextName = sanitizePlayerName(name, getDefaultPlayerName(this.activeSaveSlot));
+    this.state.playerName = nextName;
+    this.saveState();
+    return nextName;
+  }
+
+  reloadActiveSlot() {
+    this.loadState();
+    this.applyDefaultReveals();
+    return { ok: true, slotId: this.activeSaveSlot, playerName: this.getActivePlayerName() };
+  }
+
+  switchSaveSlot(slotInput, options = {}) {
+    const slotId = normalizeSlotId(slotInput);
+    if (!slotId) return { ok: false, reason: 'Invalid slot' };
+
+    const { saveCurrent = true, createIfMissing = true } = options;
+    if (saveCurrent) {
+      this.saveState();
+    }
+
+    const existed = saveSlotExists(slotId);
+    setActiveSaveSlot(slotId);
+    this.activeSaveSlot = slotId;
+    this.loadState();
+    this.applyDefaultReveals();
+
+    if (!existed && createIfMissing) {
+      this.state.playerName = getDefaultPlayerName(slotId);
+      this.saveState();
+    }
+
+    return {
+      ok: true,
+      slotId,
+      created: !existed,
+      playerName: this.getActivePlayerName()
+    };
+  }
+
+  slotExists(slotInput) {
+    const slotId = normalizeSlotId(slotInput);
+    if (!slotId) return false;
+    return saveSlotExists(slotId);
+  }
+
+  getSlotName(slotInput) {
+    const slotId = normalizeSlotId(slotInput);
+    if (!slotId || !saveSlotExists(slotId)) return null;
+
+    const raw = getSlotRawState(slotId);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return sanitizePlayerName(parsed?.playerName, getDefaultPlayerName(slotId));
+    } catch {
+      return getDefaultPlayerName(slotId);
+    }
+  }
+
+  setSlotName(slotInput, nameInput) {
+    const slotId = normalizeSlotId(slotInput);
+    if (!slotId) return { ok: false, reason: 'Invalid slot' };
+    if (!saveSlotExists(slotId)) return { ok: false, reason: 'Slot is empty' };
+
+    const nextName = sanitizePlayerName(nameInput, getDefaultPlayerName(slotId));
+
+    if (slotId === this.activeSaveSlot) {
+      this.state.playerName = nextName;
+      this.saveState();
+      return { ok: true, slotId, name: nextName, active: true };
+    }
+
+    const raw = getSlotRawState(slotId);
+    if (!raw) return { ok: false, reason: 'Slot is empty' };
+
+    try {
+      const parsed = JSON.parse(raw);
+      parsed.playerName = nextName;
+      setSlotRawState(slotId, JSON.stringify(parsed));
+      return { ok: true, slotId, name: nextName, active: false };
+    } catch {
+      return { ok: false, reason: 'Save file is invalid' };
+    }
+  }
+
+  copySaveSlot(sourceInput, targetInput, options = {}) {
+    const sourceId = normalizeSlotId(sourceInput);
+    const targetId = normalizeSlotId(targetInput);
+    if (!sourceId || !targetId) return { ok: false, reason: 'Invalid slot' };
+    if (sourceId === targetId) return { ok: false, reason: 'Source and target must differ' };
+
+    const sourceRaw = getSlotRawState(sourceId);
+    if (!sourceRaw) return { ok: false, reason: 'Source slot is empty' };
+
+    const targetExists = saveSlotExists(targetId);
+    const { overwrite = false } = options;
+    if (targetExists && !overwrite) {
+      return { ok: false, reason: 'Target slot exists', needsConfirm: true };
+    }
+
+    setSlotRawState(targetId, sourceRaw);
+
+    const sourceSeenKey = getSeenModalsKey(sourceId);
+    const targetSeenKey = getSeenModalsKey(targetId);
+    const sourceSeen = sourceSeenKey ? localStorage.getItem(sourceSeenKey) : null;
+    if (targetSeenKey) {
+      if (sourceSeen !== null) {
+        localStorage.setItem(targetSeenKey, sourceSeen);
+      } else {
+        localStorage.removeItem(targetSeenKey);
+      }
+    }
+
+    return { ok: true, sourceId, targetId, overwritten: targetExists };
+  }
+
+  deleteSaveSlot(slotInput) {
+    const slotId = normalizeSlotId(slotInput);
+    if (!slotId) return { ok: false, reason: 'Invalid slot' };
+    if (!saveSlotExists(slotId)) return { ok: false, reason: 'Slot is empty' };
+
+    removeSlotState(slotId);
+    if (slotId === this.activeSaveSlot) {
+      this.state = createDefaultState(getDefaultPlayerName(slotId));
+      this.applyDefaultReveals();
+      return { ok: true, slotId, activeCleared: true };
+    }
+
+    return { ok: true, slotId, activeCleared: false };
+  }
+
+  exportSaveSlot(slotInput) {
+    const slotId = normalizeSlotId(slotInput);
+    if (!slotId) return { ok: false, reason: 'Invalid slot' };
+    const raw = getSlotRawState(slotId);
+    if (!raw) return { ok: false, reason: 'Slot is empty' };
+    return { ok: true, slotId, raw };
+  }
+
+  importSaveSlot(slotInput, rawText, options = {}) {
+    const slotId = normalizeSlotId(slotInput);
+    if (!slotId) return { ok: false, reason: 'Invalid slot' };
+
+    const exists = saveSlotExists(slotId);
+    const { overwrite = false } = options;
+    if (exists && !overwrite) {
+      return { ok: false, reason: 'Target slot exists', needsConfirm: true };
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      return { ok: false, reason: 'Imported file is not valid JSON' };
+    }
+
+    if (!parsed || typeof parsed !== 'object') {
+      return { ok: false, reason: 'Imported file is invalid' };
+    }
+
+    const imported = {
+      ...parsed,
+      playerName: sanitizePlayerName(parsed.playerName, getDefaultPlayerName(slotId))
+    };
+
+    setSlotRawState(slotId, JSON.stringify(imported));
+
+    if (slotId === this.activeSaveSlot) {
+      this.loadState();
+      this.applyDefaultReveals();
+    }
+
+    return { ok: true, slotId, overwritten: exists };
   }
 
   applyDefaultReveals() {

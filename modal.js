@@ -3,6 +3,7 @@
 
 import { Palette, BoxStyles } from './palette.js';
 import { interpolateColor } from './gradients.js';
+import { ensureSaveSlotStorage, getActiveSaveSlot, getSeenModalsKey } from './save_slots.js';
 
 // Modal data - loaded from JSON
 let MODAL_DATA = null;
@@ -325,6 +326,7 @@ export function getModal(modalId) {
     title: modal.title || '',
     content: modal.body || '',
     showOnce: modal.showOnce !== false, // Default to true
+    countdown: !!modal.countdown,
     borderStyle: BoxStyles[borderStyleKey] || BoxStyles.DOUBLE,
     borderColor: Palette[borderColorKey] || Palette.NEON_CYAN,
     backgroundColor: Palette[backgroundColorKey] || Palette.BLACK,
@@ -339,7 +341,13 @@ export function getModal(modalId) {
 export class ModalQueue {
   constructor() {
     this.queue = [];
+    ensureSaveSlotStorage();
     this.seenModals = this.loadSeenModals();
+  }
+
+  getSeenStorageKey() {
+    const slotId = getActiveSaveSlot();
+    return getSeenModalsKey(slotId);
   }
 
   /**
@@ -347,7 +355,9 @@ export class ModalQueue {
    */
   loadSeenModals() {
     try {
-      const raw = localStorage.getItem('ccv_seen_modals');
+      const key = this.getSeenStorageKey();
+      if (!key) return [];
+      const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : [];
     } catch (e) {
       return [];
@@ -359,10 +369,16 @@ export class ModalQueue {
    */
   saveSeenModals() {
     try {
-      localStorage.setItem('ccv_seen_modals', JSON.stringify(this.seenModals));
+      const key = this.getSeenStorageKey();
+      if (!key) return;
+      localStorage.setItem(key, JSON.stringify(this.seenModals));
     } catch (e) {
       // Ignore localStorage errors
     }
+  }
+
+  refreshForActiveSlot() {
+    this.seenModals = this.loadSeenModals();
   }
 
   /**
