@@ -96,7 +96,7 @@ export class Engine {
 
     for (const [file, key] of files) {
       try {
-        const res = await fetch(`data/${file}`, { cache: 'no-store' });
+        const res = await fetch(`../data/${file}`, { cache: 'no-store' });
         this.data[key] = await res.json();
       } catch (err) {
         console.warn(`Failed to load ${file}`, err);

@@ -99,6 +99,11 @@ export class BootScreen {
     const b = this.buffer;
     b.writeText(1, this.currentLine + 1, 'All systems nominal.', OK_COLOR);
   }
+
+  drawSetupPrompt() {
+    const b = this.buffer;
+    b.writeText(1, this.currentLine + 2, 'Press DEL to enter SETUP', LABEL_COLOR);
+  }
 }
 
 // ── DOS Prompt ──────────────────────────────────────────────
@@ -122,6 +127,7 @@ const DOS_HELP_SUMMARY = [
   { command: 'NAME', summary: 'Lists or edits save slot player names.' },
   { command: 'SAVE / STATUS', summary: 'Shows active slot status details.' },
   { command: 'AUTHBOOT', summary: 'Toggles authentic boot behavior.' },
+  { command: 'SHUTDOWN', summary: 'Power off shell, or reboot with -R.' },
   { command: 'CLS', summary: 'Clears the DOS screen.' },
   { command: 'VER', summary: 'Displays DOS version info.' },
   { command: 'CD', summary: 'Directory command (not supported here).' },
@@ -208,6 +214,12 @@ const DOS_HELP_DETAILS = {
     'AUTHBOOT',
     'Shows or changes authentic boot mode.',
   ],
+  shutdown: [
+    'SHUTDOWN',
+    'SHUTDOWN powers off the shell session.',
+    'Use SHUTDOWN -R to reboot into boot screen and DOS.',
+    'Press DEL during reboot to enter BIOS SETUP.',
+  ],
   cls: [
     'CLS',
     'Clears the screen and redraws DOS banner.',
@@ -238,14 +250,26 @@ const HELP_ALIAS_MAP = {
   rm: 'del',
 };
 
+const BIOS_FONT_CATEGORIES = {
+  retro: ['vga-9x8', 'vga-8x16', 'ibm-bios', 'commodore-64'],
+  modern: ['fira', 'jetbrains-mono', 'scp'],
+  other: ['courier-prime', 'vt323', 'share-tech-mono', 'nova-mono', 'doto', 'workbench'],
+};
+
+const BIOS_FONT_CATEGORY_ORDER = ['retro', 'modern', 'other'];
+
 export class DosPrompt {
   constructor(buffer, options = {}) {
     this.buffer = buffer;
     this.engine = options.engine || null;
     this.onRender = typeof options.onRender === 'function' ? options.onRender : null;
+    this.onSystemReboot = typeof options.onSystemReboot === 'function' ? options.onSystemReboot : null;
     this.inputBuffer = '';
     this.currentY = 0;
     this.pendingAction = null;
+    this.shutdownLocked = false;
+    this.shutdownInProgress = false;
+    this.shutdownTimers = [];
     this.commandHistory = [];
     this.historyIndex = -1;
     this.historyDraft = '';
@@ -257,6 +281,9 @@ export class DosPrompt {
     this.inputBuffer = '';
     this.currentY = 0;
     this.pendingAction = null;
+    this.shutdownLocked = false;
+    this.shutdownInProgress = false;
+    this.clearShutdownTimers();
     this.commandHistory = [];
     this.historyIndex = -1;
     this.historyDraft = '';
@@ -277,6 +304,10 @@ export class DosPrompt {
   }
 
   handleKey(key) {
+    if (this.shutdownLocked || this.shutdownInProgress) {
+      return null;
+    }
+
     if (!this.pendingAction && key === 'ArrowUp') {
       this.recallHistoryUp();
       return null;
@@ -338,11 +369,22 @@ export class DosPrompt {
       return null;
     }
 
+    const shutdownCommand = this.parseShutdownCommand(rawCmd);
+    if (shutdownCommand) {
+      if (shutdownCommand.invalid) {
+        this.outputLines([{ text: 'Usage: SHUTDOWN [-R]', color: ERROR_COLOR }]);
+        return null;
+      }
+      this.beginShutdown(shutdownCommand.reboot);
+      return null;
+    }
+
     const lines = this.getResponse(rawCmd);
     if (lines.length === 0) {
       this.drawPromptLine();
       return null;
     }
+
     this.outputLines(lines);
     return null;
   }
@@ -415,6 +457,72 @@ export class DosPrompt {
       { text: 'Bad command or file name', color: ERROR_COLOR },
       { text: 'Type HELP.EXE for command list.', color: DOT_COLOR },
     ];
+  }
+
+  parseShutdownCommand(command) {
+    const cmd = String(command || '').trim();
+    const parts = cmd.split(/\s+/);
+    const base = (parts[0] || '').toLowerCase();
+    if (base !== 'shutdown') return null;
+
+    if (parts.length === 1) return { reboot: false, invalid: false };
+    if (parts.length === 2 && parts[1].toLowerCase() === '-r') return { reboot: true, invalid: false };
+    return { reboot: false, invalid: true };
+  }
+
+  beginShutdown(reboot) {
+    this.shutdownInProgress = true;
+    this.shutdownLocked = true;
+    this.pendingAction = null;
+    this.clearShutdownTimers();
+
+    const row = this.currentY;
+    this.writeStatusLine(row, 'Shutting down', LABEL_COLOR);
+    if (this.onRender) this.onRender();
+
+    const schedule = (delay, dots) => {
+      const timer = setTimeout(() => {
+        this.writeStatusLine(row, `Shutting down${'.'.repeat(dots)}`, LABEL_COLOR);
+        if (this.onRender) this.onRender();
+      }, delay);
+      this.shutdownTimers.push(timer);
+    };
+
+    schedule(500, 1);
+    schedule(1000, 2);
+    schedule(1500, 3);
+
+    const finalize = setTimeout(() => {
+      this.shutdownInProgress = false;
+      this.currentY = row + 1;
+
+      if (reboot) {
+        if (typeof this.onSystemReboot === 'function') {
+          this.onSystemReboot();
+        }
+        return;
+      }
+
+      this.writeLine('It is now safe to turn off your computer.', LABEL_COLOR);
+      if (this.onRender) this.onRender();
+    }, 1500);
+    this.shutdownTimers.push(finalize);
+  }
+
+  clearShutdownTimers() {
+    for (const timer of this.shutdownTimers) {
+      clearTimeout(timer);
+    }
+    this.shutdownTimers = [];
+  }
+
+  writeStatusLine(row, text, color) {
+    for (let x = 0; x < 80; x++) {
+      this.buffer.writeText(x, row, ' ', Palette.BLACK, Palette.BLACK);
+    }
+    if (text) {
+      this.buffer.writeText(0, row, text, color);
+    }
   }
 
   getSaveSummary() {
@@ -1223,5 +1331,242 @@ export class DosPrompt {
       cell.dirty = true;
     }
     this.currentY = MAX_Y;
+  }
+}
+
+// ── BIOS Setup Screen ───────────────────────────────────────
+
+export class BiosSetup {
+  constructor(buffer, options = {}) {
+    this.buffer = buffer;
+    this.settings = { ...options.settings } || {}; // Clone settings
+    this.onRender = typeof options.onRender === 'function' ? options.onRender : null;
+    this.selectedIndex = 0; // Currently selected menu item (0-5)
+    this.exitChoice = 0; // 0 = Save & Exit, 1 = Discard & Exit
+  }
+
+  start() {
+    this.buffer.clear();
+    this.draw();
+  }
+
+  draw() {
+    const b = this.buffer;
+
+    // Fill background with BIOS blue
+    for (let y = 0; y < 25; y++) {
+      for (let x = 0; x < 80; x++) {
+        b.writeText(x, y, ' ', Palette.BLACK, Palette.BIOS_BG);
+      }
+    }
+
+    // Draw border (double-line box)
+    const box = BoxStyles.DOUBLE;
+    // Top border
+    b.writeText(0, 0, box.topLeft, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+    for (let x = 1; x < 79; x++) {
+      b.writeText(x, 0, box.horizontal, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+    }
+    b.writeText(79, 0, box.topRight, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+
+    // Header row separator
+    b.writeText(0, 2, box.teeRight, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+    for (let x = 1; x < 79; x++) {
+      b.writeText(x, 2, box.horizontal, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+    }
+    b.writeText(79, 2, box.teeLeft, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+
+    // Side borders
+    for (let y = 1; y < 23; y++) {
+      b.writeText(0, y, box.vertical, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+      b.writeText(79, y, box.vertical, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+    }
+
+    // Footer separator
+    b.writeText(0, 23, box.teeRight, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+    for (let x = 1; x < 79; x++) {
+      b.writeText(x, 23, box.horizontal, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+    }
+    b.writeText(79, 23, box.teeLeft, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+
+    // Bottom border
+    b.writeText(0, 24, box.bottomLeft, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+    for (let x = 1; x < 79; x++) {
+      b.writeText(x, 24, box.horizontal, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+    }
+    b.writeText(79, 24, box.bottomRight, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+
+    // Header text
+    b.writeText(2, 1, 'CCVI BIOS SETUP v6.0', Palette.WHITE, Palette.BIOS_BG);
+    b.writeText(48, 1, '<DEL> to enter', Palette.DIM_GRAY, Palette.BIOS_BG);
+
+    // Footer help text
+    const helpText = '\u2191\u2193: Select  \u2190\u2192: Change  ENTER: Choose  ESC: Exit';
+    b.writeText(2, 24, helpText, Palette.LIGHT_GRAY, Palette.BIOS_BG);
+
+    // Section headers and menu items
+    this.drawMenuItems();
+  }
+
+  drawMenuItems() {
+    const b = this.buffer;
+
+    // Display Settings section
+    b.writeText(2, 4, 'DISPLAY SETTINGS', Palette.NEON_CYAN, Palette.BIOS_BG);
+    b.writeText(2, 5, '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', Palette.DIM_GRAY, Palette.BIOS_BG);
+
+    this.drawMenuItem(0, 6, 'Font Category', this.getFontCategoryValue());
+    this.drawMenuItem(1, 7, 'Zoom Level', this.getZoomValue());
+    this.drawMenuItem(2, 8, 'Display FPS', this.getFpsValue());
+    this.drawMenuItem(3, 9, 'Bloom Effect', this.getBloomValue());
+
+    // Boot Options section
+    b.writeText(2, 11, 'BOOT OPTIONS', Palette.NEON_CYAN, Palette.BIOS_BG);
+    b.writeText(2, 12, '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', Palette.DIM_GRAY, Palette.BIOS_BG);
+
+    this.drawMenuItem(4, 13, 'Authentic Boot Mode', this.getAuthenticBootValue());
+
+    // Exit Setup section (special)
+    b.writeText(2, 16, 'EXIT SETUP', Palette.NEON_CYAN, Palette.BIOS_BG);
+    b.writeText(2, 17, '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', Palette.DIM_GRAY, Palette.BIOS_BG);
+
+    const exitOptions = ['Save & Exit', 'Discard & Exit'];
+    this.drawMenuItem(5, 18, 'Exit', exitOptions[this.exitChoice]);
+  }
+
+  drawMenuItem(index, row, label, value) {
+    const b = this.buffer;
+    const isSelected = this.selectedIndex === index;
+    const labelColor = isSelected ? Palette.WHITE : Palette.LIGHT_GRAY;
+    const valueColor = isSelected ? Palette.BIOS_HIGHLIGHT : Palette.WHITE;
+    const bg = Palette.BIOS_BG;
+
+    // Selection marker
+    const marker = isSelected ? '>' : ' ';
+    b.writeText(2, row, marker, Palette.BIOS_HIGHLIGHT, bg);
+
+    // Label
+    b.writeText(4, row, label.padEnd(24), labelColor, bg);
+
+    // Value in brackets
+    const displayValue = `[ ${String(value).padEnd(12)} ]`;
+    b.writeText(44, row, displayValue, valueColor, bg);
+  }
+
+  getFontCategoryValue() {
+    const category = this.getFontCategoryKey();
+    if (category === 'modern') return 'Modern';
+    if (category === 'other') return 'Other';
+    return 'Retro';
+  }
+
+  getZoomValue() {
+    return `${this.settings.zoom || 150}%`;
+  }
+
+  getFpsValue() {
+    return String(this.settings.fps || 60);
+  }
+
+  getBloomValue() {
+    return this.settings.bloom ? 'Enabled' : 'Disabled';
+  }
+
+  getAuthenticBootValue() {
+    return this.settings.authenticBoot ? 'Enabled' : 'Disabled';
+  }
+
+  handleKey(key) {
+    if (key === 'Escape') {
+      return 'discard';
+    }
+
+    if (key === 'ArrowUp') {
+      this.selectedIndex = Math.max(0, this.selectedIndex - 1);
+      this.draw();
+      if (this.onRender) this.onRender();
+      return null;
+    }
+
+    if (key === 'ArrowDown') {
+      this.selectedIndex = Math.min(5, this.selectedIndex + 1);
+      this.draw();
+      if (this.onRender) this.onRender();
+      return null;
+    }
+
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      this.cycleCurrentValue(key === 'ArrowRight');
+      this.draw();
+      if (this.onRender) this.onRender();
+      return null;
+    }
+
+    if (key === 'Enter') {
+      // On Exit Setup item
+      if (this.selectedIndex === 5) {
+        return this.exitChoice === 0 ? 'save' : 'discard';
+      }
+      // On other items, Enter cycles like ArrowRight
+      this.cycleCurrentValue(true);
+      this.draw();
+      if (this.onRender) this.onRender();
+      return null;
+    }
+
+    return null;
+  }
+
+  cycleCurrentValue(forward) {
+    const dir = forward ? 1 : -1;
+
+    switch (this.selectedIndex) {
+      case 0: // Font Category
+        this.cycleFontCategory(forward);
+        break;
+
+      case 1: // Zoom
+        const zoomOptions = [100, 125, 150, 175, 200, 250, 300];
+        const currentZoomIndex = zoomOptions.indexOf(this.settings.zoom || 150);
+        const newZoomIndex = (currentZoomIndex + dir + zoomOptions.length) % zoomOptions.length;
+        this.settings.zoom = zoomOptions[newZoomIndex];
+        break;
+
+      case 2: // FPS
+        const fpsOptions = [20, 30, 60, 120, 240];
+        const currentFpsIndex = fpsOptions.indexOf(this.settings.fps || 60);
+        const newFpsIndex = (currentFpsIndex + dir + fpsOptions.length) % fpsOptions.length;
+        this.settings.fps = fpsOptions[newFpsIndex];
+        break;
+
+      case 3: // Bloom
+        this.settings.bloom = !this.settings.bloom;
+        break;
+
+      case 4: // Authentic Boot
+        this.settings.authenticBoot = !this.settings.authenticBoot;
+        break;
+
+      case 5: // Exit choice
+        this.exitChoice = (this.exitChoice + 1) % 2;
+        break;
+    }
+  }
+
+  cycleFontCategory(forward) {
+    const currentCategory = this.getFontCategoryKey();
+    const currentIndex = BIOS_FONT_CATEGORY_ORDER.indexOf(currentCategory);
+    const direction = forward ? 1 : -1;
+    const nextIndex = (currentIndex + direction + BIOS_FONT_CATEGORY_ORDER.length) % BIOS_FONT_CATEGORY_ORDER.length;
+    const nextCategory = BIOS_FONT_CATEGORY_ORDER[nextIndex];
+    const nextFont = BIOS_FONT_CATEGORIES[nextCategory]?.[0] || 'fira';
+    this.settings.font = nextFont;
+  }
+
+  getFontCategoryKey() {
+    const font = this.settings.font || 'fira';
+    if (BIOS_FONT_CATEGORIES.modern.includes(font)) return 'modern';
+    if (BIOS_FONT_CATEGORIES.other.includes(font)) return 'other';
+    return 'retro';
   }
 }

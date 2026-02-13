@@ -144,25 +144,26 @@ export class UI {
 
     // Focus border colors: highlight the focused section's borders
     const focus = this.ui.focus;
-    const leftFocused = focus === "activity" || focus === "option";
-    const rightFocused = focus === "runs";
-    const leftBorderColor = leftFocused ? Palette.NEON_TEAL : Palette.DIM_GRAY;
+    const runsListOnLeft = showingOptions && focus === "runs";
+    const leftFocused = focus === "activity" || focus === "option" || runsListOnLeft;
+    const rightFocused = focus === "runs" && !runsListOnLeft;
+    const leftBorderColor = leftFocused ? Palette.PANEL_SELECTED : Palette.DIM_GRAY;
 
     // Content area borders (start below branch bar at row 5)
     // Left edge (from row 5 down)
-    this.buffer.drawVLine(0, 5, Layout.HEIGHT - 5, "│", leftBorderColor, Palette.BLACK);
+    this.buffer.drawVLine(0, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, leftBorderColor, Palette.BLACK);
     // Bottom-left corner and left portion of bottom border
-    this.buffer.setCell(0, Layout.HEIGHT - 1, "└", leftBorderColor, Palette.BLACK);
-    this.buffer.drawHLine(1, Layout.HEIGHT - 1, 38, "─", leftBorderColor, Palette.BLACK);
+    this.buffer.setCell(0, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomLeft, leftBorderColor, Palette.BLACK);
+    this.buffer.drawHLine(1, Layout.HEIGHT - 1, 38, BoxStyles.SINGLE.horizontal, leftBorderColor, Palette.BLACK);
 
     if (rightFocused) {
       // DOUBLE border box around the entire right panel
       this.buffer.drawBox(39, 4, 41, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
     } else {
       // Subtle right-side borders when not focused
-      this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, "│", Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.drawHLine(40, Layout.HEIGHT - 1, 39, "─", Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, "┘", Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.drawHLine(40, Layout.HEIGHT - 1, 39, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomRight, Palette.DIM_GRAY, Palette.BLACK);
     }
 
     if (!showingOptions) {
@@ -206,7 +207,7 @@ export class UI {
 
           // Branch stats separator
           const statsY = listTop + 8;
-          this.buffer.drawHLine(2, statsY, leftWidth, "─", Palette.DIM_GRAY, Palette.BLACK);
+          this.buffer.drawHLine(2, statsY, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
           this.buffer.writeText(2, statsY + 1, "BRANCH STATISTICS", Palette.NEON_TEAL, Palette.BLACK);
 
           // Calculate stats for this branch
@@ -227,7 +228,7 @@ export class UI {
           }
 
           // Help text
-          this.buffer.writeText(2, Layout.HEIGHT - 2, "[←/→] Switch branch  [↓] Jobs", Palette.SUCCESS_GREEN, Palette.BLACK);
+          this.buffer.writeText(2, Layout.HEIGHT - 2, "[LEFT/RIGHT] Switch branch  [DOWN] Jobs", Palette.SUCCESS_GREEN, Palette.BLACK);
         }
       } else {
         // ACTIVITY SELECTION MODE: Show activity list
@@ -253,7 +254,7 @@ export class UI {
         // Show description of selected activity (left half only)
         if (activity) {
           const descY = listTop + 13;
-          this.buffer.drawHLine(2, descY, leftWidth, "─", Palette.DIM_GRAY, Palette.BLACK);
+          this.buffer.drawHLine(2, descY, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
           this.buffer.writeText(2, descY + 1, activity.name.toUpperCase(), Palette.NEON_CYAN, Palette.BLACK);
 
           const descLines = this.wrapText(activity.description || "", leftWidth - 2);
@@ -261,14 +262,15 @@ export class UI {
             this.buffer.writeText(2, descY + 2 + idx, line, Palette.MID_GRAY, Palette.BLACK);
           });
 
-          this.buffer.writeText(2, Layout.HEIGHT - 2, "[ENTER] Options  [→] Runs", Palette.SUCCESS_GREEN, Palette.BLACK);
+          this.buffer.writeText(2, Layout.HEIGHT - 2, "[ENTER/RIGHT] Options", Palette.SUCCESS_GREEN, Palette.BLACK);
         }
       }
 
       // Vertical divider (skip when rightFocused - DOUBLE box handles it)
-      if (!rightFocused) {
-        this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", Palette.DIM_GRAY, Palette.BLACK);
-        this.buffer.setCell(dividerX, Layout.HEIGHT - 1, "┴", Palette.DIM_GRAY, Palette.BLACK);
+      if (!rightFocused && !runsListOnLeft) {
+        const dividerColor = leftFocused ? leftBorderColor : Palette.DIM_GRAY;
+        this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, BoxStyles.SINGLE.vertical, dividerColor, Palette.BLACK);
+        this.buffer.setCell(dividerX, Layout.HEIGHT - 1, BoxStyles.SINGLE.teeUp, dividerColor, Palette.BLACK);
       }
 
       // RIGHT HALF: Active runs for this branch
@@ -289,31 +291,51 @@ export class UI {
       // Redraw branch selection bar over the background (preserves visual)
       this.renderBranchSelectionBar(branches, this.ui.branchIndex, false);
 
+      // Redraw panel borders after branch fill
+      this.buffer.drawVLine(0, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, leftBorderColor, branchBgColor);
+      this.buffer.setCell(0, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomLeft, leftBorderColor, branchBgColor);
+      this.buffer.drawHLine(1, Layout.HEIGHT - 1, 38, BoxStyles.SINGLE.horizontal, leftBorderColor, branchBgColor);
+
+      if (runsListOnLeft) {
+        this.buffer.drawBox(0, 4, 40, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, branchBgColor);
+      } else if (rightFocused) {
+        this.buffer.drawBox(39, 4, 41, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, branchBgColor);
+      } else {
+        this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, branchBgColor);
+        this.buffer.drawHLine(40, Layout.HEIGHT - 1, 39, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, branchBgColor);
+        this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomRight, Palette.DIM_GRAY, branchBgColor);
+      }
+
       // Vertical divider (skip when rightFocused - DOUBLE box handles it)
-      if (!rightFocused) {
-        this.buffer.drawVLine(dividerX, optionsTop, Layout.HEIGHT - 2, "│", Palette.DIM_GRAY, branchBgColor);
-        this.buffer.setCell(dividerX, Layout.HEIGHT - 1, "┴", Palette.DIM_GRAY, Palette.BLACK);
+      if (!rightFocused && !runsListOnLeft) {
+        const dividerColor = leftFocused ? leftBorderColor : Palette.DIM_GRAY;
+        this.buffer.drawVLine(dividerX, optionsTop, Layout.HEIGHT - 2, BoxStyles.SINGLE.vertical, dividerColor, branchBgColor);
+        this.buffer.setCell(dividerX, Layout.HEIGHT - 1, BoxStyles.SINGLE.teeUp, dividerColor, branchBgColor);
       }
 
       // Get runs for this activity (needed for both panels)
       const activityRuns = this.engine.state.runs.filter((r) => r.activityId === activity.id);
+      const activityContext = `${branch?.name || "?"} > ${activity?.name || "?"}`;
 
-      // Sort runs: active first, then completed
-      const sortedRuns = activityRuns.slice().sort(sortRunsActiveFirst);
-
-      // Get selected run (if any)
-      const selectedRunIndex = this.ui.selectedRun ?? 0;
-      const selectedRun = sortedRuns[selectedRunIndex];
-
-      if (rightFocused) {
-        // RUNS FOCUSED: Show run detail in left panel
-        const panelHeight = Layout.HEIGHT - optionsTop - 1;
-        this.renderRunDetailPanel(selectedRun?.runId, 2, optionsTop, leftWidth, panelHeight, branchBgColor);
+      if (runsListOnLeft) {
+        this.renderRunBrowser(activityRuns, {
+          listX: 2,
+          listY: optionsTop,
+          listWidth: leftWidth,
+          detailX: rightX,
+          detailY: optionsTop,
+          detailWidth: rightWidth,
+          bgColor: branchBgColor,
+          contextPath: activityContext,
+          detailHeader: "RUN DETAILS",
+          detailHint: "[LEFT] BACK TO OPTIONS",
+        });
       } else {
         // LEFT HALF: Streamlined options view
         // Zone 1: Header (rows 5-6)
-        this.buffer.writeText(2, optionsTop, activity.name.toUpperCase(), Palette.NEON_CYAN, branchBgColor);
-        this.buffer.drawHLine(2, optionsTop + 1, leftWidth, "─", Palette.DIM_GRAY, branchBgColor);
+        const breadcrumb = `ACTIVITIES > ${activity.name}`.toUpperCase();
+        this.buffer.writeText(2, optionsTop, breadcrumb.substring(0, leftWidth), Palette.NEON_CYAN, branchBgColor);
+        this.buffer.drawHLine(2, optionsTop + 1, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, branchBgColor);
 
         // Zone 2: Scrollable options (rows 7-18, 12 rows available)
         const scrollTop = optionsTop + 2;
@@ -393,7 +415,7 @@ export class UI {
         }
 
         // Zone 3: Footer (selected option description + controls)
-        this.buffer.drawHLine(2, footerTop, leftWidth, "─", Palette.DIM_GRAY, branchBgColor);
+        this.buffer.drawHLine(2, footerTop, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, branchBgColor);
 
         const selectedOpt = options[selectedIdx];
         if (selectedOpt) {
@@ -408,12 +430,13 @@ export class UI {
           }
         }
 
-        this.buffer.writeText(2, Layout.HEIGHT - 2, "[→] Runs  [ESC] Back", Palette.SUCCESS_GREEN, branchBgColor);
+        this.buffer.writeText(2, Layout.HEIGHT - 2, "[RIGHT] Runs  [LEFT/ESC] Activities", Palette.SUCCESS_GREEN, branchBgColor);
       }
 
-      // RIGHT HALF: Active runs for this activity (use shared panel)
-      const activityContext = `${branch?.name || "?"} > ${activity?.name || "?"}`;
-      this.renderActiveRunsPanel(activityRuns, rightX, optionsTop, rightWidth, branchBgColor, activityContext);
+      // RIGHT HALF: Active runs for this activity
+      if (!runsListOnLeft) {
+        this.renderActiveRunsPanel(activityRuns, rightX, optionsTop, rightWidth, branchBgColor, activityContext);
+      }
     }
   }
 
@@ -543,10 +566,10 @@ export class UI {
 
       let line3 = "";
       if (successCount > 0) {
-        line3 += `✓${successCount}`;
+        line3 += "+" + successCount;
       }
       if (failCount > 0) {
-        line3 += (line3 ? " " : "") + `✗${failCount}`;
+        line3 += (line3 ? " " : "") + "x" + failCount;
       }
       if (totalCash !== 0) {
         const cashStr = totalCash >= 0 ? `$${this.fmtNum(totalCash)}` : `-$${this.fmtNum(Math.abs(totalCash))}`;
@@ -557,7 +580,7 @@ export class UI {
       }
 
       if (!line3 && isCompleted) {
-        line3 = "✓ Done";
+        line3 = "+ Done";
       } else if (!line3 && !isCompleted) {
         // In progress with results
         line3 = `Run ${run.currentRun || 1}...`;
@@ -647,6 +670,51 @@ export class UI {
     }
   }
 
+  getSelectedRunFromRuns(runs) {
+    const sortedRuns = runs.slice().sort(sortRunsActiveFirst);
+    if (sortedRuns.length === 0) {
+      this.ui.selectedRun = 0;
+      return null;
+    }
+
+    let selectedRun = this.ui.selectedRun ?? 0;
+    selectedRun = Math.max(0, Math.min(selectedRun, sortedRuns.length - 1));
+    this.ui.selectedRun = selectedRun;
+    return sortedRuns[selectedRun];
+  }
+
+  renderRunBrowser(
+    runs,
+    {
+      listX,
+      listY,
+      listWidth,
+      detailX,
+      detailY,
+      detailWidth,
+      bgColor = Palette.BLACK,
+      contextPath = null,
+      detailHeader = null,
+      detailHint = null,
+    },
+  ) {
+    this.renderActiveRunsPanel(runs, listX, listY, listWidth, bgColor, contextPath);
+
+    let detailStartY = detailY;
+    if (detailHeader) {
+      this.buffer.writeText(detailX, detailStartY, detailHeader.substring(0, detailWidth), Palette.DIM_GRAY, bgColor);
+      detailStartY += 1;
+    }
+    if (detailHint) {
+      this.buffer.writeText(detailX, detailStartY, detailHint.substring(0, detailWidth), Palette.DIM_GRAY, bgColor);
+      detailStartY += 1;
+    }
+
+    const selectedRun = this.getSelectedRunFromRuns(runs);
+    const detailHeight = Layout.HEIGHT - detailStartY - 1;
+    this.renderRunDetailPanel(selectedRun?.runId, detailX, detailStartY, detailWidth, detailHeight, bgColor);
+  }
+
   // Render run detail in a panel (inline, not overlay)
   // Shows run info, results list, totals, and controls
   renderRunDetailPanel(runId, x, y, width, height, bgColor = Palette.BLACK) {
@@ -685,7 +753,7 @@ export class UI {
     this.buffer.writeText(x, y + 2, `Crew: ${staffNames}`.substring(0, width), Palette.MID_GRAY, bgColor);
 
     // Row 4: Separator
-    this.buffer.drawHLine(x, y + 3, width, "─", Palette.DIM_GRAY, bgColor);
+    this.buffer.drawHLine(x, y + 3, width, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bgColor);
 
     // Results section
     const results = run.results || [];
@@ -721,7 +789,7 @@ export class UI {
       visibleResults.forEach((result, idx) => {
         if (currentY >= y + height - controlsHeight) return;
         const resultIdx = scrollOffset + idx + 1;
-        const icon = result.botched ? "✗" : "✓";
+        const icon = result.botched ? "x" : "+";
         const iconColor = result.botched ? Palette.HEAT_RED : Palette.SUCCESS_GREEN;
 
         // Format resource gains - iterate ALL resources
@@ -752,7 +820,7 @@ export class UI {
         const moreAbove = scrollOffset > 0;
         const moreBelow = scrollOffset + maxResultRows < results.length;
         if (moreAbove || moreBelow) {
-          let scrollHint = moreAbove && moreBelow ? "↑↓ scroll" : moreAbove ? "↑ scroll" : "↓ scroll";
+          let scrollHint = moreAbove && moreBelow ? "UP/DOWN scroll" : moreAbove ? "UP scroll" : "DOWN scroll";
           this.buffer.writeText(x + width - scrollHint.length, currentY, scrollHint, Palette.DIM_GRAY, bgColor);
         }
       }
@@ -760,7 +828,7 @@ export class UI {
 
     // Totals at bottom
     const totalsY = y + height - 3;
-    this.buffer.drawHLine(x, totalsY - 1, width, "─", Palette.DIM_GRAY, bgColor);
+    this.buffer.drawHLine(x, totalsY - 1, width, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bgColor);
 
     // Aggregate totals
     const resourceTotals = {};
@@ -777,8 +845,8 @@ export class UI {
     });
 
     let totalsStr = "";
-    if (successCount > 0) totalsStr += `✓${successCount} `;
-    if (failCount > 0) totalsStr += `✗${failCount} `;
+    if (successCount > 0) totalsStr += "+" + successCount + " ";
+    if (failCount > 0) totalsStr += "x" + failCount + " ";
     for (const [resId, amount] of Object.entries(resourceTotals)) {
       if (amount === 0) continue;
       const resDef = this.engine.data.resources?.find((r) => r.id === resId);
@@ -808,7 +876,7 @@ export class UI {
   }
 
   renderActiveTab() {
-    // 50/50 split: left=run detail/filters, right=filtered runs
+    // 50/50 split
     const listTop = 5;
     const leftWidth = 36; // x=2 to x=38
     const dividerX = 39;
@@ -847,64 +915,6 @@ export class UI {
     const currentFilter = filters[this.ui.activeFilter];
     const filteredRuns = currentFilter.filter();
 
-    // Sort runs: active first, then completed
-    const sortedRuns = filteredRuns.slice().sort(sortRunsActiveFirst);
-
-    // Get selected run (if any)
-    const selectedRunIndex = this.ui.selectedRun ?? 0;
-    const selectedRun = sortedRuns[selectedRunIndex];
-    const rightFocused = this.ui.focus === "runs";
-
-    if (rightFocused) {
-      // DOUBLE border box around the entire right panel
-      this.buffer.drawBox(39, 4, 41, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
-    } else {
-      // Vertical divider when not focused
-      this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, "│", Palette.DIM_GRAY, Palette.BLACK);
-    }
-
-    if (rightFocused) {
-      // RUNS FOCUSED: Show run detail in left panel
-      this.buffer.writeText(2, listTop - 2, "RUN DETAIL", Palette.SUCCESS_GREEN, Palette.BLACK);
-      const panelHeight = Layout.HEIGHT - listTop - 1;
-      this.renderRunDetailPanel(selectedRun?.runId, 2, listTop, leftWidth, panelHeight, Palette.BLACK);
-    } else {
-      // LEFT HALF: Filter list
-      this.buffer.writeText(2, listTop - 2, "ACTIVE OPERATIONS", Palette.SUCCESS_GREEN, Palette.BLACK);
-      this.buffer.writeText(2, listTop, "FILTERS:", Palette.NEON_CYAN, Palette.BLACK);
-
-      filters.forEach((f, i) => {
-        const row = listTop + 2 + i;
-        const selected = this.ui.activeFilter === i;
-        const prefix = selected ? ">" : " ";
-        const fg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
-
-        let label = `${i + 1}. ${f.name}`;
-        if (f.id === "by_branch") {
-          const branchIndex = this.ui.activeBranchFilter ?? 0;
-          const branches = this.getVisibleBranches();
-          const branch = branches[branchIndex];
-          label += `: ${branch?.name || "?"}`;
-        }
-
-        this.buffer.writeText(2, row, prefix, selected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
-        this.buffer.writeText(4, row, label.substring(0, leftWidth - 4), fg, Palette.BLACK);
-      });
-
-      // Cycle branch hint
-      if (this.ui.activeFilter === 3) {
-        this.buffer.writeText(4, listTop + 8, "[B] Cycle branches", Palette.DIM_GRAY, Palette.BLACK);
-      }
-
-      // Stop all hint
-      if (this.ui.confirmStopAll) {
-        this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] CONFIRM STOP ALL", Palette.HEAT_RED, Palette.BLACK);
-      } else {
-        this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] Clear all  [→] Runs", Palette.DIM_GRAY, Palette.BLACK);
-      }
-    }
-
-    // RIGHT HALF: Filtered runs
     let activeContext = currentFilter.name;
     if (currentFilter.id === "by_branch") {
       const branchIndex = this.ui.activeBranchFilter ?? 0;
@@ -912,9 +922,65 @@ export class UI {
       const branch = branches[branchIndex];
       activeContext = branch?.name || "?";
     }
+
+    const runsFocused = this.ui.focus === "runs";
+    if (runsFocused) {
+      this.buffer.drawBox(0, 4, 40, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
+      this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.drawHLine(40, Layout.HEIGHT - 1, 39, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomRight, Palette.DIM_GRAY, Palette.BLACK);
+
+      this.renderRunBrowser(filteredRuns, {
+        listX: 2,
+        listY: listTop,
+        listWidth: leftWidth,
+        detailX: rightX,
+        detailY: listTop,
+        detailWidth: rightWidth,
+        bgColor: Palette.BLACK,
+        contextPath: activeContext,
+        detailHeader: "RUN DETAILS",
+        detailHint: "[LEFT] BACK TO FILTERS",
+      });
+      return;
+    }
+
+    this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, Palette.BLACK);
+
+    // LEFT HALF: Filter list
+    this.buffer.writeText(2, listTop - 2, "ACTIVE OPERATIONS", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(2, listTop, "FILTERS:", Palette.NEON_CYAN, Palette.BLACK);
+
+    filters.forEach((f, i) => {
+      const row = listTop + 2 + i;
+      const selected = this.ui.activeFilter === i;
+      const prefix = selected ? ">" : " ";
+      const fg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
+
+      let label = `${i + 1}. ${f.name}`;
+      if (f.id === "by_branch") {
+        const branchIndex = this.ui.activeBranchFilter ?? 0;
+        const branches = this.getVisibleBranches();
+        const branch = branches[branchIndex];
+        label += `: ${branch?.name || "?"}`;
+      }
+
+      this.buffer.writeText(2, row, prefix, selected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.writeText(4, row, label.substring(0, leftWidth - 4), fg, Palette.BLACK);
+    });
+
+    if (this.ui.activeFilter === 3) {
+      this.buffer.writeText(4, listTop + 8, "[B] Cycle branches", Palette.DIM_GRAY, Palette.BLACK);
+    }
+
+    if (this.ui.confirmStopAll) {
+      this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] CONFIRM STOP ALL", Palette.HEAT_RED, Palette.BLACK);
+    } else {
+      this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] Clear all  [RIGHT] Runs", Palette.DIM_GRAY, Palette.BLACK);
+    }
+
     this.renderActiveRunsPanel(filteredRuns, rightX, listTop, rightWidth, Palette.BLACK, activeContext);
   }
-
   renderCrewTab() {
     const top = 4;
     const crewCount = this.engine.state.crew.staff.length;
@@ -1122,7 +1188,7 @@ export class UI {
     }
 
     // Bottom controls
-    this.buffer.drawHLine(2, Layout.HEIGHT - 3, Layout.WIDTH - 4, "\u2500", Palette.DIM_GRAY, bgColor);
+    this.buffer.drawHLine(2, Layout.HEIGHT - 3, Layout.WIDTH - 4, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bgColor);
     this.buffer.writeText(2, Layout.HEIGHT - 2, "[ESC] Back to list", Palette.DIM_GRAY, bgColor);
   }
 
@@ -1264,7 +1330,7 @@ export class UI {
 
     // Description area at bottom
     const descY = Layout.HEIGHT - 4;
-    this.buffer.drawHLine(2, descY, Layout.WIDTH - 4, "─", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.drawHLine(2, descY, Layout.WIDTH - 4, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
 
     // Show description of selected resource
     const selectedResource = visibleResources[selectedIndex];
@@ -1396,7 +1462,7 @@ export class UI {
     const graphX = 8; // X position for graph data area
 
     // Draw horizontal separator
-    this.buffer.drawHLine(2, graphY - 1, Layout.WIDTH - 4, "─", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.drawHLine(2, graphY - 1, Layout.WIDTH - 4, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
 
     if (data.length === 0) {
       this.buffer.writeText(graphX + 10, graphY + 4, "Collecting data...", Palette.DIM_GRAY, Palette.BLACK);
@@ -1465,9 +1531,9 @@ export class UI {
     }
 
     // Draw Y-axis
-    this.buffer.writeText(x - 1, y + height - 1, "└", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(x - 1, y + height - 1, BoxStyles.SINGLE.bottomLeft, Palette.DIM_GRAY, Palette.BLACK);
     for (let row = 0; row < height - 1; row++) {
-      this.buffer.writeText(x - 1, y + row, "│", Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.writeText(x - 1, y + row, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, Palette.BLACK);
     }
 
     // Draw Y-axis labels (5 labels: max, 75%, 50%, 25%, min)
@@ -1493,12 +1559,12 @@ export class UI {
         this.buffer.writeText(labelX, labelY, label, Palette.DIM_GRAY, Palette.BLACK);
       }
       // Draw tick mark
-      this.buffer.writeText(x - 1, labelY, "┤", Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.writeText(x - 1, labelY, BoxStyles.SINGLE.teeLeft, Palette.DIM_GRAY, Palette.BLACK);
     });
 
     // Draw X-axis
     for (let col = 0; col < width; col++) {
-      this.buffer.writeText(x + col, y + height - 1, "─", Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.writeText(x + col, y + height - 1, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
     }
     this.buffer.writeText(x + width - 1, y + height - 1, ">", Palette.DIM_GRAY, Palette.BLACK);
 
@@ -1830,7 +1896,7 @@ export class UI {
 
       // Draw separator if not the last branch
       if (i < branches.length - 1) {
-        this.buffer.writeText(x, CONTENT_Y, " │ ", Palette.DIM_GRAY, Palette.BLACK);
+        this.buffer.writeText(x, CONTENT_Y, ` ${BoxStyles.SINGLE.vertical} `, Palette.DIM_GRAY, Palette.BLACK);
         x += 3;
       }
     });
@@ -2073,13 +2139,13 @@ export class UI {
         let icon = " ";
         if (name.toLowerCase().includes("success")) {
           nameColor = Palette.SUCCESS_GREEN;
-          icon = "✓";
+          icon = "+";
         } else if (name.toLowerCase().includes("botch")) {
           nameColor = Palette.ELECTRIC_ORANGE;
           icon = "!";
         } else if (name.toLowerCase().includes("bust")) {
           nameColor = Palette.HEAT_RED;
-          icon = "✗";
+          icon = "x";
         }
 
         this.buffer.writeText(leftCol.x, leftY, `${icon} ${name}`, nameColor, bgColor);
@@ -2129,7 +2195,7 @@ export class UI {
         const staff = slot.options[slot.selectedIndex];
         if (staff) {
           const stars = this.engine.getStars(staff);
-          const crewText = stars > 0 ? `${staff.name} (${stars}★)` : staff.name;
+          const crewText = stars > 0 ? `${staff.name} (${stars}*)` : staff.name;
           this.buffer.writeText(rightCol.x + 2, rightY, crewText.substring(0, rightCol.width - 4), Palette.WHITE, bgColor);
         } else {
           this.buffer.writeText(rightCol.x + 2, rightY, "None available", Palette.HEAT_RED, bgColor);
@@ -2138,7 +2204,7 @@ export class UI {
 
         // Show navigation hint for selected slot
         if (selected && slot.options.length > 1) {
-          this.buffer.writeText(rightCol.x + 2, rightY, `[←→] ${slot.selectedIndex + 1}/${slot.options.length}`, Palette.DIM_GRAY, bgColor);
+          this.buffer.writeText(rightCol.x + 2, rightY, `[LEFT/RIGHT] ${slot.selectedIndex + 1}/${slot.options.length}`, Palette.DIM_GRAY, bgColor);
           rightY += 1;
         }
       });
@@ -2169,10 +2235,10 @@ export class UI {
     }
 
     // Bottom controls
-    this.buffer.drawHLine(2, Layout.HEIGHT - 3, Layout.WIDTH - 4, "─", Palette.DIM_GRAY, bgColor);
+    this.buffer.drawHLine(2, Layout.HEIGHT - 3, Layout.WIDTH - 4, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bgColor);
     this.buffer.writeText(2, Layout.HEIGHT - 2, "[Q]Quick", Palette.SUCCESS_GREEN, bgColor);
     this.buffer.writeText(14, Layout.HEIGHT - 2, "[ENTER]Start", Palette.SUCCESS_GREEN, bgColor);
-    this.buffer.writeText(30, Layout.HEIGHT - 2, "[↑↓←→]Crew", Palette.NEON_CYAN, bgColor);
+    this.buffer.writeText(30, Layout.HEIGHT - 2, "[U/D/L/R]Crew", Palette.NEON_CYAN, bgColor);
 
     // Only show iteration/policy hints if repeatable
     if (option.repeatable) {

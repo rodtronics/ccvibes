@@ -44,3 +44,7 @@ dos: doesnt need to ask for help to show another page when a new command is used
 important UI decision. when we are in options and we push right into having active runs selected, we have it so the left hand window shows the content we want to see while selecting the item on the right.. we NEED to lower the header of the left hand window, it gives the left hand window less creedence and kinda of shows to the player than the right hand window is still the window we have selected and is what's driving whwats going on, and that the left hand stuf is _just_ info.. otherwise this is going to get confusing. it has to be OBVIOUS FUCKING OBIOVUS that the selected window is the right hand window, and that theleft hand window has now turned into a slave.
 
 MODALs can we maybe get a margins sometnig
+
+workbench - modal copier
+
+idea for dos: a package manager that has an official repo and 3rd party can be added, because I want to be able to download more ram

@@ -165,6 +165,13 @@ function parseLineSegments(line, bgColor = Palette.BLACK, defaultFgColor = Palet
 
     // Regular character
     const nextSpecial = findNextSpecial(line, currentPos);
+    if (nextSpecial === currentPos) {
+      // Unmatched formatting marker at current position (e.g. single "~" after deleting one);
+      // consume one character so parsing always makes progress.
+      segments.push({ text: line[currentPos], fg: currentFg, bg: currentBg });
+      currentPos += 1;
+      continue;
+    }
     const text = line.substring(currentPos, nextSpecial);
     if (text) {
       segments.push({ text, fg: currentFg, bg: currentBg });
@@ -250,7 +257,7 @@ function wrapSegments(segments, width) {
  */
 export async function loadModalData() {
   try {
-    const response = await fetch('data/modals.json', { cache: 'no-store' });
+    const response = await fetch('../data/modals.json', { cache: 'no-store' });
     const modalsArray = await response.json();
     // Convert array to map for easy lookup
     MODAL_DATA = {};

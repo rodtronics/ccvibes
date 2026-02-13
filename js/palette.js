@@ -39,8 +39,13 @@ export const Palette = {
   HEAT_RED: "#ff0000",
   EXECUTABLE: "#ff5858",
   ACTIVE_SLOT: "#87ff87",
+  PANEL_SELECTED: "#40e0d0",
   ACTIVE_BORDER: "#00ffff",
   SUCCESS_GREEN: "#00ff00",
+
+  // BIOS colors (traditional 286 BIOS screen)
+  BIOS_BG: "#000080",      // Dark blue background
+  BIOS_HIGHLIGHT: "#00ffff", // Cyan highlight for selected items
 
   // Branch UI colors
   LAVA_RED: "#ff3300",

@@ -7,6 +7,20 @@ let container = null;
 let previewInitialized = false;
 let debounceTimer = null;
 
+const MODAL_TYPES = [
+  { key: 'story', label: 'Story', icon: '📖' },
+  { key: 'lore', label: 'Lore', icon: '🔮' },
+  { key: 'lesson', label: 'Lesson', icon: '💡' },
+];
+
+let activeTypeFilters = new Set(MODAL_TYPES.map(t => t.key));
+let filterCountdownOnly = false;
+
+function getTypeIcon(type) {
+  const hit = MODAL_TYPES.find(t => t.key === type);
+  return hit?.icon || '📄';
+}
+
 function escapeJsSingleQuoted(value) {
   return String(value ?? '')
     .replace(/\\/g, '\\\\')
@@ -51,17 +65,20 @@ export function init(el) {
   on('save-complete', render);
   window._modals = {
     selectModal, updateModal, updateModalBody, addModal, deleteModal, saveModals,
-    wrapSelection, insertAtCursor, refreshPreview
+    wrapSelection, insertAtCursor, refreshPreview, duplicateModal,
+    toggleTypeFilter, toggleCountdownFilter
   };
 }
 
 export function activate() {
+  if (container) container.style.overflow = 'hidden';
   render();
 }
 
 export function deactivate() {
   clearTimeout(debounceTimer);
   debounceTimer = null;
+  if (container) container.style.overflow = '';
   if (previewInitialized) {
     destroyPreview();
     previewInitialized = false;
@@ -69,6 +86,22 @@ export function deactivate() {
 }
 
 // ── Render ──
+
+function toggleTypeFilter(type) {
+  if (activeTypeFilters.has(type)) activeTypeFilters.delete(type);
+  else activeTypeFilters.add(type);
+
+  if (activeTypeFilters.size === 0) {
+    activeTypeFilters = new Set(MODAL_TYPES.map(t => t.key));
+  }
+
+  render();
+}
+
+function toggleCountdownFilter() {
+  filterCountdownOnly = !filterCountdownOnly;
+  render();
+}
 
 function render() {
   if (!container) return;
@@ -88,37 +121,65 @@ function render() {
   const selStart = activeEl?.selectionStart;
   const selEnd = activeEl?.selectionEnd;
 
+  const filtered = store.modals.filter(modal => {
+    const type = modal.type || 'lore';
+    if (activeTypeFilters.size > 0 && !activeTypeFilters.has(type)) return false;
+    if (filterCountdownOnly && !modal.countdown) return false;
+    return true;
+  });
+
+  if (filtered.length > 0 && !filtered.some(modal => modal.id === store.selectedModalId)) {
+    store.selectedModalId = filtered[0].id;
+  }
+
   const m = store.modals.find(m => m.id === store.selectedModalId);
 
   container.innerHTML = `
-    <div class="tab-panel__content" style="display:flex;gap:16px;height:100%">
+    <div class="tab-panel__content" style="display:flex;gap:16px;height:100%;min-height:0">
       <!-- Left: Modal list -->
-      <div style="width:200px;flex-shrink:0;display:flex;flex-direction:column;gap:12px">
+      <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;min-height:0">
         <div class="panel__header" style="flex-shrink:0">
           <h2>Modals</h2>
-          <div class="flex">
-            <button class="small" onclick="_modals.addModal()">+ New</button>
-            <button class="small" onclick="_modals.saveModals()">Save</button>
+          <div class="flex" style="gap:6px;justify-content:flex-end">
+            ${MODAL_TYPES.map(t => `
+              <button class="icon-btn small" type="button" style="width:30px;height:28px;padding:0;display:grid;place-items:center;line-height:1;font-size:0.95rem" title="New ${safe(t.label)} modal" onclick="_modals.addModal('${t.key}')">${t.icon}</button>
+            `).join('')}
+            <button class="small" type="button" onclick="_modals.saveModals()">Save</button>
           </div>
         </div>
-        <div class="list" style="flex:1;overflow-y:auto;max-height:calc(100vh - 180px)">
-          ${store.modals.map(modal => {
-            const isSelected = modal.id === store.selectedModalId;
-            const typeIcon = modal.type === 'story' ? '📖' : modal.type === 'lore' ? '🔮' : modal.type === 'lesson' ? '💡' : '📄';
+        <div class="flex" style="gap:6px;flex-wrap:nowrap;align-items:center;flex-shrink:0">
+          ${MODAL_TYPES.map(t => {
+            const isActive = activeTypeFilters.has(t.key);
             return `
-              <div class="item" style="cursor:pointer;${isSelected ? 'border-color:var(--accent)' : ''}" onclick="_modals.selectModal('${escapeJsSingleQuoted(modal.id)}')">
+              <button class="icon-btn ghost small ${isActive ? 'is-active' : ''}" type="button" style="width:30px;height:28px;padding:0;display:grid;place-items:center;line-height:1;font-size:0.95rem;${isActive ? 'border-color:var(--accent);color:var(--accent-bright);box-shadow:0 0 0 3px rgba(125,211,252,0.12)' : ''}" title="Filter ${safe(t.label)}" aria-pressed="${isActive}" onclick="_modals.toggleTypeFilter('${t.key}')">${t.icon}</button>
+            `;
+          }).join('')}
+          <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
+          <button class="icon-btn ghost small ${filterCountdownOnly ? 'is-active' : ''}" type="button" style="width:30px;height:28px;padding:0;display:grid;place-items:center;line-height:1;font-size:0.8rem;${filterCountdownOnly ? 'border-color:var(--accent);color:var(--accent-bright);box-shadow:0 0 0 3px rgba(125,211,252,0.12)' : ''}" title="Filter: Countdown (3s)" aria-pressed="${filterCountdownOnly}" onclick="_modals.toggleCountdownFilter()">3s</button>
+          <span class="muted" style="margin-left:auto;font-size:0.75rem;white-space:nowrap">${filtered.length}/${store.modals.length}</span>
+        </div>
+
+        <div class="list modal-list" style="flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;gap:4px;padding-right:4px">
+          ${filtered.length ? filtered.map(modal => {
+            const isSelected = modal.id === store.selectedModalId;
+            const typeIcon = getTypeIcon(modal.type);
+            const countdownBadge = modal.countdown
+              ? '<span title="Auto-close in 3s" style="display:inline-flex;align-items:center;padding:1px 6px;border-radius:999px;border:1px solid rgba(251,191,36,0.35);background:rgba(251,191,36,0.08);color:var(--warning);font-size:0.7rem;font-family:var(--font-mono);line-height:1.2">3s</span>'
+              : '';
+            return `
+              <div class="item ${isSelected ? 'is-selected' : ''}" style="cursor:pointer;padding:6px 8px;border:1px solid var(--border);${isSelected ? 'border-color:var(--accent);background:rgba(125,211,252,0.06)' : ''}" onclick="_modals.selectModal('${escapeJsSingleQuoted(modal.id)}')">
                 <div class="flex" style="justify-content:space-between;margin-bottom:2px">
                   <strong style="font-size:0.85rem">${safe(modal.title || modal.id)}</strong>
-                  <span style="font-size:0.85rem">${typeIcon}</span>
+                  <span style="display:flex;align-items:center;gap:4px;font-size:0.85rem">${countdownBadge}${typeIcon}</span>
                 </div>
                 <div class="muted" style="font-size:0.75rem">${safe(modal.id)}</div>
               </div>`;
-          }).join('')}
+          }).join('') : '<div class="hint" style="padding:10px">No modals match the current filters.</div>'}
         </div>
       </div>
 
       <!-- Right: Editor + Preview -->
-      <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0">
         ${m ? renderEditor(m) : '<div class="hint" style="padding:20px">Select a modal to edit, or create a new one.</div>'}
       </div>
     </div>
@@ -193,7 +254,10 @@ function renderEditor(m) {
           <input type="checkbox" ${m.countdown ? 'checked' : ''} onchange="_modals.updateModal('countdown', this.checked); _modals.refreshPreview()">
         </div>
         <div>
-          <button class="danger small" onclick="_modals.deleteModal('${escapeJsSingleQuoted(m.id)}')" style="padding:6px 10px;font-size:0.8rem">Delete</button>
+          <div class="flex" style="gap:6px;justify-content:flex-end">
+            <button class="small" onclick="_modals.duplicateModal()" style="padding:6px 10px;font-size:0.8rem">Duplicate</button>
+            <button class="danger small" onclick="_modals.deleteModal('${escapeJsSingleQuoted(m.id)}')" style="padding:6px 10px;font-size:0.8rem">Delete</button>
+          </div>
         </div>
       </div>
 
@@ -338,13 +402,17 @@ function updateModalBody(value) {
   debounceTimer = setTimeout(refreshPreview, 150);
 }
 
-function addModal() {
+function addModal(type = 'lore') {
+  const nextType = type || 'lore';
+  activeTypeFilters.add(nextType);
+  filterCountdownOnly = false;
+
   const newId = 'new_modal_' + Date.now();
   const modal = {
     id: newId,
     title: 'New Modal',
     body: 'Modal body text goes here.\n\nUse {{neon_cyan}}color tags{{/}} for formatting.\nUse **bold** for emphasis.\nUse ~~dim~~ for subtle text.',
-    type: 'lore',
+    type: nextType,
     showOnce: false,
     countdown: false
   };
@@ -353,6 +421,36 @@ function addModal() {
   store.selectedModalId = newId;
   previewInitialized = false;
   render();
+}
+
+function getUniqueCopyId(sourceId) {
+  const base = `${sourceId || 'modal'}_copy`;
+  if (!store.modalMap.has(base)) return base;
+
+  let index = 2;
+  let candidate = `${base}${index}`;
+  while (store.modalMap.has(candidate)) {
+    index += 1;
+    candidate = `${base}${index}`;
+  }
+  return candidate;
+}
+
+function duplicateModal() {
+  const source = store.modals.find(m => m.id === store.selectedModalId);
+  if (!source) return;
+
+  const nextId = getUniqueCopyId(source.id);
+  const clone = JSON.parse(JSON.stringify(source));
+  clone.id = nextId;
+  clone.title = source.title ? `${source.title} (Copy)` : nextId;
+
+  store.modals.push(clone);
+  store.modalMap.set(nextId, clone);
+  store.selectedModalId = nextId;
+  previewInitialized = false;
+  render();
+  showToast(`Duplicated ${source.id} -> ${nextId}`, 'success');
 }
 
 function deleteModal(id) {

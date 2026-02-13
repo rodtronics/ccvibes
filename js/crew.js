@@ -11,7 +11,7 @@ async function loadNameData() {
   if (nameData) return nameData;
 
   try {
-    const response = await fetch('./data/names.json');
+    const response = await fetch('../data/names.json');
     nameData = await response.json();
     return nameData;
   } catch (err) {

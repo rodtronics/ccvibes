@@ -7,7 +7,7 @@ import { DOMRenderer } from './dom_renderer.js';
 import { UI, Layout } from './ui.js';
 import { ModalQueue, loadModalData, getModal, parseModalContent } from './modal.js';
 import { getUsedCrewNames, generateUniqueCrewName, initCrewSystem } from './crew.js';
-import { BootScreen, DosPrompt } from './boot.js';
+import { BootScreen, DosPrompt, BiosSetup } from './boot.js';
 import {
   loadSettings,
   saveSettings,
@@ -157,8 +157,8 @@ function scheduleLoop(delayOverride = null) {
 function loopStep() {
   engine.tick();
   updateModalCountdown();
-  // Skip game rendering while DOS prompt is active
-  if (!document.hidden && !ui.dosPrompt) render();
+  // Skip game rendering while DOS prompt or BIOS is active
+  if (!document.hidden && !ui.dosPrompt && !ui.biosSetup) render();
   scheduleLoop();
 }
 
@@ -185,19 +185,42 @@ function updateModalCountdown() {
   }
 }
 
-function enterDosPrompt() {
-  const dos = new DosPrompt(buffer, { engine, onRender: () => renderer.render() });
-  dos.start();
+function renderFrame(allowBloom = true) {
   renderer.render();
+
+  if (!bloomLayer || !bloomRenderer) return;
+  const shouldBloom = allowBloom && !!ui.settings.bloom;
+  bloomLayer.style.display = shouldBloom ? 'block' : 'none';
+  if (shouldBloom) bloomRenderer.render();
+}
+
+function enterDosPrompt() {
+  stopLoop();
+  const dos = new DosPrompt(buffer, {
+    engine,
+    onRender: () => renderFrame(false),
+    onSystemReboot: () => { performRestart({ forceSlowBoot: true, forceDosBoot: true }); },
+  });
+  dos.start();
   ui.dosPrompt = dos;
+  renderFrame(false);
 }
 
 // Main entry point
 async function main() {
   const urlParams = new URLSearchParams(window.location.search);
   const authentic = ui.settings.authenticBoot || urlParams.has('ab');
+  const forceBootPrompt = sessionStorage.getItem('ccv_force_boot_prompt');
+  sessionStorage.removeItem('ccv_force_boot_prompt');
+  const forceSlowBoot = sessionStorage.getItem('ccv_force_slow_boot');
+  sessionStorage.removeItem('ccv_force_slow_boot');
+  const forceDosBoot = sessionStorage.getItem('ccv_force_dos_boot');
+  sessionStorage.removeItem('ccv_force_dos_boot');
+
   const firstBoot = !localStorage.getItem('ccv_has_booted');
-  const slowBoot = authentic || firstBoot;
+  const slowBoot = authentic || firstBoot || !!forceSlowBoot;
+  const shouldShowDelPrompt = authentic || !!forceBootPrompt;
+  const shouldBootToDos = authentic || !!forceDosBoot;
   const delay = (ms) => new Promise(r => setTimeout(r, ms));
   // Squared random biases toward short pauses with occasional longer ones
   const bootDelay = () => delay(50 + Math.random() * Math.random() * 800);
@@ -212,45 +235,56 @@ async function main() {
   // Boot screen - 286 POST style loading progress
   const boot = new BootScreen(buffer);
   boot.drawHeader(slowBoot);
-  renderer.render();
+  renderFrame(false);
 
   // Animate RAM counting on slow boot
   if (slowBoot) {
-    await boot.countRAM(() => renderer.render());
+    await boot.countRAM(() => renderFrame(false));
   }
 
   // Load engine data with per-file progress (+ artificial delays on slow boot)
   await engine.init(async (label) => {
     boot.addProgress(label);
-    renderer.render();
+    renderFrame(false);
     if (slowBoot) await bootDelay();
   });
 
   // Load modal definitions
   await loadModalData();
   boot.addProgress('MODALS.DAT');
-  renderer.render();
+  renderFrame(false);
   if (slowBoot) await bootDelay();
 
   // Initialize crew name generation
   await initCrewSystem();
   boot.addProgress('CREW SUBSYSTEM');
-  renderer.render();
+  renderFrame(false);
   if (slowBoot) await bootDelay();
 
   // Boot complete
   boot.drawComplete();
-  renderer.render();
+  boot.drawSetupPrompt();
+  renderFrame(false);
 
   // Mark first boot as seen
   localStorage.setItem('ccv_has_booted', '1');
 
-  if (authentic) {
-    // Authentic boot: pause then drop to DOS CLI
+  if (shouldShowDelPrompt) {
+    // 1-second window to press DEL
+    const delPressed = await waitForDelKey(1000);
+
+    if (delPressed) {
+      enterBiosSetup();
+      return;
+    }
+  }
+
+  if (shouldBootToDos) {
     await delay(800);
     enterDosPrompt();
+    return;
   } else {
-    // First boot or normal boot: straight to game
+    // Straight to game
     applyFont(ui.settings);
     saveSettings(ui.settings);
     buffer.clear();
@@ -272,15 +306,114 @@ function exitDosPrompt() {
   render();
   enqueueStartupModals();
   showNextQueuedModal();
+  startLoop();
+}
+
+// Wait for DEL key press with timeout
+function waitForDelKey(timeoutMs) {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const handler = (e) => {
+      if (e.key === 'Delete' && !resolved) {
+        resolved = true;
+        document.removeEventListener('keydown', handler);
+        resolve(true);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        document.removeEventListener('keydown', handler);
+        resolve(false);
+      }
+    }, timeoutMs);
+  });
+}
+
+// Enter BIOS setup screen
+function enterBiosSetup() {
+  stopLoop();
+  const bios = new BiosSetup(buffer, {
+    settings: { ...ui.settings }, // Clone current settings
+    onRender: () => renderFrame(false),
+  });
+  bios.start();
+  ui.biosSetup = bios;
+  renderFrame(false);
+}
+
+// Exit BIOS setup screen
+function exitBiosSetup(shouldSave, settings) {
+  ui.biosSetup = null;
+
+  if (shouldSave) {
+    // Apply new settings
+    ui.settings = settings;
+    saveSettings(settings);
+  }
+
+  // Decide where to go based on authenticBoot setting
+  const authentic = settings.authenticBoot;
+  if (authentic) {
+    enterDosPrompt();
+  } else {
+    // Go straight to game
+    applyFont(ui.settings);
+    buffer.clear();
+    render();
+    enqueueStartupModals();
+    showNextQueuedModal();
+    startLoop();
+  }
+}
+
+// Perform system restart
+async function performRestart(options = {}) {
+  const forceSlowBoot = !!options.forceSlowBoot;
+  const forceDosBoot = !!options.forceDosBoot;
+
+  // Set one-time flag to force DEL prompt on next boot
+  sessionStorage.setItem('ccv_force_boot_prompt', '1');
+  if (forceSlowBoot) sessionStorage.setItem('ccv_force_slow_boot', '1');
+  if (forceDosBoot) sessionStorage.setItem('ccv_force_dos_boot', '1');
+
+  // Stop game loop
+  stopLoop();
+
+  // Clear UI state
+  ui.dosPrompt = null;
+  ui.biosSetup = null;
+  ui.modal.active = false;
+  ui.crimeDetail.active = false;
+
+  // Re-run main() - this will show boot screen with DEL window
+  await main();
 }
 
 // Input handling by tab
 function handleInput(e) {
-  // DOS prompt takes priority over everything
+  // BIOS Setup has highest priority
+  if (ui.biosSetup) {
+    e.preventDefault();
+    const result = ui.biosSetup.handleKey(e.key);
+    renderFrame(false);
+    if (result === 'save') {
+      // Gather settings from BIOS and save
+      exitBiosSetup(true, ui.biosSetup.settings);
+    } else if (result === 'discard') {
+      // Discard changes
+      exitBiosSetup(false, ui.settings);
+    }
+    return;
+  }
+
+  // DOS prompt takes priority over everything else
   if (ui.dosPrompt) {
+    if (e.key === 'F5') return;
     e.preventDefault();
     const result = ui.dosPrompt.handleKey(e.key);
-    renderer.render();
+    renderFrame(false);
     if (result === 'launch') {
       exitDosPrompt();
     }
@@ -409,17 +542,10 @@ function handleJobsInput(e) {
     }
     if (e.key === 'ArrowDown') ui.activityIndex = Math.min(Math.max(0, activities.length - 1), ui.activityIndex + 1);
 
-    // Right to enter runs panel
-    if (e.key === 'ArrowRight') {
-      const branch = branches[ui.branchIndex] || branches[0];
-      const branchRuns = engine.state.runs.filter(r => {
-        const a = engine.data.activities.find(act => act.id === r.activityId);
-        return a && a.branchId === branch?.id;
-      });
-      if (branchRuns.length > 0) {
-        ui.focus = 'runs';
-        ui.selectedRun = 0;
-      }
+    // Right to enter options for selected activity
+    if (e.key === 'ArrowRight' && activity) {
+      ui.focus = 'option';
+      ui.optionIndex = Math.max(0, Math.min(ui.optionIndex, Math.max(0, options.length - 1)));
     }
 
     if (e.key === 'Enter' && activity) {
@@ -432,6 +558,11 @@ function handleJobsInput(e) {
       startSelectedRun(activity, options[0]);
     }
   } else if (ui.focus === 'option') {
+    if (e.key === 'ArrowLeft') {
+      ui.focus = 'activity';
+      ui.optionIndex = 0;
+    }
+
     if (e.key === 'ArrowUp') {
       ui.optionIndex = Math.max(0, ui.optionIndex - 1);
     }
@@ -456,13 +587,13 @@ function handleJobsInput(e) {
     }
 
     // RIGHT arrow switches to runs column
-    if (e.key === 'ArrowRight') {
+    if (e.key === 'ArrowRight' && activity) {
       const activityRuns = engine.state.runs.filter(r => r.activityId === activity.id);
-      if (activityRuns.length > 0) {
-        ui.focus = 'runs';
-        const current = ui.selectedRun ?? 0;
-        ui.selectedRun = Math.max(0, Math.min(activityRuns.length - 1, current));
-      }
+      ui.focus = 'runs';
+      const current = ui.selectedRun ?? 0;
+      ui.selectedRun = activityRuns.length > 0
+        ? Math.max(0, Math.min(activityRuns.length - 1, current))
+        : 0;
     }
   } else if (ui.focus === 'runs') {
     // RUNS PANEL FOCUS - navigate and manage runs
@@ -484,8 +615,10 @@ function handleJobsInput(e) {
     contextRuns.sort(sortRunsActiveFirst);
 
     if (contextRuns.length === 0) {
-      ui.focus = activity ? 'option' : 'activity';
       ui.selectedRun = 0;
+      if (e.key === 'ArrowLeft' || e.key === 'Escape') {
+        ui.focus = activity ? 'option' : 'activity';
+      }
       return;
     }
 
@@ -731,8 +864,10 @@ function handleActiveInput(e) {
     filteredRuns.sort(sortRunsActiveFirst);
 
     if (filteredRuns.length === 0) {
-      ui.focus = 'filter';
       ui.selectedRun = 0;
+      if (e.key === 'ArrowLeft' || e.key === 'Escape') {
+        ui.focus = 'filter';
+      }
       return;
     }
 
@@ -826,10 +961,8 @@ function handleActiveInput(e) {
 
     // Right arrow to enter runs panel
     if (e.key === 'ArrowRight') {
-      if (engine.state.runs.length > 0) {
-        ui.focus = 'runs';
-        ui.selectedRun = 0;
-      }
+      ui.focus = 'runs';
+      ui.selectedRun = 0;
       return;
     }
 
@@ -1418,10 +1551,7 @@ function render() {
   uiLayer.render();
 
   // Renderer flushes buffer to DOM
-  renderer.render();
-  if (ui.settings.bloom && bloomRenderer) {
-    bloomRenderer.render();
-  }
+  renderFrame(true);
 }
 
 function syncSelection() {
