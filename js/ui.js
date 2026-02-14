@@ -2031,6 +2031,134 @@ export class UI {
     return Math.round(num).toLocaleString();
   }
 
+  // Render "While You Were Away" screen (fullscreen overlay)
+  renderAwayScreen(report, awayState) {
+    if (!report) return;
+    const W = Layout.WIDTH;
+    const H = Layout.HEIGHT;
+    const bg = Palette.BLACK;
+
+    this.buffer.clear();
+
+    // Draw border
+    this.buffer.drawBox(0, 0, W, H, BoxStyles.DOUBLE, Palette.NEON_CYAN, bg);
+
+    // Title
+    const title = " WHILE YOU WERE AWAY... ";
+    this.buffer.writeText(2, 0, title, Palette.BRIGHT_YELLOW, bg);
+
+    // Resource summary line (row 2)
+    const delta = report.resourceDelta || {};
+    let summaryParts = [];
+    if (delta.cash) {
+      summaryParts.push(delta.cash >= 0 ? `+$${this.fmtNum(delta.cash)}` : `-$${this.fmtNum(Math.abs(delta.cash))}`);
+    }
+    if (delta.cred) {
+      summaryParts.push(`${delta.cred > 0 ? "+" : ""}${delta.cred} cred`);
+    }
+    if (delta.heat) {
+      summaryParts.push(`${delta.heat > 0 ? "+" : ""}${delta.heat} heat`);
+    }
+    // Other resources
+    for (const [key, val] of Object.entries(delta)) {
+      if (key === 'cash' || key === 'cred' || key === 'heat') continue;
+      const resDef = this.engine.data.resources?.find(r => r.id === key);
+      const name = resDef?.name || key;
+      summaryParts.push(`${val > 0 ? "+" : ""}${val} ${name}`);
+    }
+    const summaryLeft = summaryParts.join("  ");
+    const runsCount = `${report.awayRuns.length} run${report.awayRuns.length !== 1 ? "s" : ""} completed`;
+
+    this.buffer.writeText(2, 2, summaryLeft.substring(0, W - runsCount.length - 4), Palette.WHITE, bg);
+    this.buffer.writeText(W - runsCount.length - 2, 2, runsCount, Palette.MID_GRAY, bg);
+
+    // Jailed/freed line (row 3, only if applicable)
+    let crewX = 2;
+    if (report.jailedCrew.length > 0) {
+      const jailedText = `JAILED: ${report.jailedCrew.join(", ")}`;
+      this.buffer.writeText(crewX, 3, jailedText.substring(0, W - 4), Palette.HEAT_RED, bg);
+      crewX += jailedText.length + 2;
+    }
+    if (report.freedCrew.length > 0) {
+      const freedText = `FREED: ${report.freedCrew.join(", ")}`;
+      this.buffer.writeText(crewX, 3, freedText.substring(0, W - crewX - 2), Palette.SUCCESS_GREEN, bg);
+      crewX += freedText.length;
+    }
+    const hasCrewLine = report.jailedCrew.length > 0 || report.freedCrew.length > 0;
+
+    // Separator
+    const sepY = hasCrewLine ? 4 : 3;
+    this.buffer.drawHLine(1, sepY, W - 2, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bg);
+
+    // Footer
+    const footerY = H - 2;
+    this.buffer.drawHLine(1, footerY, W - 2, BoxStyles.DOUBLE.horizontal, Palette.NEON_CYAN, bg);
+    // Connector chars (╠ left side, ╣ right side)
+    this.buffer.writeText(0, footerY, BoxStyles.DOUBLE.teeRight, Palette.NEON_CYAN, bg);
+    this.buffer.writeText(W - 1, footerY, BoxStyles.DOUBLE.teeLeft, Palette.NEON_CYAN, bg);
+
+    if (awayState.detailMode) {
+      const controls = "ESC: Back  PgUp/PgDn: Scroll";
+      this.buffer.writeText(2, H - 1, controls, Palette.SUCCESS_GREEN, bg);
+    } else {
+      const controls = "\x18\x19: Browse  ENTER: Details  Z: Dismiss";
+      this.buffer.writeText(2, H - 1, controls, Palette.SUCCESS_GREEN, bg);
+    }
+
+    // Content area
+    const contentY = sepY + 1;
+    const contentH = footerY - contentY;
+    const runs = report.awayRuns;
+
+    if (awayState.detailMode && runs.length > 0) {
+      // Detail view for selected run
+      const run = runs[awayState.selectedIndex];
+      if (run) {
+        // Temporarily set runDetailScroll so renderRunDetailPanel uses it
+        const prevScroll = this.ui.runDetailScroll;
+        this.ui.runDetailScroll = awayState.scroll;
+        this.renderRunDetailPanel(run.runId, 2, contentY, W - 4, contentH, bg);
+        this.ui.runDetailScroll = prevScroll;
+      }
+    } else {
+      // List view - show compact run cards
+      const cardHeight = 4; // 3 lines per card + 1 blank
+      const maxVisible = Math.floor(contentH / cardHeight);
+
+      // Scroll the list if selected item is out of view
+      let listScroll = awayState.scroll;
+      if (awayState.selectedIndex >= listScroll + maxVisible) {
+        listScroll = awayState.selectedIndex - maxVisible + 1;
+      }
+      if (awayState.selectedIndex < listScroll) {
+        listScroll = awayState.selectedIndex;
+      }
+      // Store back for next render
+      awayState.scroll = listScroll;
+
+      for (let i = 0; i < maxVisible && (listScroll + i) < runs.length; i++) {
+        const run = runs[listScroll + i];
+        const isSelected = (listScroll + i) === awayState.selectedIndex;
+        const cardY = contentY + (i * cardHeight);
+
+        // Selection indicator
+        if (isSelected) {
+          this.buffer.writeText(1, cardY, ">", Palette.NEON_CYAN, bg);
+        }
+
+        this.renderCompactRunCard3Line(run, 3, cardY, W - 6, bg, isSelected);
+      }
+
+      // Scroll indicators
+      if (listScroll > 0) {
+        this.buffer.writeText(W - 4, contentY, " \x18 ", Palette.DIM_GRAY, bg);
+      }
+      if (listScroll + maxVisible < runs.length) {
+        this.buffer.writeText(W - 4, footerY - 1, " \x19 ", Palette.DIM_GRAY, bg);
+      }
+    }
+  }
+
   // Render crime detail window (fullscreen overlay)
   renderCrimeDetail() {
     const detail = this.ui.crimeDetail;
@@ -2306,7 +2434,7 @@ export class UI {
 
     if (countdownActive && countdownRemainingMs > 0) {
       const secondsLeft = Math.max(1, Math.ceil(countdownRemainingMs / 1000));
-      const countdownText = `AUTO-CLOSE IN ${secondsLeft}s`;
+      const countdownText = `CAN CLOSE IN ${secondsLeft}s`;
       const countdownX = Math.max(2, Layout.WIDTH - countdownText.length - 2);
       this.buffer.writeText(countdownX, Layout.HEIGHT - 2, countdownText, Palette.BRIGHT_YELLOW, backgroundColor);
     }

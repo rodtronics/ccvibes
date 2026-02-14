@@ -2,10 +2,10 @@
 // Uses the game's actual rendering pipeline (FrameBuffer + DOMRenderer + parseModalContent)
 // to show a pixel-perfect preview of how a modal will look in-game.
 
-import { FrameBuffer } from '/engine/framebuffer.js';
-import { DOMRenderer } from '/engine/dom_renderer.js';
-import { Palette, BoxStyles } from '/engine/palette.js';
-import { parseModalContent } from '/engine/modal.js';
+import { FrameBuffer } from '/engine/js/framebuffer.js';
+import { DOMRenderer } from '/engine/js/dom_renderer.js';
+import { Palette, BoxStyles } from '/engine/js/palette.js';
+import { parseModalContent } from '/engine/js/modal.js';
 
 const PREVIEW_WIDTH = 80;
 const PREVIEW_HEIGHT = 25;
@@ -93,7 +93,7 @@ export function renderPreview(modal) {
   });
 
   if (modal.countdown) {
-    const countdownText = 'AUTO-CLOSE IN 3s';
+    const countdownText = 'CAN CLOSE IN 3s';
     const countdownX = Math.max(2, PREVIEW_WIDTH - countdownText.length - 2);
     previewBuffer.writeText(countdownX, PREVIEW_HEIGHT - 2, countdownText, Palette.BRIGHT_YELLOW, bgColor);
   }

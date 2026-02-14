@@ -135,9 +135,9 @@ function render() {
   const m = store.modals.find(m => m.id === store.selectedModalId);
 
   container.innerHTML = `
-    <div class="tab-panel__content" style="display:flex;gap:16px;height:100%;min-height:0">
+    <div class="tab-panel__content modals-shell">
       <!-- Left: Modal list -->
-      <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;min-height:0">
+      <div class="modals-sidebar">
         <div class="panel__header" style="flex-shrink:0">
           <h2>Modals</h2>
           <div class="flex" style="gap:6px;justify-content:flex-end">
@@ -159,27 +159,24 @@ function render() {
           <span class="muted" style="margin-left:auto;font-size:0.75rem;white-space:nowrap">${filtered.length}/${store.modals.length}</span>
         </div>
 
-        <div class="list modal-list" style="flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;gap:4px;padding-right:4px">
+        <div class="list modal-list">
           ${filtered.length ? filtered.map(modal => {
             const isSelected = modal.id === store.selectedModalId;
             const typeIcon = getTypeIcon(modal.type);
-            const countdownBadge = modal.countdown
-              ? '<span title="Auto-close in 3s" style="display:inline-flex;align-items:center;padding:1px 6px;border-radius:999px;border:1px solid rgba(251,191,36,0.35);background:rgba(251,191,36,0.08);color:var(--warning);font-size:0.7rem;font-family:var(--font-mono);line-height:1.2">3s</span>'
-              : '';
             return `
-              <div class="item ${isSelected ? 'is-selected' : ''}" style="cursor:pointer;padding:6px 8px;border:1px solid var(--border);${isSelected ? 'border-color:var(--accent);background:rgba(125,211,252,0.06)' : ''}" onclick="_modals.selectModal('${escapeJsSingleQuoted(modal.id)}')">
-                <div class="flex" style="justify-content:space-between;margin-bottom:2px">
-                  <strong style="font-size:0.85rem">${safe(modal.title || modal.id)}</strong>
-                  <span style="display:flex;align-items:center;gap:4px;font-size:0.85rem">${countdownBadge}${typeIcon}</span>
-                </div>
-                <div class="muted" style="font-size:0.75rem">${safe(modal.id)}</div>
+              <div class="item modal-list__item ${isSelected ? 'is-selected' : ''}" onclick="_modals.selectModal('${escapeJsSingleQuoted(modal.id)}')">
+                <span class="modal-list__emoji">${typeIcon}</span>
+                <span class="modal-list__meta">
+                  <span class="modal-list__id">${safe(modal.id)}</span>
+                  <span class="modal-list__title">${safe(modal.title || modal.id)}</span>
+                </span>
               </div>`;
           }).join('') : '<div class="hint" style="padding:10px">No modals match the current filters.</div>'}
         </div>
       </div>
 
       <!-- Right: Editor + Preview -->
-      <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0">
+      <div class="modals-editor">
         ${m ? renderEditor(m) : '<div class="hint" style="padding:20px">Select a modal to edit, or create a new one.</div>'}
       </div>
     </div>

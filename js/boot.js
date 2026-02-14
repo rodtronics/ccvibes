@@ -130,6 +130,7 @@ const DOS_HELP_SUMMARY = [
   { command: 'SHUTDOWN', summary: 'Power off shell, or reboot with -R.' },
   { command: 'CLS', summary: 'Clears the DOS screen.' },
   { command: 'VER', summary: 'Displays DOS version info.' },
+  { command: 'CONTACT', summary: 'Shows developer contact information.' },
   { command: 'CD', summary: 'Directory command (not supported here).' },
   { command: 'FORMAT', summary: 'Denied command (flavor response).' },
 ];
@@ -235,6 +236,10 @@ const DOS_HELP_DETAILS = {
   format: [
     'FORMAT',
     'This command is intentionally blocked.',
+  ],
+  contact: [
+    'CONTACT',
+    'Developer contact: wfproductionsnz@gmail.com',
   ],
 };
 
@@ -447,6 +452,19 @@ export class DosPrompt {
 
     if (base === 'del' || base === 'delete' || base === 'rm') {
       return this.beginDelete(parts);
+    }
+
+    if (base === 'contact') {
+      return [
+        { text: 'Developer Contact:', color: LABEL_COLOR },
+        { text: 'wfproductionsnz@gmail.com', color: VALUE_COLOR },
+      ];
+    }
+
+    if (base === 'sudo') {
+      // Easter egg: sudo asks for password but it's a trick
+      this.pendingAction = { type: 'sudo_password' };
+      return [{ text: '[sudo] password for user:', color: LABEL_COLOR }];
     }
 
     if (base === 'cd') {
@@ -720,6 +738,16 @@ export class DosPrompt {
   }
 
   beginDelete(parts) {
+    const target = (parts[1] || '').toLowerCase();
+
+    // Easter egg: try to delete cc.exe
+    if (target === 'cc.exe' || target === 'cc') {
+      return [
+        { text: 'Access denied.', color: ERROR_COLOR },
+        { text: 'CC.EXE is a system file and cannot be deleted.', color: DOT_COLOR },
+      ];
+    }
+
     const slotId = normalizeSlotId(parts[1]);
     if (!slotId) {
       return [{ text: 'Usage: DEL <slot>', color: ERROR_COLOR }];
@@ -956,6 +984,14 @@ export class DosPrompt {
         return this.executeImport(action.slotId, action.rawSaveJson, true);
       }
       return [{ text: 'Import canceled.', color: LABEL_COLOR }];
+    }
+
+    if (action.type === 'sudo_password') {
+      this.pendingAction = null;
+      return [
+        { text: 'Sorry, try again.', color: ERROR_COLOR },
+        { text: '(There is no password. Nice try though.)', color: DOT_COLOR },
+      ];
     }
 
     return [{ text: 'Unhandled pending action', color: ERROR_COLOR }];

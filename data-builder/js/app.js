@@ -60,7 +60,6 @@ async function boot() {
         window._world?.saveBranches?.();
         window._world?.saveRoles?.();
         window._world?.savePerks?.();
-        window._world?.saveModals?.();
       } else if (tab === 'modals') {
         window._modals?.saveModals?.();
       } else {

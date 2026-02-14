@@ -1,4 +1,4 @@
-import { store, on, emit, getBranchColor, cascadeBranchRename, cascadeRoleRename, cascadeModalRename } from '../state.js';
+import { store, on, emit, getBranchColor, cascadeBranchRename, cascadeRoleRename } from '../state.js';
 import { safe, showToast } from '../utils.js';
 import { saveFile } from '../data-io.js';
 
@@ -12,7 +12,6 @@ export function init(el) {
     selectBranch, updateBranch, addBranch, deleteBranch, saveBranches,
     selectRole, updateRole, addRole, deleteRole, saveRoles,
     selectPerk, updatePerk, addPerk, deletePerk, savePerks,
-    selectModal, updateModal, addModal, deleteModal, saveModals,
     startFromScratch, confirmClearAll
   };
 }
@@ -27,7 +26,6 @@ function render() {
   if (!store.selectedBranchId && store.branches.length > 0) store.selectedBranchId = store.branches[0].id;
   if (!store.selectedRoleId && store.roles.length > 0) store.selectedRoleId = store.roles[0].id;
   if (!store.selectedPerkId && Object.keys(store.perks).length > 0) store.selectedPerkId = Object.keys(store.perks)[0];
-  if (!store.selectedModalId && store.modals.length > 0) store.selectedModalId = store.modals[0].id;
 
   // Save focus state before re-rendering
   const activeEl = document.activeElement;
@@ -44,7 +42,7 @@ function render() {
     <div class="tab-panel__content">
       ${renderNewGamePanel()}
 
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;align-items:start;margin-top:24px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:start;margin-top:24px">
         <div>
           <div class="panel__header">
             <h2>Branches</h2>
@@ -132,31 +130,6 @@ function render() {
           ${renderPerkEditor()}
         </div>
 
-        <div>
-          <div class="panel__header">
-            <h2>Modals</h2>
-            <div class="flex">
-              <button class="small" onclick="_world.addModal()">+ Modal</button>
-              <button class="small" onclick="_world.saveModals()">Save</button>
-            </div>
-          </div>
-          <div class="list" style="max-height:400px;overflow-y:auto">
-            ${store.modals.map(m => {
-              const isSelected = m.id === store.selectedModalId;
-              const typeLabel = m.type === 'story' ? '📖' : '💡';
-              return `
-                <div class="item" style="cursor:pointer;${isSelected ? 'border-color:var(--accent)' : ''}" onclick="_world.selectModal('${safe(m.id)}')">
-                  <div class="flex" style="justify-content:space-between;margin-bottom:4px">
-                    <strong style="font-size:0.9rem">${safe(m.title)}</strong>
-                    <span style="font-size:0.9rem">${typeLabel}</span>
-                  </div>
-                  <div class="muted" style="font-size:0.75rem">${safe(m.id)}</div>
-                </div>`;
-            }).join('')}
-          </div>
-
-          ${renderModalEditor()}
-        </div>
       </div>
     </div>
   `;
@@ -680,175 +653,3 @@ function renderPerkEditor() {
   `;
 }
 
-// ── Modal Management ──
-
-function selectModal(id) {
-  store.selectedModalId = id;
-  render();
-}
-
-function updateModal(field, value) {
-  const m = store.modals.find(m => m.id === store.selectedModalId);
-  if (!m) return;
-
-  if (field === 'id') {
-    const oldId = m.id;
-    m.id = value;
-    store.selectedModalId = value;
-    store.modalMap.delete(oldId);
-    store.modalMap.set(value, m);
-    cascadeModalRename(oldId, value);
-    render();
-    return;
-  }
-
-  if (field === 'showOnce' || field === 'type') {
-    m[field] = value;
-  } else {
-    m[field] = value;
-  }
-}
-
-function addModal() {
-  const newId = 'new_modal_' + Date.now();
-  const modal = {
-    id: newId,
-    title: 'New Modal',
-    body: 'Modal body text goes here. Use {{neon_cyan}}color tags{{/}} for formatting.',
-    type: 'story',
-    showOnce: true,
-    countdown: false
-  };
-  store.modals.push(modal);
-  store.modalMap.set(newId, modal);
-  store.selectedModalId = newId;
-  render();
-}
-
-function deleteModal(id) {
-  if (!confirm(`Delete modal "${id}"?`)) return;
-  store.modals = store.modals.filter(m => m.id !== id);
-  store.modalMap.delete(id);
-  if (store.selectedModalId === id) store.selectedModalId = null;
-  render();
-}
-
-async function saveModals() {
-  try {
-    await saveFile('modals');
-    showToast('Modals saved', 'success');
-  } catch (err) {
-    showToast('Failed: ' + err.message, 'error');
-  }
-}
-
-function renderModalEditor() {
-  const m = store.modals.find(m => m.id === store.selectedModalId);
-  if (!m) return '';
-
-  // Palette color options (Palette color keys from palette.js)
-  const paletteOptions = [
-    { value: '', label: '(default)' },
-    { value: 'BLACK', label: 'Black' },
-    { value: 'WHITE', label: 'White' },
-    { value: 'LIGHT_GRAY', label: 'Light Gray' },
-    { value: 'MID_GRAY', label: 'Mid Gray' },
-    { value: 'DIM_GRAY', label: 'Dim Gray' },
-    { value: 'DARK_GRAY', label: 'Dark Gray' },
-    { value: 'NEON_CYAN', label: 'Neon Cyan' },
-    { value: 'NEON_TEAL', label: 'Neon Teal' },
-    { value: 'TERMINAL_GREEN', label: 'Terminal Green' },
-    { value: 'HOT_PINK', label: 'Hot Pink' },
-    { value: 'MAGENTA', label: 'Magenta' },
-    { value: 'ELECTRIC_ORANGE', label: 'Electric Orange' },
-    { value: 'BRIGHT_ORANGE', label: 'Bright Orange' },
-    { value: 'BRIGHT_YELLOW', label: 'Bright Yellow' },
-    { value: 'GOLD', label: 'Gold' },
-    { value: 'AMBER', label: 'Amber' },
-    { value: 'EMERALD', label: 'Emerald' },
-    { value: 'PURPLE', label: 'Purple' },
-    { value: 'ROSE', label: 'Rose' },
-    { value: 'HEAT_RED', label: 'Heat Red' },
-    { value: 'INTRO_A', label: 'Intro Yellow' },
-    { value: 'INTRO_B', label: 'Intro Pink' }
-  ];
-
-  const borderStyleOptions = [
-    { value: '', label: '(default)' },
-    { value: 'SINGLE', label: 'Single' },
-    { value: 'DOUBLE', label: 'Double' },
-    { value: 'ROUNDED', label: 'Rounded' },
-    { value: 'BOLD', label: 'Bold' }
-  ];
-
-  return `
-    <div class="panel" style="margin-top:16px">
-      <h3 style="margin-bottom:12px">Edit: ${safe(m.title || m.id)}</h3>
-      <div class="input-grid">
-        <div><label>ID</label><input type="text" data-focus-id="modal-id" value="${safe(m.id)}" onchange="_world.updateModal('id', this.value)"></div>
-        <div><label>Title</label><input type="text" data-focus-id="modal-title" value="${safe(m.title)}" oninput="_world.updateModal('title', this.value)"></div>
-        <div>
-          <label>Body <span class="muted" style="font-size:0.75rem">(use {{color}}text{{/}} for colors, e.g. {{neon_cyan}}blue text{{/}})</span></label>
-          <textarea data-focus-id="modal-body" oninput="_world.updateModal('body', this.value)">${safe(m.body)}</textarea>
-        </div>
-
-        <div class="input-grid two-col">
-          <div>
-            <label>Type</label>
-            <select data-focus-id="modal-type" onchange="_world.updateModal('type', this.value)">
-              <option value="story" ${m.type === 'story' ? 'selected' : ''}>Story</option>
-              <option value="lesson" ${m.type === 'lesson' ? 'selected' : ''}>Lesson</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:14px;align-items:center">
-            <div class="flex">
-              <label class="muted" style="margin:0">Show Once?</label>
-              <input type="checkbox" data-focus-id="modal-show-once" ${m.showOnce ? 'checked' : ''} onchange="_world.updateModal('showOnce', this.checked)">
-            </div>
-            <div class="flex">
-              <label class="muted" style="margin:0">Countdown?</label>
-              <input type="checkbox" data-focus-id="modal-countdown" ${m.countdown ? 'checked' : ''} onchange="_world.updateModal('countdown', this.checked)">
-            </div>
-          </div>
-        </div>
-
-        <div class="input-grid three-col" style="margin-top:12px">
-          <div>
-            <label>Border Style</label>
-            <select data-focus-id="modal-border-style" onchange="_world.updateModal('borderStyle', this.value)">
-              ${borderStyleOptions.map(o => `<option value="${o.value}" ${(m.borderStyle || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label>Border Color</label>
-            <select data-focus-id="modal-border-color" onchange="_world.updateModal('borderColor', this.value)">
-              ${paletteOptions.map(o => `<option value="${o.value}" ${(m.borderColor || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label>Background Color</label>
-            <select data-focus-id="modal-bg-color" onchange="_world.updateModal('backgroundColor', this.value)">
-              ${paletteOptions.map(o => `<option value="${o.value}" ${(m.backgroundColor || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-
-        <div class="input-grid two-col" style="margin-top:12px">
-          <div>
-            <label>Title Color <span class="muted" style="font-size:0.75rem">(default color for title text)</span></label>
-            <select data-focus-id="modal-title-color" onchange="_world.updateModal('titleColor', this.value)">
-              ${paletteOptions.map(o => `<option value="${o.value}" ${(m.titleColor || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label>Body Color <span class="muted" style="font-size:0.75rem">(default color for body text, can be overridden with {{color}} tags)</span></label>
-            <select data-focus-id="modal-body-color" onchange="_world.updateModal('bodyColor', this.value)">
-              ${paletteOptions.map(o => `<option value="${o.value}" ${(m.bodyColor || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-      </div>
-      <button class="danger small" style="margin-top:12px" onclick="_world.deleteModal('${safe(m.id)}')">Delete Modal</button>
-    </div>
-  `;
-}

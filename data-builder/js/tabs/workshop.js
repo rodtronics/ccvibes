@@ -14,6 +14,7 @@ let editorState = createActivity();
 let notes = { problems: '', solutions: '' };
 let lastSavedState = null;
 let collapsedOptions = new Set(); // Track which options are collapsed by uid
+let durationCalculatorState = new Map(); // Per-option D/H/M/S calculator values
 
 const wizard = {
   open: false,
@@ -162,6 +163,7 @@ function loadActivity(activityId) {
 
   const options = (activity.options || []).map(inflateOption);
   editorState.options = options.length ? options : [createOption()];
+  durationCalculatorState.clear();
   notes = { problems: '', solutions: '' };
   lastSavedState = JSON.stringify(buildActivityJson(editorState));
 
@@ -202,6 +204,7 @@ W.saveActivity = async function() {
 W.newActivity = function() {
   resetOptionUid();
   editorState = createActivity();
+  durationCalculatorState.clear();
   notes = { problems: '', solutions: '' };
   lastSavedState = null;
   store.selectedActivityId = null;
@@ -457,6 +460,7 @@ W.wizCreate = function() {
   opt.resolution.effects = draft.effectsList.map(inflateWizardEffect);
 
   editorState.options = [opt];
+  durationCalculatorState.clear();
   lastSavedState = null;
   store.selectedActivityId = null;
   emit('activity-selected', null);
@@ -494,6 +498,7 @@ W.removeOption = function(uid) {
   if (editorState.options.length === 1) return;
   editorState.options = editorState.options.filter(o => o.uid !== uid);
   collapsedOptions.delete(uid);
+  durationCalculatorState.delete(uid);
   render();
 };
 
@@ -684,6 +689,64 @@ W.copyJson = function() {
   const pre = document.getElementById('ws-json-output');
   if (!pre) return;
   navigator.clipboard.writeText(pre.textContent).then(() => showToast('JSON copied', 'success'));
+};
+
+const DURATION_MS_PER_DAY = 24 * 60 * 60 * 1000;
+const DURATION_MS_PER_HOUR = 60 * 60 * 1000;
+const DURATION_MS_PER_MINUTE = 60 * 1000;
+const DURATION_MS_PER_SECOND = 1000;
+
+function normalizeDurationUnit(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) return 0;
+  return Math.floor(num);
+}
+
+function getDurationCalculatorParts(uid) {
+  let parts = durationCalculatorState.get(uid);
+  if (!parts) {
+    parts = { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    durationCalculatorState.set(uid, parts);
+  }
+  return parts;
+}
+
+function calculateDurationMs(parts) {
+  return (
+    normalizeDurationUnit(parts.days) * DURATION_MS_PER_DAY +
+    normalizeDurationUnit(parts.hours) * DURATION_MS_PER_HOUR +
+    normalizeDurationUnit(parts.minutes) * DURATION_MS_PER_MINUTE +
+    normalizeDurationUnit(parts.seconds) * DURATION_MS_PER_SECOND
+  );
+}
+
+function formatDurationMs(totalMs) {
+  const value = Math.max(0, Math.round(Number(totalMs) || 0));
+  return `${value.toLocaleString()} ms`;
+}
+
+function updateDurationCalculatorDisplay(uid) {
+  const calcEl = document.querySelector(`[data-duration-calc="${uid}"]`);
+  if (!calcEl) return;
+  const totalMs = calculateDurationMs(getDurationCalculatorParts(uid));
+  calcEl.dataset.totalMs = String(totalMs);
+  const totalEl = calcEl.querySelector('[data-duration-total]');
+  if (totalEl) totalEl.textContent = formatDurationMs(totalMs);
+}
+
+W.setDurationCalcPart = function(uid, unit, value) {
+  if (!['days', 'hours', 'minutes', 'seconds'].includes(unit)) return;
+  const parts = getDurationCalculatorParts(uid);
+  parts[unit] = normalizeDurationUnit(value);
+  updateDurationCalculatorDisplay(uid);
+};
+
+W.applyDurationCalc = function(uid, field) {
+  if (field !== 'durationMs' && field !== 'cooldownMs') return;
+  const totalMs = calculateDurationMs(getDurationCalculatorParts(uid));
+  W.updateOptionField(uid, field, totalMs);
+  const target = document.querySelector(`input[data-option-uid="${uid}"][data-time-field="${field}"]`);
+  if (target) target.value = String(totalMs);
 };
 
 // ── Scope resolvers ──
@@ -1115,6 +1178,8 @@ function renderEffectFields(fx, scope, idx) {
 function renderOptionCard(option, idx) {
   const uid = option.uid;
   const isCollapsed = collapsedOptions.has(uid);
+  const calcParts = getDurationCalculatorParts(uid);
+  const calcTotalMs = calculateDurationMs(calcParts);
 
   // Build summary info
   const hasStaff = option.requirements.staff.length > 0;
@@ -1128,7 +1193,7 @@ function renderOptionCard(option, idx) {
   const summaryText = summary.length > 0 ? summary.join(' • ') : 'no details yet';
 
   return `
-    <div class="option-card ${isCollapsed ? 'collapsed' : ''}">
+    <div class="option-card ${isCollapsed ? 'collapsed' : ''}" data-option-card-uid="${uid}">
       <div class="option-head" onclick="_ws.toggleOptionCollapse(${uid})" style="cursor:pointer">
         <div class="flex" style="flex:1">
           <div class="badge">Option ${idx + 1}</div>
@@ -1160,13 +1225,42 @@ function renderOptionCard(option, idx) {
         </div>
         <div class="input-grid">
           <label>Duration (ms)</label>
-          <input type="number" value="${safe(option.durationMs)}" oninput="_ws.updateOptionField(${uid}, 'durationMs', parseInt(this.value,10)||0)">
+          <input type="number" data-option-uid="${uid}" data-time-field="durationMs" value="${safe(option.durationMs)}" oninput="_ws.updateOptionField(${uid}, 'durationMs', parseInt(this.value,10)||0)">
           <label>XP on Complete</label>
           <input type="number" value="${safe(option.xp)}" oninput="_ws.updateOptionField(${uid}, 'xp', parseInt(this.value,10)||0)">
           <label>Cooldown (ms)</label>
-          <input type="number" value="${safe(option.cooldownMs)}" oninput="_ws.updateOptionField(${uid}, 'cooldownMs', parseInt(this.value,10)||0)">
+          <input type="number" data-option-uid="${uid}" data-time-field="cooldownMs" value="${safe(option.cooldownMs)}" oninput="_ws.updateOptionField(${uid}, 'cooldownMs', parseInt(this.value,10)||0)">
           <label>Max Concurrent Runs</label>
           <input type="number" value="${safe(option.maxConcurrentRuns)}" oninput="_ws.updateOptionField(${uid}, 'maxConcurrentRuns', this.value)">
+        </div>
+      </div>
+
+      <div class="ws-duration-calc" data-duration-calc="${uid}" data-total-ms="${calcTotalMs}">
+        <div class="subheader">
+          <span>Duration Calculator</span>
+          <span class="muted" data-duration-total>${safe(formatDurationMs(calcTotalMs))}</span>
+        </div>
+        <div class="ws-duration-calc__inputs">
+          <div>
+            <label>Days</label>
+            <input type="number" min="0" step="1" value="${safe(calcParts.days)}" oninput="_ws.setDurationCalcPart(${uid}, 'days', this.value)">
+          </div>
+          <div>
+            <label>Hours</label>
+            <input type="number" min="0" step="1" value="${safe(calcParts.hours)}" oninput="_ws.setDurationCalcPart(${uid}, 'hours', this.value)">
+          </div>
+          <div>
+            <label>Minutes</label>
+            <input type="number" min="0" step="1" value="${safe(calcParts.minutes)}" oninput="_ws.setDurationCalcPart(${uid}, 'minutes', this.value)">
+          </div>
+          <div>
+            <label>Seconds</label>
+            <input type="number" min="0" step="1" value="${safe(calcParts.seconds)}" oninput="_ws.setDurationCalcPart(${uid}, 'seconds', this.value)">
+          </div>
+        </div>
+        <div class="ws-duration-calc__actions">
+          <button class="ghost small" onclick="_ws.applyDurationCalc(${uid}, 'durationMs')">Use for Duration</button>
+          <button class="ghost small" onclick="_ws.applyDurationCalc(${uid}, 'cooldownMs')">Use for Cooldown</button>
         </div>
       </div>
 
@@ -2277,4 +2371,3 @@ function renderWizardEffects(draft) {
     `)}
   `;
 }
-

@@ -118,17 +118,18 @@ export const BoxStyles = {
   },
 
   HEAVY: {
-    topLeft: "┏",
-    topRight: "┓",
-    bottomLeft: "┗",
-    bottomRight: "┛",
-    horizontal: "━",
-    vertical: "┃",
-    teeDown: "┳",
-    teeUp: "┻",
-    teeRight: "┣",
-    teeLeft: "┫",
-    cross: "╋",
+    // CP437-safe fallback: true heavy Unicode box chars are missing in VGA fonts.
+    topLeft: "╔",
+    topRight: "╗",
+    bottomLeft: "╚",
+    bottomRight: "╝",
+    horizontal: "═",
+    vertical: "║",
+    teeDown: "╦",
+    teeUp: "╩",
+    teeRight: "╠",
+    teeLeft: "╣",
+    cross: "╬",
   },
 
   // Fallback for compatibility (ASCII-only)

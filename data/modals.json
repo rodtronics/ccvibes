@@ -50,6 +50,19 @@
     "borderColor": "BRIGHT_YELLOW",
     "backgroundColor": "BLACK",
     "titleColor": "ROSE",
-    "bodyColor": ""
+    "bodyColor": "",
+    "countdown": true
+  },
+  {
+    "id": "about",
+    "title": "CRIME COMMITTER VI",
+    "body": "patent pending 2026 by wfproductionsnz@gmail.com\n\nmade in new zealand by this one dude\n\nwhat else do you want to know?",
+    "type": "lesson",
+    "showOnce": false,
+    "countdown": false,
+    "borderStyle": "DOUBLE",
+    "borderColor": "PURPLE",
+    "backgroundColor": "MAGENTA",
+    "bodyColor": "EMERALD"
   }
 ]

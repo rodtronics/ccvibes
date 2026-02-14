@@ -90,6 +90,12 @@ const ui = {
     runId: null,
     scroll: 0,  // Scroll offset for viewing many sub-run results
   },
+  awayScreen: {
+    active: false,
+    selectedIndex: 0,
+    detailMode: false,
+    scroll: 0,
+  },
 };
 
 // Create UI layer
@@ -104,6 +110,10 @@ const STARTUP_MODAL_IDS = ['onboardingIntroductionModal', 'legallyBound'];
 
 let loopTimeoutId = null;
 let loopStarted = false;
+const bootInput = {
+  active: false,
+  delQueued: false,
+};
 
 // Input handling
 document.addEventListener('keydown', handleInput);
@@ -157,8 +167,8 @@ function scheduleLoop(delayOverride = null) {
 function loopStep() {
   engine.tick();
   updateModalCountdown();
-  // Skip game rendering while DOS prompt or BIOS is active
-  if (!document.hidden && !ui.dosPrompt && !ui.biosSetup) render();
+  // Skip game rendering while DOS prompt, BIOS, or away screen is active
+  if (!document.hidden && !ui.dosPrompt && !ui.biosSetup && !ui.awayScreen.active) render();
   scheduleLoop();
 }
 
@@ -175,13 +185,69 @@ function showNextQueuedModal() {
   showModal(nextId);
 }
 
+function showStartupSequence() {
+  if (!ui.settings.showIntro && engine.awayReport && engine.awayReport.awayRuns.length > 0) {
+    activateAwayScreen();
+  } else {
+    showNextQueuedModal();
+  }
+}
+
+function activateAwayScreen() {
+  ui.awayScreen.active = true;
+  ui.awayScreen.selectedIndex = 0;
+  ui.awayScreen.detailMode = false;
+  ui.awayScreen.scroll = 0;
+  render();
+}
+
+function dismissAwayScreen() {
+  ui.awayScreen.active = false;
+  engine.awayReport = null;
+  showNextQueuedModal();
+}
+
+function handleAwayInput(e) {
+  const report = engine.awayReport;
+  if (!report) return;
+
+  const runs = report.awayRuns;
+
+  if (ui.awayScreen.detailMode) {
+    if (e.key === 'Escape' || e.key === 'Backspace') {
+      ui.awayScreen.detailMode = false;
+      ui.awayScreen.scroll = 0;
+    } else if (e.key === 'PageDown') {
+      ui.awayScreen.scroll += 5;
+    } else if (e.key === 'PageUp') {
+      ui.awayScreen.scroll = Math.max(0, ui.awayScreen.scroll - 5);
+    }
+    render();
+    return;
+  }
+
+  if (e.key === 'ArrowUp') {
+    ui.awayScreen.selectedIndex = Math.max(0, ui.awayScreen.selectedIndex - 1);
+  } else if (e.key === 'ArrowDown') {
+    ui.awayScreen.selectedIndex = Math.min(runs.length - 1, ui.awayScreen.selectedIndex + 1);
+  } else if (e.key === 'Enter' && runs.length > 0) {
+    ui.awayScreen.detailMode = true;
+    ui.awayScreen.scroll = 0;
+  } else if (e.key.toLowerCase() === 'z' || e.key === 'Escape') {
+    dismissAwayScreen();
+  }
+  render();
+}
+
 function updateModalCountdown() {
   if (!ui.modal.active || !ui.modal.countdownActive) return;
 
   const remainingMs = Math.max(0, ui.modal.countdownEndsAt - Date.now());
   ui.modal.countdownRemainingMs = remainingMs;
   if (remainingMs === 0) {
-    dismissModal();
+    ui.modal.countdownActive = false;
+    ui.modal.countdownDurationMs = 0;
+    ui.modal.countdownEndsAt = 0;
   }
 }
 
@@ -195,7 +261,11 @@ function renderFrame(allowBloom = true) {
 }
 
 function enterDosPrompt() {
+  bootInput.active = false;
+  bootInput.delQueued = false;
   stopLoop();
+  // Hide bloom during DOS
+  if (bloomLayer) bloomLayer.style.display = 'none';
   const dos = new DosPrompt(buffer, {
     engine,
     onRender: () => renderFrame(false),
@@ -208,6 +278,9 @@ function enterDosPrompt() {
 
 // Main entry point
 async function main() {
+  bootInput.active = true;
+  bootInput.delQueued = false;
+
   const urlParams = new URLSearchParams(window.location.search);
   const authentic = ui.settings.authenticBoot || urlParams.has('ab');
   const forceBootPrompt = sessionStorage.getItem('ccv_force_boot_prompt');
@@ -284,13 +357,15 @@ async function main() {
     enterDosPrompt();
     return;
   } else {
+    bootInput.active = false;
+    bootInput.delQueued = false;
     // Straight to game
     applyFont(ui.settings);
     saveSettings(ui.settings);
     buffer.clear();
     render();
     enqueueStartupModals();
-    showNextQueuedModal();
+    showStartupSequence();
   }
 
   startLoop();
@@ -305,35 +380,30 @@ function exitDosPrompt() {
   buffer.clear();
   render();
   enqueueStartupModals();
-  showNextQueuedModal();
+  showStartupSequence();
   startLoop();
 }
 
 // Wait for DEL key press with timeout
 function waitForDelKey(timeoutMs) {
   return new Promise((resolve) => {
-    let resolved = false;
-    const handler = (e) => {
-      if (e.key === 'Delete' && !resolved) {
-        resolved = true;
-        document.removeEventListener('keydown', handler);
-        resolve(true);
-      }
-    };
-    document.addEventListener('keydown', handler);
+    if (bootInput.delQueued) {
+      resolve(true);
+      return;
+    }
     setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        document.removeEventListener('keydown', handler);
-        resolve(false);
-      }
+      resolve(bootInput.delQueued);
     }, timeoutMs);
   });
 }
 
 // Enter BIOS setup screen
 function enterBiosSetup() {
+  bootInput.active = false;
+  bootInput.delQueued = false;
   stopLoop();
+  // Hide bloom during BIOS
+  if (bloomLayer) bloomLayer.style.display = 'none';
   const bios = new BiosSetup(buffer, {
     settings: { ...ui.settings }, // Clone current settings
     onRender: () => renderFrame(false),
@@ -363,7 +433,7 @@ function exitBiosSetup(shouldSave, settings) {
     buffer.clear();
     render();
     enqueueStartupModals();
-    showNextQueuedModal();
+    showStartupSequence();
     startLoop();
   }
 }
@@ -405,6 +475,25 @@ function handleInput(e) {
       // Discard changes
       exitBiosSetup(false, ui.settings);
     }
+    return;
+  }
+
+  // During boot screen, ignore all game input except DEL for BIOS queue.
+  if (bootInput.active) {
+    if (e.key === 'Delete') {
+      bootInput.delQueued = true;
+    }
+    // Keep browser refresh available while blocking game input.
+    if (e.key !== 'F5') {
+      e.preventDefault();
+    }
+    return;
+  }
+
+  // Away screen
+  if (ui.awayScreen.active) {
+    e.preventDefault();
+    handleAwayInput(e);
     return;
   }
 
@@ -1514,6 +1603,12 @@ function dismissModal() {
 
   console.log(`Dismissed modal: ${modalId}`);
 
+  // After intro, show away screen before remaining modals
+  if (modalId === 'intro' && engine.awayReport && engine.awayReport.awayRuns.length > 0) {
+    activateAwayScreen();
+    return;
+  }
+
   // Check queue for next modal
   if (modalQueue.hasNext()) {
     const nextId = modalQueue.dequeue();
@@ -1545,6 +1640,12 @@ function startSelectedRun(activity, option) {
 
 // Main render function
 function render() {
+  if (ui.awayScreen.active) {
+    uiLayer.renderAwayScreen(engine.awayReport, ui.awayScreen);
+    renderFrame(true);
+    return;
+  }
+
   syncSelection();
 
   // UI layer writes to buffer (layered composition)

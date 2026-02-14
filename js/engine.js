@@ -72,6 +72,7 @@ export class Engine {
       modals: []
     };
     this.lastTick = Date.now();
+    this.awayReport = null;
   }
 
   async init(onProgress) {
@@ -176,6 +177,15 @@ export class Engine {
       const now = Date.now();
       let completedCount = 0;
 
+      // Snapshot state before offline completions (for away report)
+      const beforeResources = { ...this.state.resources };
+      const beforeStaffStatuses = this.state.crew.staff.map(s => ({
+        id: s.id, name: s.name, status: s.status
+      }));
+      const alreadyCompletedIds = new Set(
+        this.state.runs.filter(r => r.status === 'completed').map(r => r.runId)
+      );
+
       // Loop until no more runs need completion (handles multi-run chains)
       let hasMore = true;
       while (hasMore) {
@@ -191,6 +201,36 @@ export class Engine {
             hasMore = true;  // Check again in case repeat spawned a new run that also completed
           }
         });
+      }
+
+      // Recover jailed staff whose timers expired (before building report)
+      this.recoverStaff(now);
+
+      // Build away report from offline completions
+      if (completedCount > 0) {
+        const awayRuns = this.state.runs.filter(r =>
+          r.status === 'completed' && !alreadyCompletedIds.has(r.runId)
+        );
+
+        const resourceDelta = {};
+        for (const key of Object.keys(this.state.resources)) {
+          const delta = (this.state.resources[key] || 0) - (beforeResources[key] || 0);
+          if (delta !== 0) resourceDelta[key] = delta;
+        }
+
+        const jailedCrew = this.state.crew.staff.filter(s =>
+          s.status === 'unavailable' &&
+          beforeStaffStatuses.find(b => b.id === s.id)?.status !== 'unavailable'
+        ).map(s => s.name);
+
+        const freedCrew = this.state.crew.staff.filter(s =>
+          s.status === 'available' &&
+          beforeStaffStatuses.find(b => b.id === s.id)?.status === 'unavailable'
+        ).map(s => s.name);
+
+        this.awayReport = { awayRuns, resourceDelta, jailedCrew, freedCrew };
+      } else {
+        this.awayReport = null;
       }
 
       const stillActive = this.state.runs.filter(r => r.status === 'active' && r.endsAt > now);

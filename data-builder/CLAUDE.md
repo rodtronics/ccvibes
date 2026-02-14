@@ -15,8 +15,8 @@ Opens at `http://localhost:3000`. Reads/writes JSON files in `../data/`.
 |------|---------|
 | `server.js` | Express server. Serves static files, provides REST API for reading/writing game data JSON files. |
 | `workbench.html` | Main workbench UI - tabbed interface that loads all editors. |
-| `builder.js` (~68KB) | Legacy monolithic builder with validation, export, and data transformation logic. |
-| `hub-storage.js` | Shared localStorage utilities for the workbench. |
+| `js/builder.js` (~68KB) | Legacy monolithic builder with validation, export, and data transformation logic. |
+| `js/hub-storage.js` | Shared localStorage utilities for the workbench. |
 
 ## Legacy Standalone Editors (pre-workbench)
 | File | Purpose |
@@ -43,8 +43,10 @@ Opens at `http://localhost:3000`. Reads/writes JSON files in `../data/`.
 | File | Purpose |
 |------|---------|
 | `app.js` | App bootstrap, tab routing, global event handling. |
+| `builder.js` (~68KB) | Legacy monolithic builder used by standalone editor pages. |
 | `state.js` | Reactive store - loads all game data, provides `store` object, handles save/load via server API. |
 | `data-io.js` | Data import/export, file I/O helpers. |
+| `hub-storage.js` | Shared localStorage utilities used by standalone pages and workbench. |
 | `models.js` | Data model factories - `createActivity()`, `createOption()`, `createResolution()`, etc. Default values for new entities. |
 | `utils.js` | Shared utilities - DOM helpers, ID generation, formatting. |
 | `modal-preview.js` | Live preview renderer for modal content (matches game's modal rendering). |

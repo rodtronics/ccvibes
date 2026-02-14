@@ -91,6 +91,40 @@
   animation: option-expand var(--transition-base);
 }
 
+.ws-duration-calc {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(125,211,252,0.24);
+  border-radius: var(--radius-md);
+  background: rgba(125,211,252,0.05);
+}
+
+.ws-duration-calc__inputs {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ws-duration-calc__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.ws-duration-calc [data-duration-total] {
+  font-family: var(--font-mono);
+  color: var(--accent-bright);
+}
+
+@media (max-width: 900px) {
+  .ws-duration-calc__inputs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .ws-duration-calc__inputs { grid-template-columns: 1fr; }
+}
+
 @keyframes option-expand {
   from {
     opacity: 0;
@@ -313,4 +347,101 @@
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* Modals tab */
+.modals-shell {
+  display: flex;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.modals-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.modal-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  align-content: start;
+  grid-auto-rows: max-content;
+  gap: 4px;
+  padding-right: 4px;
+}
+
+.modal-list .modal-list__item {
+  cursor: pointer;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.modal-list .modal-list__item.is-selected {
+  border-color: var(--accent);
+  background: rgba(125, 211, 252, 0.06);
+}
+
+.modal-list__emoji {
+  width: 1.1rem;
+  text-align: center;
+  flex-shrink: 0;
+  line-height: 1.1;
+  margin-top: 1px;
+}
+
+.modal-list__meta {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.modal-list__title {
+  display: block;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modal-list__id {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-style: italic;
+  line-height: 1.1;
+}
+
+.modals-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
 }
