@@ -1,16 +1,16 @@
-let optionUid = 1;
+let variantUid = 1;
 let notes = { problems: '', solutions: '' };
-const state = createActivity();
-const fileState = { activities: [], selectedId: '', lastSavedState: null, loaded: false };
+const state = createScenario();
+const fileState = { scenarios: [], selectedId: '', lastSavedState: null, loaded: false };
 let serverOnline = false;
-const HUB_FILE = 'activities.json';
+const HUB_FILE = 'scenarios.json';
 
 document.addEventListener('DOMContentLoaded', () => {
   wireMetaInputs();
   wireNotes();
-  renderActivityConditions();
-  renderActivityReveals();
-  renderOptions();
+  renderScenarioConditions();
+  renderScenarioReveals();
+  renderVariants();
   refreshOutputs();
   initFileControls();
   checkServerStatus();
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   wireHubEvents();
 });
 
-function createActivity() {
+function createScenario() {
   return {
     id: '',
     name: '',
@@ -29,14 +29,14 @@ function createActivity() {
     visibleIf: [],
     unlockIf: [],
     reveals: { onReveal: [], onUnlock: [] },
-    options: [createOption()]
+    variants: [createVariant()]
   };
 }
 
-function createOption() {
+function createVariant() {
   return {
-    uid: optionUid++,
-    optionId: '',
+    uid: variantUid++,
+    variantId: '',
     name: '',
     description: '',
     repeatable: false,
@@ -92,7 +92,7 @@ function defaultCondition() {
     resourceId: '',
     itemId: '',
     roleId: '',
-    activityId: '',
+    scenarioId: '',
     key: '',
     value: 0,
     bool: true
@@ -101,8 +101,8 @@ function defaultCondition() {
 
 function defaultEffect() {
   return {
-    type: 'revealActivity',
-    activityId: '',
+    type: 'revealScenario',
+    scenarioId: '',
     branchId: '',
     resourceId: '',
     roleId: '',
@@ -116,9 +116,9 @@ function defaultEffect() {
 
 function wireMetaInputs() {
   const mapping = {
-    activityId: 'id',
-    activityName: 'name',
-    activityDescription: 'description',
+    scenarioId: 'id',
+    scenarioName: 'name',
+    scenarioDescription: 'description',
     branchId: 'branchId',
     icon: 'icon',
     tags: 'tags'
@@ -160,7 +160,7 @@ function refreshOutputs() {
 }
 
 function initFileControls() {
-  renderActivitySelect();
+  renderScenarioSelect();
   setFileStatus('Connect to the local builder server to enable save/load.', 'muted');
   if (!isServerContext()) return;
   refreshFileData();
@@ -213,7 +213,7 @@ function checkForUnsavedChanges() {
   if (!state.id) return false;
 
   if (fileState.lastSavedState && state.id === fileState.selectedId) {
-    const current = JSON.stringify(buildActivityJson());
+    const current = JSON.stringify(buildScenarioJson());
     const saved = JSON.stringify(fileState.lastSavedState);
     return current !== saved;
   }
@@ -223,14 +223,14 @@ function checkForUnsavedChanges() {
 
 function buildDraftActivitiesPayload() {
   if (!fileState.loaded) return null;
-  if (!Array.isArray(fileState.activities)) return null;
-  const activity = buildActivityJson();
-  if (!activity.id) return null;
+  if (!Array.isArray(fileState.scenarios)) return null;
+  const scenario = buildScenarioJson();
+  if (!scenario.id) return null;
 
-  const existingIndex = fileState.activities.findIndex((act) => act.id === activity.id);
-  const nextActivities = fileState.activities.slice();
-  if (existingIndex >= 0) nextActivities[existingIndex] = activity;
-  else nextActivities.push(activity);
+  const existingIndex = fileState.scenarios.findIndex((act) => act.id === scenario.id);
+  const nextActivities = fileState.scenarios.slice();
+  if (existingIndex >= 0) nextActivities[existingIndex] = scenario;
+  else nextActivities.push(scenario);
   return nextActivities;
 }
 
@@ -260,7 +260,7 @@ function wireHubEvents() {
 
     const currentId = state.id;
     if (currentId) {
-      const found = fileState.activities.find((act) => act.id === currentId);
+      const found = fileState.scenarios.find((act) => act.id === currentId);
       if (found) {
         fileState.selectedId = currentId;
         fileState.lastSavedState = JSON.parse(JSON.stringify(found));
@@ -284,17 +284,17 @@ function wireKeyboardShortcuts() {
     // Ctrl+S or Cmd+S: Save
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
-      saveActivityToFile();
+      saveScenarioToFile();
     }
     // Ctrl+N or Cmd+N: New
     if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
       e.preventDefault();
-      startNewActivity();
+      startNewScenario();
     }
     // Ctrl+D or Cmd+D: Duplicate
     if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
       e.preventDefault();
-      duplicateActivity();
+      duplicateScenario();
     }
   });
 }
@@ -313,52 +313,52 @@ function setFileStatus(message, kind) {
   else el.style.color = '';
 }
 
-function renderActivitySelect(selectedId = '') {
-  const select = document.getElementById('activitySelect');
+function renderScenarioSelect(selectedId = '') {
+  const select = document.getElementById('scenarioSelect');
   if (!select) return;
 
   const current = selectedId || fileState.selectedId || select.value;
-  const options = [
-    { value: '', label: 'Select an activity' },
-    ...fileState.activities
+  const variants = [
+    { value: '', label: 'Select a scenario' },
+    ...fileState.scenarios
       .slice()
       .sort((a, b) => (a.id || '').localeCompare(b.id || ''))
-      .map((activity) => ({
-        value: activity.id || '',
-        label: `${activity.id || 'untitled'}${activity.name ? ` - ${activity.name}` : ''}`
+      .map((scenario) => ({
+        value: scenario.id || '',
+        label: `${scenario.id || 'untitled'}${scenario.name ? ` - ${scenario.name}` : ''}`
       }))
   ];
 
-  select.innerHTML = options
+  select.innerHTML = variants
     .map(opt => `<option value="${safe(opt.value)}">${safe(opt.label)}</option>`)
     .join('');
   select.value = current;
   fileState.selectedId = select.value;
 }
 
-function loadActivityById(activityId) {
-  if (!activityId) return;
-  if ((state.id || '').trim() === activityId) return;
+function loadActivityById(scenarioId) {
+  if (!scenarioId) return;
+  if ((state.id || '').trim() === scenarioId) return;
 
-  const select = document.getElementById('activitySelect');
-  if (select) select.value = activityId;
-  loadSelectedActivity();
+  const select = document.getElementById('scenarioSelect');
+  if (select) select.value = scenarioId;
+  loadSelectedScenario();
 }
 
 function renderDataTree(filterText = '') {
   const container = document.getElementById('dataTree');
   if (!container) return;
 
-  let activities = getWorkingActivities();
-  if (!activities.length) {
-    container.innerHTML = '<div class="tree-empty">No activity data loaded.</div>';
+  let scenarios = getWorkingActivities();
+  if (!scenarios.length) {
+    container.innerHTML = '<div class="tree-empty">No scenario data loaded.</div>';
     return;
   }
 
   // Apply filter
   if (filterText) {
     const search = filterText.toLowerCase();
-    activities = activities.filter(act => {
+    scenarios = scenarios.filter(act => {
       const matchId = (act.id || '').toLowerCase().includes(search);
       const matchName = (act.name || '').toLowerCase().includes(search);
       const matchBranch = (act.branchId || '').toLowerCase().includes(search);
@@ -366,14 +366,14 @@ function renderDataTree(filterText = '') {
     });
   }
 
-  if (!activities.length) {
-    container.innerHTML = '<div class="tree-empty">No activities match the filter.</div>';
+  if (!scenarios.length) {
+    container.innerHTML = '<div class="tree-empty">No scenarios match the filter.</div>';
     return;
   }
 
-  const grouped = groupActivitiesByBranch(activities);
-  const branchBlocks = grouped.map(({ branchId, activities: branchActivities }) => {
-    const items = branchActivities.map(renderActivityTreeItem).join('');
+  const grouped = groupActivitiesByBranch(scenarios);
+  const branchBlocks = grouped.map(({ branchId, scenarios: branchScenarios }) => {
+    const items = branchScenarios.map(renderScenarioTreeItem).join('');
     return `
       <div class="tree-group">
         <div class="tree-branch">${safe(branchId)}</div>
@@ -390,8 +390,8 @@ function filterDataTree(text) {
 }
 
 function getWorkingActivities() {
-  const list = Array.isArray(fileState.activities) ? fileState.activities.slice() : [];
-  const draft = getDraftActivity();
+  const list = Array.isArray(fileState.scenarios) ? fileState.scenarios.slice() : [];
+  const draft = getDraftScenario();
   if (draft) {
     const idx = list.findIndex((act) => act.id === draft.id);
     if (idx >= 0) list[idx] = draft;
@@ -400,52 +400,52 @@ function getWorkingActivities() {
   return list;
 }
 
-function getDraftActivity() {
+function getDraftScenario() {
   const id = (state.id || '').trim();
   if (!id) return null;
-  return buildActivityJson();
+  return buildScenarioJson();
 }
 
-function groupActivitiesByBranch(activities) {
+function groupActivitiesByBranch(scenarios) {
   const map = new Map();
-  activities.forEach((activity) => {
-    const branchId = activity.branchId || 'unassigned';
+  scenarios.forEach((scenario) => {
+    const branchId = scenario.branchId || 'unassigned';
     if (!map.has(branchId)) map.set(branchId, []);
-    map.get(branchId).push(activity);
+    map.get(branchId).push(scenario);
   });
 
   return Array.from(map.entries())
     .map(([branchId, list]) => ({
       branchId,
-      activities: list.slice().sort((a, b) => (a.id || '').localeCompare(b.id || ''))
+      scenarios: list.slice().sort((a, b) => (a.id || '').localeCompare(b.id || ''))
     }))
     .sort((a, b) => a.branchId.localeCompare(b.branchId));
 }
 
-function renderActivityTreeItem(activity) {
-  const activityId = activity.id || 'untitled';
-  const name = activity.name || '';
-  const isSelected = (state.id || '').trim() === activityId;
-  const visibleCount = (activity.visibleIf || []).length;
-  const unlockCount = (activity.unlockIf || []).length;
+function renderScenarioTreeItem(scenario) {
+  const scenarioId = scenario.id || 'untitled';
+  const name = scenario.name || '';
+  const isSelected = (state.id || '').trim() === scenarioId;
+  const visibleCount = (scenario.visibleIf || []).length;
+  const unlockCount = (scenario.unlockIf || []).length;
 
   const badges = renderGateBadges(visibleCount, unlockCount);
   const conditions = [
-    formatConditionList('visible', activity.visibleIf),
-    formatConditionList('unlock', activity.unlockIf)
+    formatConditionList('visible', scenario.visibleIf),
+    formatConditionList('unlock', scenario.unlockIf)
   ].filter(Boolean);
   const conditionLine = conditions.length ? `<div class="tree-meta">${safe(conditions.join(' | '))}</div>` : '';
 
-  const links = formatEffectLinks(activity);
+  const links = formatEffectLinks(scenario);
   const linkLine = links ? `<div class="tree-meta">${safe(links)}</div>` : '';
 
-  const options = (activity.options || []).map(renderOptionTreeItem).join('');
-  const optionsLine = options ? `<div class="tree-options">${options}</div>` : '';
+  const variants = (scenario.variants || []).map(renderOptionTreeItem).join('');
+  const optionsLine = variants ? `<div class="tree-variants">${variants}</div>` : '';
 
   return `
-    <div class="tree-activity ${isSelected ? 'selected' : ''}">
+    <div class="tree-scenario ${isSelected ? 'selected' : ''}">
       <div class="tree-row">
-        <button class="tree-link" onclick="loadActivityById('${safe(activityId)}')">${safe(activityId)}</button>
+        <button class="tree-link" onclick="loadActivityById('${safe(scenarioId)}')">${safe(scenarioId)}</button>
         ${name ? `<span class="muted">${safe(name)}</span>` : ''}
         ${badges}
       </div>
@@ -456,23 +456,23 @@ function renderActivityTreeItem(activity) {
   `;
 }
 
-function renderOptionTreeItem(option) {
-  const optionId = option.id || 'option';
-  const name = option.name || '';
-  const visibleCount = (option.visibleIf || []).length;
-  const unlockCount = (option.unlockIf || []).length;
+function renderOptionTreeItem(variant) {
+  const variantId = variant.id || 'variant';
+  const name = variant.name || '';
+  const visibleCount = (variant.visibleIf || []).length;
+  const unlockCount = (variant.unlockIf || []).length;
   const badges = renderGateBadges(visibleCount, unlockCount);
 
   const conditions = [
-    formatConditionList('visible', option.visibleIf),
-    formatConditionList('unlock', option.unlockIf)
+    formatConditionList('visible', variant.visibleIf),
+    formatConditionList('unlock', variant.unlockIf)
   ].filter(Boolean);
   const conditionLine = conditions.length ? `<div class="tree-meta">${safe(conditions.join(' | '))}</div>` : '';
 
   return `
-    <div class="tree-option">
+    <div class="tree-variant">
       <div class="tree-row">
-        <span>${safe(optionId)}</span>
+        <span>${safe(variantId)}</span>
         ${name ? `<span class="muted">${safe(name)}</span>` : ''}
         ${badges}
       </div>
@@ -510,8 +510,8 @@ function formatCondition(cond) {
   if (cond.type === 'roleRevealed') {
     return `roleRevealed:${cond.roleId || 'role'}`;
   }
-  if (cond.type === 'activityRevealed') {
-    return `activityRevealed:${cond.activityId || 'activity'}`;
+  if (cond.type === 'scenarioRevealed') {
+    return `activityRevealed:${cond.scenarioId || 'scenario'}`;
   }
   return cond.type;
 }
@@ -528,29 +528,29 @@ function summarizeList(items, limit = 3) {
   return `${cleaned.slice(0, limit).join(', ')} +${cleaned.length - limit}`;
 }
 
-function formatEffectLinks(activity) {
-  const links = collectActivityEffectLinks(activity);
+function formatEffectLinks(scenario) {
+  const links = collectActivityEffectLinks(scenario);
   const parts = [];
   if (links.reveals.length) parts.push(`reveals: ${summarizeList(links.reveals, 3)}`);
   if (links.unlocks.length) parts.push(`unlocks: ${summarizeList(links.unlocks, 3)}`);
   return parts.join(' | ');
 }
 
-function collectActivityEffectLinks(activity) {
+function collectActivityEffectLinks(scenario) {
   const reveals = new Set();
   const unlocks = new Set();
 
   const addEffect = (effect) => {
     if (!effect || !effect.type) return;
-    if (effect.type === 'revealActivity' && effect.activityId) reveals.add(effect.activityId);
-    if (effect.type === 'unlockActivity' && effect.activityId) unlocks.add(effect.activityId);
+    if (effect.type === 'revealScenario' && effect.scenarioId) reveals.add(effect.scenarioId);
+    if (effect.type === 'unlockScenario' && effect.scenarioId) unlocks.add(effect.scenarioId);
   };
 
-  (activity.reveals?.onReveal || []).forEach(addEffect);
-  (activity.reveals?.onUnlock || []).forEach(addEffect);
+  (scenario.reveals?.onReveal || []).forEach(addEffect);
+  (scenario.reveals?.onUnlock || []).forEach(addEffect);
 
-  (activity.options || []).forEach((option) => {
-    const resolution = option.resolution || {};
+  (scenario.variants || []).forEach((variant) => {
+    const resolution = variant.resolution || {};
     (resolution.effects || []).forEach(addEffect);
     (resolution.outcomes || []).forEach((outcome) => {
       (outcome.effects || []).forEach(addEffect);
@@ -570,129 +570,129 @@ async function refreshFileData() {
   }
 
   try {
-    const res = await fetch('/api/data/activities.json');
+    const res = await fetch('/api/data/scenarios.json');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (!Array.isArray(data)) throw new Error('Expected an array of activities');
+    if (!Array.isArray(data)) throw new Error('Expected an array of scenarios');
 
-    fileState.activities = data;
+    fileState.scenarios = data;
     fileState.loaded = true;
-    renderActivitySelect();
+    renderScenarioSelect();
     renderDataTree();
-    setFileStatus(`Loaded ${data.length} activities.`, 'success');
+    setFileStatus(`Loaded ${data.length} scenarios.`, 'success');
     syncHubStatus();
   } catch (err) {
-    setFileStatus(`Failed to load activities.json: ${err.message}`, 'error');
+    setFileStatus(`Failed to load scenarios.json: ${err.message}`, 'error');
   }
 }
 
-function loadSelectedActivity() {
-  const select = document.getElementById('activitySelect');
+function loadSelectedScenario() {
+  const select = document.getElementById('scenarioSelect');
   if (!select) return;
   const selectedId = select.value;
   if (!selectedId) {
-    setFileStatus('Pick an activity to load.', 'error');
+    setFileStatus('Pick an scenario to load.', 'error');
     return;
   }
 
-  const activity = fileState.activities.find((act) => act.id === selectedId);
-  if (!activity) {
-    setFileStatus('Activity not found in file cache.', 'error');
+  const scenario = fileState.scenarios.find((scn) => scn.id === selectedId);
+  if (!scenario) {
+    setFileStatus('Scenario not found in file cache.', 'error');
     return;
   }
 
-  applyActivityData(activity);
+  applyScenarioData(scenario);
   fileState.selectedId = selectedId;
-  fileState.lastSavedState = JSON.parse(JSON.stringify(activity));
+  fileState.lastSavedState = JSON.parse(JSON.stringify(scenario));
   setFileStatus(`Loaded ${selectedId}.`, 'success');
 }
 
-function startNewActivity() {
+function startNewScenario() {
   clearBuilder();
   fileState.selectedId = '';
   fileState.lastSavedState = null;
-  renderActivitySelect();
-  setFileStatus('New activity started.', 'success');
+  renderScenarioSelect();
+  setFileStatus('New scenario started.', 'success');
 }
 
-async function saveActivityToFile() {
+async function saveScenarioToFile() {
   if (!isServerContext()) {
     setFileStatus('Open this page from the builder server to use save/load.', 'error');
     return;
   }
 
-  const activity = buildActivityJson();
-  if (!activity.id) {
-    setFileStatus('Activity ID is required before saving.', 'error');
+  const scenario = buildScenarioJson();
+  if (!scenario.id) {
+    setFileStatus('Scenario ID is required before saving.', 'error');
     return;
   }
 
   // Validate before saving
-  const validation = validateActivity(activity);
+  const validation = validateActivity(scenario);
   if (!validation.valid) {
     setFileStatus(`Validation failed: ${validation.errors.join(', ')}`, 'error');
     return;
   }
 
-  const existingIndex = fileState.activities.findIndex((act) => act.id === activity.id);
-  const nextActivities = fileState.activities.slice();
-  if (existingIndex >= 0) nextActivities[existingIndex] = activity;
-  else nextActivities.push(activity);
+  const existingIndex = fileState.scenarios.findIndex((act) => act.id === scenario.id);
+  const nextActivities = fileState.scenarios.slice();
+  if (existingIndex >= 0) nextActivities[existingIndex] = scenario;
+  else nextActivities.push(scenario);
 
   try {
-    const res = await fetch('/api/data/activities.json', {
+    const res = await fetch('/api/data/scenarios.json', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(nextActivities)
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    fileState.activities = nextActivities;
-    fileState.selectedId = activity.id;
-    fileState.lastSavedState = JSON.parse(JSON.stringify(activity));
-    renderActivitySelect(activity.id);
+    fileState.scenarios = nextActivities;
+    fileState.selectedId = scenario.id;
+    fileState.lastSavedState = JSON.parse(JSON.stringify(scenario));
+    renderScenarioSelect(scenario.id);
     renderDataTree();
     updateSaveIndicator();
     syncHubStatus();
     window.CcvibesHubStorage?.broadcastSaved(HUB_FILE);
-    setFileStatus(existingIndex >= 0 ? `Updated ${activity.id}.` : `Saved ${activity.id}.`, 'success');
+    setFileStatus(existingIndex >= 0 ? `Updated ${scenario.id}.` : `Saved ${scenario.id}.`, 'success');
   } catch (err) {
-    setFileStatus(`Failed to save activities.json: ${err.message}`, 'error');
+    setFileStatus(`Failed to save scenarios.json: ${err.message}`, 'error');
   }
 }
 
-function validateActivity(activity) {
+function validateActivity(scenario) {
   const errors = [];
 
-  if (!activity.id || !activity.id.trim()) {
-    errors.push('Activity ID is required');
+  if (!scenario.id || !scenario.id.trim()) {
+    errors.push('Scenario ID is required');
   }
 
-  if (!activity.name || !activity.name.trim()) {
-    errors.push('Activity name is required');
+  if (!scenario.name || !scenario.name.trim()) {
+    errors.push('Scenario name is required');
   }
 
-  // Check for duplicate option IDs
-  const optionIds = new Set();
-  activity.options.forEach((opt, idx) => {
+  // Check for duplicate variant IDs
+  const variantIds = new Set();
+  scenario.variants.forEach((opt, idx) => {
     if (!opt.id || !opt.id.trim()) {
-      errors.push(`Option ${idx + 1} has no ID`);
-    } else if (optionIds.has(opt.id)) {
-      errors.push(`Duplicate option ID: ${opt.id}`);
+      errors.push(`Variant ${idx + 1} has no ID`);
+    } else if (variantIds.has(opt.id)) {
+      errors.push(`Duplicate variant ID: ${opt.id}`);
     } else {
-      optionIds.add(opt.id);
+      variantIds.add(opt.id);
     }
 
     // Check staff requirements
     if (!opt.requirements.staff.length) {
-      errors.push(`Option ${opt.id || idx + 1} has no staff requirements`);
+      errors.push(`Variant ${opt.id || idx + 1} has no staff requirements`);
     }
 
     // Check weighted outcomes sum
     if (opt.resolution.type === 'weighted_outcomes') {
       const totalWeight = opt.resolution.outcomes.reduce((sum, out) => sum + (out.weight || 0), 0);
       if (totalWeight === 0) {
-        errors.push(`Option ${opt.id || idx + 1} has outcomes with zero total weight`);
+        errors.push(`Variant ${opt.id || idx + 1} has outcomes with zero total weight`);
       }
     }
   });
@@ -703,9 +703,9 @@ function validateActivity(activity) {
   };
 }
 
-function duplicateActivity() {
+function duplicateScenario() {
   if (!state.id) {
-    setFileStatus('Load an activity first before duplicating.', 'error');
+    setFileStatus('Load an scenario first before duplicating.', 'error');
     return;
   }
 
@@ -715,7 +715,7 @@ function duplicateActivity() {
   // Find next available copy number
   let copyNum = 1;
   let newId = `${baseName}_copy`;
-  while (fileState.activities.some(act => act.id === newId)) {
+  while (fileState.scenarios.some(act => act.id === newId)) {
     copyNum++;
     newId = `${baseName}_copy${copyNum}`;
   }
@@ -725,22 +725,22 @@ function duplicateActivity() {
   fileState.selectedId = '';
   fileState.lastSavedState = null;
 
-  // Update option IDs to match new activity ID
-  state.options.forEach((opt, idx) => {
-    const oldOptionId = opt.optionId || '';
-    if (oldOptionId.startsWith(currentId)) {
-      opt.optionId = oldOptionId.replace(currentId, newId);
+  // Update variant IDs to match new scenario ID
+  state.variants.forEach((variant, idx) => {
+    const oldVariantId = variant.variantId || '';
+    if (oldVariantId.startsWith(currentId)) {
+      variant.variantId = oldVariantId.replace(currentId, newId);
     } else {
-      opt.optionId = `${newId}_option_${idx + 1}`;
+      variant.variantId = `${newId}_variant_${idx + 1}`;
     }
   });
 
-  document.getElementById('activityId').value = state.id;
-  document.getElementById('activityName').value = state.name;
+  document.getElementById('scenarioId').value = state.id;
+  document.getElementById('scenarioName').value = state.name;
 
-  renderOptions();
+  renderVariants();
   refreshOutputs();
-  renderActivitySelect();
+  renderScenarioSelect();
   setFileStatus(`Duplicated as ${newId}. Remember to save!`, 'success');
 }
 
@@ -753,64 +753,64 @@ function safe(value) {
     .replace(/"/g, '&quot;');
 }
 
-function renderActivityConditions() {
-  const visible = document.getElementById('activityVisibleIf');
-  const unlock = document.getElementById('activityUnlockIf');
-  if (visible) visible.innerHTML = renderConditionList(state.visibleIf, 'activity|visibleIf');
-  if (unlock) unlock.innerHTML = renderConditionList(state.unlockIf, 'activity|unlockIf');
+function renderScenarioConditions() {
+  const visible = document.getElementById('scenarioVisibleIf');
+  const unlock = document.getElementById('scenarioUnlockIf');
+  if (visible) visible.innerHTML = renderConditionList(state.visibleIf, 'scenario|visibleIf');
+  if (unlock) unlock.innerHTML = renderConditionList(state.unlockIf, 'scenario|unlockIf');
 }
 
-function renderActivityReveals() {
-  const onReveal = document.getElementById('activityOnReveal');
-  const onUnlock = document.getElementById('activityOnUnlock');
-  if (onReveal) onReveal.innerHTML = renderEffectList(state.reveals.onReveal, 'activity|onReveal');
-  if (onUnlock) onUnlock.innerHTML = renderEffectList(state.reveals.onUnlock, 'activity|onUnlock');
+function renderScenarioReveals() {
+  const onReveal = document.getElementById('scenarioOnReveal');
+  const onUnlock = document.getElementById('scenarioOnUnlock');
+  if (onReveal) onReveal.innerHTML = renderEffectList(state.reveals.onReveal, 'scenario|onReveal');
+  if (onUnlock) onUnlock.innerHTML = renderEffectList(state.reveals.onUnlock, 'scenario|onUnlock');
 }
 
-function renderOptions() {
-  const container = document.getElementById('optionsList');
+function renderVariants() {
+  const container = document.getElementById('variantsList');
   if (!container) return;
-  container.innerHTML = state.options.map((opt, idx) => renderOptionCard(opt, idx)).join('');
+  container.innerHTML = state.variants.map((variant, idx) => renderVariantCard(opt, idx)).join('');
   refreshOutputs();
 }
 
-function renderOptionCard(option, idx) {
+function renderVariantCard(variant, idx) {
   return `
-    <div class="option-card">
-      <div class="option-head">
+    <div class="variant-card">
+      <div class="variant-head">
         <div class="flex">
-          <div class="badge">Option ${idx + 1}</div>
-          <div class="muted">${option.optionId || 'no id yet'}</div>
+          <div class="badge">Variant ${idx + 1}</div>
+          <div class="muted">${variant.variantId || 'no id yet'}</div>
         </div>
         <div class="flex">
           <label class="muted" style="margin:0">Repeatable?</label>
-          <input type="checkbox" ${option.repeatable ? 'checked' : ''} onchange="updateOptionField(${option.uid}, 'repeatable', this.checked)">
-          <button class="ghost small" onclick="removeOption(${option.uid})">remove</button>
+          <input type="checkbox" ${variant.repeatable ? 'checked' : ''} onchange="updateVariantField(${variant.uid}, 'repeatable', this.checked)">
+          <button class="ghost small" onclick="removeVariant(${variant.uid})">remove</button>
         </div>
       </div>
 
       <div class="input-grid two-col">
         <div>
-          <label>Option ID</label>
-          <input type="text" value="${safe(option.optionId)}" placeholder="shoplifting_grab" oninput="updateOptionField(${option.uid}, 'optionId', this.value)">
+          <label>Variant ID</label>
+          <input type="text" value="${safe(variant.variantId)}" placeholder="shoplifting_grab" oninput="updateVariantField(${variant.uid}, 'variantId', this.value)">
         </div>
         <div>
           <label>Name</label>
-          <input type="text" value="${safe(option.name)}" placeholder="grab and go" oninput="updateOptionField(${option.uid}, 'name', this.value)">
+          <input type="text" value="${safe(variant.name)}" placeholder="grab and go" oninput="updateVariantField(${variant.uid}, 'name', this.value)">
         </div>
         <div>
           <label>Description</label>
-          <textarea oninput="updateOptionField(${option.uid}, 'description', this.value)" placeholder="what is the vibe?">${safe(option.description)}</textarea>
+          <textarea oninput="updateVariantField(${variant.uid}, 'description', this.value)" placeholder="what is the vibe?">${safe(variant.description)}</textarea>
         </div>
         <div class="input-grid">
           <label>Duration (ms)</label>
-          <input type="number" value="${safe(option.durationMs)}" oninput="updateOptionField(${option.uid}, 'durationMs', parseInt(this.value, 10) || 0)">
+          <input type="number" value="${safe(variant.durationMs)}" oninput="updateVariantField(${variant.uid}, 'durationMs', parseInt(this.value, 10) || 0)">
           <label>XP on Complete</label>
-          <input type="number" value="${safe(option.xp)}" oninput="updateOptionField(${option.uid}, 'xp', parseInt(this.value, 10) || 0)">
+          <input type="number" value="${safe(variant.xp)}" oninput="updateVariantField(${variant.uid}, 'xp', parseInt(this.value, 10) || 0)">
           <label>Cooldown (ms)</label>
-          <input type="number" value="${safe(option.cooldownMs)}" oninput="updateOptionField(${option.uid}, 'cooldownMs', parseInt(this.value, 10) || 0)">
+          <input type="number" value="${safe(variant.cooldownMs)}" oninput="updateVariantField(${variant.uid}, 'cooldownMs', parseInt(this.value, 10) || 0)">
           <label>Max Concurrent Runs (optional)</label>
-          <input type="number" value="${safe(option.maxConcurrentRuns)}" oninput="updateOptionField(${option.uid}, 'maxConcurrentRuns', this.value)">
+          <input type="number" value="${safe(variant.maxConcurrentRuns)}" oninput="updateVariantField(${variant.uid}, 'maxConcurrentRuns', this.value)">
         </div>
       </div>
 
@@ -818,16 +818,16 @@ function renderOptionCard(option, idx) {
         <div>
           <div class="subheader">
             <span>Visible If</span>
-            <button class="ghost small" onclick="addCondition('option|${option.uid}|visibleIf')">+ condition</button>
+            <button class="ghost small" onclick="addCondition('variant|${variant.uid}|visibleIf')">+ condition</button>
           </div>
-          ${renderConditionList(option.visibleIf, 'option|' + option.uid + '|visibleIf')}
+          ${renderConditionList(variant.visibleIf, 'variant|' + variant.uid + '|visibleIf')}
         </div>
         <div>
           <div class="subheader">
             <span>Unlock If</span>
-            <button class="ghost small" onclick="addCondition('option|${option.uid}|unlockIf')">+ condition</button>
+            <button class="ghost small" onclick="addCondition('variant|${variant.uid}|unlockIf')">+ condition</button>
           </div>
-          ${renderConditionList(option.unlockIf, 'option|' + option.uid + '|unlockIf')}
+          ${renderConditionList(variant.unlockIf, 'variant|' + variant.uid + '|unlockIf')}
         </div>
       </div>
 
@@ -835,9 +835,9 @@ function renderOptionCard(option, idx) {
         <div>
           <div class="subheader">
             <span>Staff Requirements</span>
-            <button class="ghost small" onclick="addStaffRequirement(${option.uid})">+ staff</button>
+            <button class="ghost small" onclick="addStaffRequirement(${variant.uid})">+ staff</button>
           </div>
-          ${renderStaffRequirements(option)}
+          ${renderStaffRequirements(variant)}
         </div>
         <div>
           <div class="subheader">
@@ -846,13 +846,13 @@ function renderOptionCard(option, idx) {
           </div>
           <div>
             <div class="muted" style="margin-bottom:6px">Resources</div>
-            ${renderKvList(option.inputs.resources, 'in-res|' + option.uid, 'amount')}
-            <button class="ghost small" onclick="addKvEntry('in-res|${option.uid}')">+ resource cost</button>
+            ${renderKvList(variant.inputs.resources, 'in-res|' + variant.uid, 'amount')}
+            <button class="ghost small" onclick="addKvEntry('in-res|${variant.uid}')">+ resource cost</button>
           </div>
           <div style="margin-top:10px">
             <div class="muted" style="margin-bottom:6px">Items</div>
-            ${renderKvList(option.inputs.items, 'in-items|' + option.uid, 'amount', 'itemId')}
-            <button class="ghost small" onclick="addKvEntry('in-items|${option.uid}')">+ item cost</button>
+            ${renderKvList(variant.inputs.items, 'in-items|' + variant.uid, 'amount', 'itemId')}
+            <button class="ghost small" onclick="addKvEntry('in-items|${variant.uid}')">+ item cost</button>
           </div>
         </div>
       </div>
@@ -861,16 +861,16 @@ function renderOptionCard(option, idx) {
         <div>
           <div class="subheader">
             <span>Other Requirements</span>
-            <button class="ghost small" onclick="addRequirementItem(${option.uid}, 'items')">+ item</button>
+            <button class="ghost small" onclick="addRequirementItem(${variant.uid}, 'items')">+ item</button>
           </div>
-          ${renderRequirementItems(option)}
+          ${renderRequirementItems(variant)}
         </div>
         <div>
           <div class="subheader">
             <span>Buildings (optional)</span>
-            <button class="ghost small" onclick="addRequirementItem(${option.uid}, 'buildings')">+ building</button>
+            <button class="ghost small" onclick="addRequirementItem(${variant.uid}, 'buildings')">+ building</button>
           </div>
-          ${renderRequirementBuildings(option)}
+          ${renderRequirementBuildings(variant)}
         </div>
       </div>
 
@@ -879,83 +879,83 @@ function renderOptionCard(option, idx) {
           <span>Resolution</span>
           <div class="flex">
             <label class="muted" style="margin:0">Type</label>
-            <select onchange="setResolutionType(${option.uid}, this.value)">
-              <option value="deterministic" ${option.resolution.type === 'deterministic' ? 'selected' : ''}>deterministic</option>
-              <option value="ranged_outputs" ${option.resolution.type === 'ranged_outputs' ? 'selected' : ''}>ranged_outputs</option>
-              <option value="weighted_outcomes" ${option.resolution.type === 'weighted_outcomes' ? 'selected' : ''}>weighted_outcomes</option>
+            <select onchange="setResolutionType(${variant.uid}, this.value)">
+              <option value="deterministic" ${variant.resolution.type === 'deterministic' ? 'selected' : ''}>deterministic</option>
+              <option value="ranged_outputs" ${variant.resolution.type === 'ranged_outputs' ? 'selected' : ''}>ranged_outputs</option>
+              <option value="weighted_outcomes" ${variant.resolution.type === 'weighted_outcomes' ? 'selected' : ''}>weighted_outcomes</option>
             </select>
           </div>
         </div>
-        ${renderResolution(option)}
+        ${renderResolution(variant)}
       </div>
 
       <div class="input-grid">
         <label>Modifiers (raw JSON array, optional)</label>
-        <textarea placeholder='[{\"type\":\"staffStars\",\"roleId\":\"thief\",\"applyPerStar\":{\"outcomeWeightAdjustment\":{\"caught\":-5}}}]' oninput="updateOptionField(${option.uid}, 'modifiersText', this.value)">${safe(option.modifiersText)}</textarea>
+        <textarea placeholder='[{\"type\":\"staffStars\",\"roleId\":\"thief\",\"applyPerStar\":{\"outcomeWeightAdjustment\":{\"caught\":-5}}}]' oninput="updateVariantField(${variant.uid}, 'modifiersText', this.value)">${safe(variant.modifiersText)}</textarea>
       </div>
     </div>
   `;
 }
-function renderStaffRequirements(option) {
-  if (!option.requirements.staff.length) {
+function renderStaffRequirements(variant) {
+  if (!variant.requirements.staff.length) {
     return `<div class="pill hint">No staff requirements yet.</div>`;
   }
 
-  return option.requirements.staff.map((req, idx) => `
+  return variant.requirements.staff.map((req, idx) => `
     <div class="pill">
       <div class="pill-row">
-        <input type="text" value="${safe(req.roleId)}" placeholder="roleId" oninput="updateStaffRequirement(${option.uid}, ${idx}, 'roleId', this.value)">
-        <input type="number" value="${safe(req.count)}" placeholder="count" oninput="updateStaffRequirement(${option.uid}, ${idx}, 'count', parseInt(this.value, 10) || 0)">
-        <input type="number" value="${safe(req.starsMin)}" placeholder="starsMin" oninput="updateStaffRequirement(${option.uid}, ${idx}, 'starsMin', parseInt(this.value, 10) || 0)">
+        <input type="text" value="${safe(req.roleId)}" placeholder="roleId" oninput="updateStaffRequirement(${variant.uid}, ${idx}, 'roleId', this.value)">
+        <input type="number" value="${safe(req.count)}" placeholder="count" oninput="updateStaffRequirement(${variant.uid}, ${idx}, 'count', parseInt(this.value, 10) || 0)">
+        <input type="number" value="${safe(req.starsMin)}" placeholder="starsMin" oninput="updateStaffRequirement(${variant.uid}, ${idx}, 'starsMin', parseInt(this.value, 10) || 0)">
         <label class="muted" style="margin:0">Required?</label>
-        <input type="checkbox" ${req.required !== false ? 'checked' : ''} onchange="updateStaffRequirement(${option.uid}, ${idx}, 'required', this.checked)">
-        <button class="ghost small" onclick="removeStaffRequirement(${option.uid}, ${idx})">remove</button>
+        <input type="checkbox" ${req.required !== false ? 'checked' : ''} onchange="updateStaffRequirement(${variant.uid}, ${idx}, 'required', this.checked)">
+        <button class="ghost small" onclick="removeStaffRequirement(${variant.uid}, ${idx})">remove</button>
       </div>
       <div style="margin-top:8px">
         <label>Bonus / note (optional)</label>
-        <input type="text" value="${safe(req.bonus)}" placeholder="+5 cred, cleaner lowers heat" oninput="updateStaffRequirement(${option.uid}, ${idx}, 'bonus', this.value)">
+        <input type="text" value="${safe(req.bonus)}" placeholder="+5 cred, cleaner lowers heat" oninput="updateStaffRequirement(${variant.uid}, ${idx}, 'bonus', this.value)">
       </div>
     </div>
   `).join('');
 }
 
-function renderRequirementItems(option) {
-  if (!option.requirements.items.length) {
+function renderRequirementItems(variant) {
+  if (!variant.requirements.items.length) {
     return `<div class="pill hint">No item requirements.</div>`;
   }
 
-  return option.requirements.items.map((it, idx) => `
+  return variant.requirements.items.map((it, idx) => `
     <div class="pill pill-row">
-      <input type="text" value="${safe(it.itemId)}" placeholder="itemId" oninput="updateRequirementItem(${option.uid}, ${idx}, 'items', 'itemId', this.value)">
-      <input type="number" value="${safe(it.count)}" placeholder="count" oninput="updateRequirementItem(${option.uid}, ${idx}, 'items', 'count', parseInt(this.value, 10) || 0)">
-      <button class="ghost small" onclick="removeRequirementItem(${option.uid}, ${idx}, 'items')">remove</button>
+      <input type="text" value="${safe(it.itemId)}" placeholder="itemId" oninput="updateRequirementItem(${variant.uid}, ${idx}, 'items', 'itemId', this.value)">
+      <input type="number" value="${safe(it.count)}" placeholder="count" oninput="updateRequirementItem(${variant.uid}, ${idx}, 'items', 'count', parseInt(this.value, 10) || 0)">
+      <button class="ghost small" onclick="removeRequirementItem(${variant.uid}, ${idx}, 'items')">remove</button>
     </div>
   `).join('');
 }
 
-function renderRequirementBuildings(option) {
-  if (!option.requirements.buildings.length) {
+function renderRequirementBuildings(variant) {
+  if (!variant.requirements.buildings.length) {
     return `<div class="pill hint">No building requirements.</div>`;
   }
 
-  return option.requirements.buildings.map((bld, idx) => `
+  return variant.requirements.buildings.map((bld, idx) => `
     <div class="pill pill-row">
-      <input type="text" value="${safe(bld.buildingId)}" placeholder="buildingId" oninput="updateRequirementItem(${option.uid}, ${idx}, 'buildings', 'buildingId', this.value)">
-      <input type="number" value="${safe(bld.count)}" placeholder="count" oninput="updateRequirementItem(${option.uid}, ${idx}, 'buildings', 'count', parseInt(this.value, 10) || 0)">
-      <button class="ghost small" onclick="removeRequirementItem(${option.uid}, ${idx}, 'buildings')">remove</button>
+      <input type="text" value="${safe(bld.buildingId)}" placeholder="buildingId" oninput="updateRequirementItem(${variant.uid}, ${idx}, 'buildings', 'buildingId', this.value)">
+      <input type="number" value="${safe(bld.count)}" placeholder="count" oninput="updateRequirementItem(${variant.uid}, ${idx}, 'buildings', 'count', parseInt(this.value, 10) || 0)">
+      <button class="ghost small" onclick="removeRequirementItem(${variant.uid}, ${idx}, 'buildings')">remove</button>
     </div>
   `).join('');
 }
 
-function renderResolution(option) {
-  const res = option.resolution;
+function renderResolution(variant) {
+  const res = variant.resolution;
 
   if (res.type === 'weighted_outcomes') {
-    const outcomes = res.outcomes.map((outcome, idx) => renderOutcome(option, outcome, idx)).join('');
+    const outcomes = res.outcomes.map((outcome, idx) => renderOutcome(variant, outcome, idx)).join('');
     return `
       <div class="stacked">
         ${outcomes}
-        <button class="ghost small" onclick="addOutcome(${option.uid})">+ outcome</button>
+        <button class="ghost small" onclick="addOutcome(${variant.uid})">+ outcome</button>
       </div>
     `;
   }
@@ -964,66 +964,66 @@ function renderResolution(option) {
     <div class="input-grid two-col">
       <div>
         <div class="muted" style="margin-bottom:6px">Outputs: Resources</div>
-        ${renderKvList(res.outputs.resources, 'out-res|' + option.uid, 'range')}
-        <button class="ghost small" onclick="addKvEntry('out-res|${option.uid}')">+ resource</button>
+        ${renderKvList(res.outputs.resources, 'out-res|' + variant.uid, 'range')}
+        <button class="ghost small" onclick="addKvEntry('out-res|${variant.uid}')">+ resource</button>
       </div>
       <div>
         <div class="muted" style="margin-bottom:6px">Outputs: Items</div>
-        ${renderKvList(res.outputs.items, 'out-items|' + option.uid, 'amount', 'itemId')}
-        <button class="ghost small" onclick="addKvEntry('out-items|${option.uid}')">+ item</button>
+        ${renderKvList(res.outputs.items, 'out-items|' + variant.uid, 'amount', 'itemId')}
+        <button class="ghost small" onclick="addKvEntry('out-items|${variant.uid}')">+ item</button>
       </div>
     </div>
     <div class="input-grid two-col">
       <div>
         <label>Heat Delta (min / max)</label>
         <div class="pill-row">
-          <input type="number" value="${safe(res.heatDelta.min)}" placeholder="min" oninput="updateResolutionDelta(${option.uid}, 'heat', 'min', this.value)">
-          <input type="number" value="${safe(res.heatDelta.max)}" placeholder="max" oninput="updateResolutionDelta(${option.uid}, 'heat', 'max', this.value)">
+          <input type="number" value="${safe(res.heatDelta.min)}" placeholder="min" oninput="updateResolutionDelta(${variant.uid}, 'heat', 'min', this.value)">
+          <input type="number" value="${safe(res.heatDelta.max)}" placeholder="max" oninput="updateResolutionDelta(${variant.uid}, 'heat', 'max', this.value)">
         </div>
       </div>
       <div>
         <label>Cred Delta (min / max)</label>
         <div class="pill-row">
-          <input type="number" value="${safe(res.credDelta.min)}" placeholder="min" oninput="updateResolutionDelta(${option.uid}, 'cred', 'min', this.value)">
-          <input type="number" value="${safe(res.credDelta.max)}" placeholder="max" oninput="updateResolutionDelta(${option.uid}, 'cred', 'max', this.value)">
+          <input type="number" value="${safe(res.credDelta.min)}" placeholder="min" oninput="updateResolutionDelta(${variant.uid}, 'cred', 'min', this.value)">
+          <input type="number" value="${safe(res.credDelta.max)}" placeholder="max" oninput="updateResolutionDelta(${variant.uid}, 'cred', 'max', this.value)">
         </div>
       </div>
     </div>
     <div>
       <div class="subheader">
         <span>Effects on resolve</span>
-        <button class="ghost small" onclick="addEffect('option|${option.uid}|resolution')">+ effect</button>
+        <button class="ghost small" onclick="addEffect('variant|${variant.uid}|resolution')">+ effect</button>
       </div>
-      ${renderEffectList(res.effects, 'option|' + option.uid + '|resolution')}
+      ${renderEffectList(res.effects, 'variant|' + variant.uid + '|resolution')}
     </div>
   `;
 }
 
-function renderOutcome(option, outcome, idx) {
+function renderOutcome(variant, outcome, idx) {
   return `
     <div class="pill">
       <div class="pill-row" style="justify-content: space-between;">
         <div class="flex">
           <label class="muted" style="margin:0">Outcome ID</label>
-          <input type="text" value="${safe(outcome.id)}" oninput="updateOutcome(${option.uid}, ${idx}, 'id', this.value)">
+          <input type="text" value="${safe(outcome.id)}" oninput="updateOutcome(${variant.uid}, ${idx}, 'id', this.value)">
         </div>
         <div class="flex">
           <label class="muted" style="margin:0">Weight</label>
-          <input type="number" value="${safe(outcome.weight)}" oninput="updateOutcome(${option.uid}, ${idx}, 'weight', parseInt(this.value, 10) || 0)" style="width:90px">
-          <button class="ghost small" onclick="removeOutcome(${option.uid}, ${idx})">remove</button>
+          <input type="number" value="${safe(outcome.weight)}" oninput="updateOutcome(${variant.uid}, ${idx}, 'weight', parseInt(this.value, 10) || 0)" style="width:90px">
+          <button class="ghost small" onclick="removeOutcome(${variant.uid}, ${idx})">remove</button>
         </div>
       </div>
 
       <div class="input-grid two-col" style="margin-top:8px">
         <div>
           <div class="muted" style="margin-bottom:6px">Resource Outputs</div>
-          ${renderKvList(outcome.outputs.resources, 'outcome-res|' + option.uid + '|' + idx, 'range')}
-          <button class="ghost small" onclick="addKvEntry('outcome-res|${option.uid}|${idx}')">+ resource</button>
+          ${renderKvList(outcome.outputs.resources, 'outcome-res|' + variant.uid + '|' + idx, 'range')}
+          <button class="ghost small" onclick="addKvEntry('outcome-res|${variant.uid}|${idx}')">+ resource</button>
         </div>
         <div>
           <div class="muted" style="margin-bottom:6px">Item Outputs</div>
-          ${renderKvList(outcome.outputs.items, 'outcome-items|' + option.uid + '|' + idx, 'amount', 'itemId')}
-          <button class="ghost small" onclick="addKvEntry('outcome-items|${option.uid}|${idx}')">+ item</button>
+          ${renderKvList(outcome.outputs.items, 'outcome-items|' + variant.uid + '|' + idx, 'amount', 'itemId')}
+          <button class="ghost small" onclick="addKvEntry('outcome-items|${variant.uid}|${idx}')">+ item</button>
         </div>
       </div>
 
@@ -1031,29 +1031,29 @@ function renderOutcome(option, outcome, idx) {
         <div>
           <label>Heat Delta (min/max)</label>
           <div class="pill-row">
-            <input type="number" value="${safe(outcome.heatDelta.min)}" placeholder="min" oninput="updateOutcomeDelta(${option.uid}, ${idx}, 'heat', 'min', this.value)">
-            <input type="number" value="${safe(outcome.heatDelta.max)}" placeholder="max" oninput="updateOutcomeDelta(${option.uid}, ${idx}, 'heat', 'max', this.value)">
+            <input type="number" value="${safe(outcome.heatDelta.min)}" placeholder="min" oninput="updateOutcomeDelta(${variant.uid}, ${idx}, 'heat', 'min', this.value)">
+            <input type="number" value="${safe(outcome.heatDelta.max)}" placeholder="max" oninput="updateOutcomeDelta(${variant.uid}, ${idx}, 'heat', 'max', this.value)">
           </div>
         </div>
         <div>
           <label>Cred Delta (min/max)</label>
           <div class="pill-row">
-            <input type="number" value="${safe(outcome.credDelta.min)}" placeholder="min" oninput="updateOutcomeDelta(${option.uid}, ${idx}, 'cred', 'min', this.value)">
-            <input type="number" value="${safe(outcome.credDelta.max)}" placeholder="max" oninput="updateOutcomeDelta(${option.uid}, ${idx}, 'cred', 'max', this.value)">
+            <input type="number" value="${safe(outcome.credDelta.min)}" placeholder="min" oninput="updateOutcomeDelta(${variant.uid}, ${idx}, 'cred', 'min', this.value)">
+            <input type="number" value="${safe(outcome.credDelta.max)}" placeholder="max" oninput="updateOutcomeDelta(${variant.uid}, ${idx}, 'cred', 'max', this.value)">
           </div>
         </div>
         <div>
           <label>Jail Duration (ms)</label>
-          <input type="number" value="${safe(outcome.jailMs)}" placeholder="0 = none" oninput="updateOutcome(${option.uid}, ${idx}, 'jailMs', this.value)">
+          <input type="number" value="${safe(outcome.jailMs)}" placeholder="0 = none" oninput="updateOutcome(${variant.uid}, ${idx}, 'jailMs', this.value)">
         </div>
       </div>
 
       <div>
         <div class="subheader">
           <span>Outcome Effects</span>
-          <button class="ghost small" onclick="addEffect('outcome|${option.uid}|${idx}')">+ effect</button>
+          <button class="ghost small" onclick="addEffect('outcome|${variant.uid}|${idx}')">+ effect</button>
         </div>
-        ${renderEffectList(outcome.effects, 'outcome|' + option.uid + '|' + idx)}
+        ${renderEffectList(outcome.effects, 'outcome|' + variant.uid + '|' + idx)}
       </div>
     </div>
   `;
@@ -1082,7 +1082,7 @@ function renderConditionOptions(current) {
     'itemGte',
     'flagIs',
     'roleRevealed',
-    'activityRevealed'
+    'scenarioRevealed'
   ];
   return types.map(t => `<option value="${t}" ${current === t ? 'selected' : ''}>${t}</option>`).join('');
 }
@@ -1115,8 +1115,8 @@ function renderConditionFields(cond, scope, idx) {
       `;
     case 'roleRevealed':
       return `<input type="text" value="${safe(cond.roleId)}" placeholder="roleId" oninput="updateCondition('${scope}', ${idx}, 'roleId', this.value)">`;
-    case 'activityRevealed':
-      return `<input type="text" value="${safe(cond.activityId)}" placeholder="activityId" oninput="updateCondition('${scope}', ${idx}, 'activityId', this.value)">`;
+    case 'scenarioRevealed':
+      return `<input type="text" value="${safe(cond.scenarioId)}" placeholder="scenarioId" oninput="updateCondition('${scope}', ${idx}, 'scenarioId', this.value)">`;
     default:
       return '<div class="hint">Unknown condition</div>';
   }
@@ -1143,11 +1143,11 @@ function renderEffectList(list, scope) {
 function renderEffectOptions(current) {
   const types = [
     'revealBranch',
-    'revealActivity',
+    'revealScenario',
     'revealResource',
     'revealRole',
     'revealTab',
-    'unlockActivity',
+    'unlockScenario',
     'setFlag',
     'incFlagCounter',
     'logMessage'
@@ -1159,16 +1159,16 @@ function renderEffectFields(effect, scope, idx) {
   switch (effect.type) {
     case 'revealBranch':
       return `<input type="text" value="${safe(effect.branchId)}" placeholder="branchId" oninput="updateEffect('${scope}', ${idx}, 'branchId', this.value)">`;
-    case 'revealActivity':
-      return `<input type="text" value="${safe(effect.activityId)}" placeholder="activityId" oninput="updateEffect('${scope}', ${idx}, 'activityId', this.value)">`;
+    case 'revealScenario':
+      return `<input type="text" value="${safe(effect.scenarioId)}" placeholder="scenarioId" oninput="updateEffect('${scope}', ${idx}, 'scenarioId', this.value)">`;
     case 'revealResource':
       return `<input type="text" value="${safe(effect.resourceId)}" placeholder="resourceId" oninput="updateEffect('${scope}', ${idx}, 'resourceId', this.value)">`;
     case 'revealRole':
       return `<input type="text" value="${safe(effect.roleId)}" placeholder="roleId" oninput="updateEffect('${scope}', ${idx}, 'roleId', this.value)">`;
     case 'revealTab':
       return `<input type="text" value="${safe(effect.tabId)}" placeholder="tabId" oninput="updateEffect('${scope}', ${idx}, 'tabId', this.value)">`;
-    case 'unlockActivity':
-      return `<input type="text" value="${safe(effect.activityId)}" placeholder="activityId" oninput="updateEffect('${scope}', ${idx}, 'activityId', this.value)">`;
+    case 'unlockScenario':
+      return `<input type="text" value="${safe(effect.scenarioId)}" placeholder="scenarioId" oninput="updateEffect('${scope}', ${idx}, 'scenarioId', this.value)">`;
     case 'setFlag':
       return `
         <div class="pill-row">
@@ -1224,39 +1224,39 @@ function renderKvList(list, scope, mode = 'amount', keyLabel = 'resourceId') {
   }).join('');
 }
 
-function updateOptionField(uid, field, value) {
-  const option = findOption(uid);
-  if (!option) return;
+function updateVariantField(uid, field, value) {
+  const variant = findVariant(uid);
+  if (!variant) return;
 
   if (field === 'repeatable') {
-    option.repeatable = value;
+    variant.repeatable = value;
   } else if (field === 'modifiersText') {
-    option.modifiersText = value;
+    variant.modifiersText = value;
   } else if (field === 'maxConcurrentRuns') {
-    option.maxConcurrentRuns = value;
+    variant.maxConcurrentRuns = value;
   } else {
-    option[field] = value;
+    variant[field] = value;
   }
 
   refreshOutputs();
 }
 
 function setResolutionType(uid, type) {
-  const option = findOption(uid);
-  if (!option) return;
-  option.resolution = createResolution(type);
-  renderOptions();
+  const variant = findVariant(uid);
+  if (!variant) return;
+  variant.resolution = createResolution(type);
+  renderVariants();
 }
 
-function addOption() {
-  state.options.push(createOption());
-  renderOptions();
+function addVariant() {
+  state.variants.push(createVariant());
+  renderVariants();
 }
 
-function removeOption(uid) {
-  if (state.options.length === 1) return;
-  state.options = state.options.filter(o => o.uid !== uid);
-  renderOptions();
+function removeVariant(uid) {
+  if (state.variants.length === 1) return;
+  state.variants = state.variants.filter(o => o.uid !== uid);
+  renderVariants();
 }
 
 function addCondition(scope) {
@@ -1288,10 +1288,10 @@ function updateCondition(scope, idx, field, value) {
 }
 
 function reRenderConditionScope(scope) {
-  if (scope.startsWith('activity|')) {
-    renderActivityConditions();
-  } else if (scope.startsWith('option|')) {
-    renderOptions();
+  if (scope.startsWith('scenario|')) {
+    renderScenarioConditions();
+  } else if (scope.startsWith('variant|')) {
+    renderVariants();
   }
 }
 
@@ -1324,73 +1324,73 @@ function updateEffect(scope, idx, field, value) {
 }
 
 function reRenderEffects(scope) {
-  if (scope.startsWith('activity|')) {
-    renderActivityReveals();
+  if (scope.startsWith('scenario|')) {
+    renderScenarioReveals();
   } else {
-    renderOptions();
+    renderVariants();
   }
 }
 
 function addStaffRequirement(uid) {
-  const option = findOption(uid);
-  if (!option) return;
-  option.requirements.staff.push({ roleId: 'player', count: 1, starsMin: 0, required: true, bonus: '' });
-  renderOptions();
+  const variant = findVariant(uid);
+  if (!variant) return;
+  variant.requirements.staff.push({ roleId: 'player', count: 1, starsMin: 0, required: true, bonus: '' });
+  renderVariants();
 }
 
 function updateStaffRequirement(uid, idx, field, value) {
-  const option = findOption(uid);
-  if (!option || !option.requirements.staff[idx]) return;
-  option.requirements.staff[idx][field] = value;
+  const variant = findVariant(uid);
+  if (!variant || !variant.requirements.staff[idx]) return;
+  variant.requirements.staff[idx][field] = value;
   refreshOutputs();
 }
 
 function removeStaffRequirement(uid, idx) {
-  const option = findOption(uid);
-  if (!option || option.requirements.staff.length <= 1) return;
-  option.requirements.staff.splice(idx, 1);
-  renderOptions();
+  const variant = findVariant(uid);
+  if (!variant || variant.requirements.staff.length <= 1) return;
+  variant.requirements.staff.splice(idx, 1);
+  renderVariants();
 }
 
 function addRequirementItem(uid, field) {
-  const option = findOption(uid);
-  if (!option) return;
-  option.requirements[field].push({ [`${field === 'items' ? 'item' : 'building'}Id`]: '', count: 1 });
-  renderOptions();
+  const variant = findVariant(uid);
+  if (!variant) return;
+  variant.requirements[field].push({ [`${field === 'items' ? 'item' : 'building'}Id`]: '', count: 1 });
+  renderVariants();
 }
 
 function updateRequirementItem(uid, idx, field, prop, value) {
-  const option = findOption(uid);
-  if (!option || !option.requirements[field][idx]) return;
-  option.requirements[field][idx][prop] = value;
+  const variant = findVariant(uid);
+  if (!variant || !variant.requirements[field][idx]) return;
+  variant.requirements[field][idx][prop] = value;
   refreshOutputs();
 }
 
 function removeRequirementItem(uid, idx, field) {
-  const option = findOption(uid);
-  if (!option) return;
-  option.requirements[field].splice(idx, 1);
-  renderOptions();
+  const variant = findVariant(uid);
+  if (!variant) return;
+  variant.requirements[field].splice(idx, 1);
+  renderVariants();
 }
 function getKvTarget(scope) {
   const parts = scope.split('|');
   const kind = parts[0];
   const uid = parseInt(parts[1], 10);
-  const option = findOption(uid);
-  if (!option) return null;
+  const variant = findVariant(uid);
+  if (!variant) return null;
 
-  if (kind === 'in-res') return { list: option.inputs.resources, mode: 'amount' };
-  if (kind === 'in-items') return { list: option.inputs.items, mode: 'amount', keyLabel: 'itemId' };
-  if (kind === 'out-res') return { list: option.resolution.outputs.resources, mode: 'range' };
-  if (kind === 'out-items') return { list: option.resolution.outputs.items, mode: 'amount', keyLabel: 'itemId' };
+  if (kind === 'in-res') return { list: variant.inputs.resources, mode: 'amount' };
+  if (kind === 'in-items') return { list: variant.inputs.items, mode: 'amount', keyLabel: 'itemId' };
+  if (kind === 'out-res') return { list: variant.resolution.outputs.resources, mode: 'range' };
+  if (kind === 'out-items') return { list: variant.resolution.outputs.items, mode: 'amount', keyLabel: 'itemId' };
 
   if (kind === 'outcome-res') {
     const outcomeIdx = parseInt(parts[2], 10);
-    return { list: option.resolution.outcomes[outcomeIdx].outputs.resources, mode: 'range' };
+    return { list: variant.resolution.outcomes[outcomeIdx].outputs.resources, mode: 'range' };
   }
   if (kind === 'outcome-items') {
     const outcomeIdx = parseInt(parts[2], 10);
-    return { list: option.resolution.outcomes[outcomeIdx].outputs.items, mode: 'amount', keyLabel: 'itemId' };
+    return { list: variant.resolution.outcomes[outcomeIdx].outputs.items, mode: 'amount', keyLabel: 'itemId' };
   }
 
   return null;
@@ -1401,14 +1401,14 @@ function addKvEntry(scope) {
   if (!target) return;
   const entry = target.mode === 'range' ? { id: '', min: '', max: '' } : { id: '', amount: '' };
   target.list.push(entry);
-  renderOptions();
+  renderVariants();
 }
 
 function removeKvEntry(scope, idx) {
   const target = getKvTarget(scope);
   if (!target) return;
   target.list.splice(idx, 1);
-  renderOptions();
+  renderVariants();
 }
 
 function updateKvEntry(scope, idx, field, value) {
@@ -1424,74 +1424,74 @@ function updateKvEntry(scope, idx, field, value) {
 }
 
 function updateResolutionDelta(uid, type, field, value) {
-  const option = findOption(uid);
-  if (!option) return;
-  const target = type === 'heat' ? option.resolution.heatDelta : option.resolution.credDelta;
+  const variant = findVariant(uid);
+  if (!variant) return;
+  const target = type === 'heat' ? variant.resolution.heatDelta : variant.resolution.credDelta;
   target[field] = value;
   refreshOutputs();
 }
 
 function addOutcome(uid) {
-  const option = findOption(uid);
-  if (!option) return;
-  option.resolution.outcomes.push(createOutcome(`outcome_${option.resolution.outcomes.length + 1}`, 10));
-  renderOptions();
+  const variant = findVariant(uid);
+  if (!variant) return;
+  variant.resolution.outcomes.push(createOutcome(`outcome_${variant.resolution.outcomes.length + 1}`, 10));
+  renderVariants();
 }
 
 function removeOutcome(uid, idx) {
-  const option = findOption(uid);
-  if (!option || option.resolution.outcomes.length <= 1) return;
-  option.resolution.outcomes.splice(idx, 1);
-  renderOptions();
+  const variant = findVariant(uid);
+  if (!variant || variant.resolution.outcomes.length <= 1) return;
+  variant.resolution.outcomes.splice(idx, 1);
+  renderVariants();
 }
 
 function updateOutcome(uid, idx, field, value) {
-  const option = findOption(uid);
-  if (!option || !option.resolution.outcomes[idx]) return;
-  option.resolution.outcomes[idx][field] = value;
+  const variant = findVariant(uid);
+  if (!variant || !variant.resolution.outcomes[idx]) return;
+  variant.resolution.outcomes[idx][field] = value;
   refreshOutputs();
 }
 
 function updateOutcomeDelta(uid, idx, type, field, value) {
-  const option = findOption(uid);
-  if (!option || !option.resolution.outcomes[idx]) return;
-  const target = type === 'heat' ? option.resolution.outcomes[idx].heatDelta : option.resolution.outcomes[idx].credDelta;
+  const variant = findVariant(uid);
+  if (!variant || !variant.resolution.outcomes[idx]) return;
+  const target = type === 'heat' ? variant.resolution.outcomes[idx].heatDelta : variant.resolution.outcomes[idx].credDelta;
   target[field] = value;
   refreshOutputs();
 }
 
-function findOption(uid) {
-  return state.options.find(o => o.uid === uid);
+function findVariant(uid) {
+  return state.variants.find(o => o.uid === uid);
 }
 
 function getConditionTarget(scope) {
   const parts = scope.split('|');
-  if (parts[0] === 'activity') {
+  if (parts[0] === 'scenario') {
     return { list: state[parts[1]] };
   }
-  if (parts[0] === 'option') {
-    const option = findOption(parseInt(parts[1], 10));
-    if (!option) return null;
-    return { list: option[parts[2]] };
+  if (parts[0] === 'variant') {
+    const variant = findVariant(parseInt(parts[1], 10));
+    if (!variant) return null;
+    return { list: variant[parts[2]] };
   }
   return null;
 }
 
 function getEffectTarget(scope) {
   const parts = scope.split('|');
-  if (parts[0] === 'activity') {
+  if (parts[0] === 'scenario') {
     return { list: state.reveals[parts[1]] };
   }
-  if (parts[0] === 'option') {
-    const option = findOption(parseInt(parts[1], 10));
-    if (!option) return null;
-    return { list: option.resolution.effects };
+  if (parts[0] === 'variant') {
+    const variant = findVariant(parseInt(parts[1], 10));
+    if (!variant) return null;
+    return { list: variant.resolution.effects };
   }
   if (parts[0] === 'outcome') {
-    const option = findOption(parseInt(parts[1], 10));
+    const variant = findVariant(parseInt(parts[1], 10));
     const idx = parseInt(parts[2], 10);
-    if (!option || !option.resolution.outcomes[idx]) return null;
-    return { list: option.resolution.outcomes[idx].effects };
+    if (!variant || !variant.resolution.outcomes[idx]) return null;
+    return { list: variant.resolution.outcomes[idx].effects };
   }
   return null;
 }
@@ -1499,16 +1499,16 @@ function getEffectTarget(scope) {
 function renderJson() {
   const pre = document.getElementById('jsonOutput');
   if (!pre) return;
-  const data = buildActivityJson();
+  const data = buildScenarioJson();
   pre.textContent = JSON.stringify(data, null, 2);
 }
 
-function buildActivityJson() {
+function buildScenarioJson() {
   const tags = parseTags(state.tags);
-  const activityId = state.id || 'untitled_activity';
+  const scenarioId = state.id || 'untitled_activity';
 
-  const activity = {
-    id: activityId,
+  const scenario = {
+    id: scenarioId,
     branchId: state.branchId || 'street',
     name: state.name || 'untitled',
     description: state.description || '',
@@ -1519,18 +1519,18 @@ function buildActivityJson() {
       onReveal: state.reveals.onReveal.map(normalizeEffect),
       onUnlock: state.reveals.onUnlock.map(normalizeEffect)
     },
-    options: state.options.map((opt, idx) => normalizeOption(opt, activityId, idx))
+    variants: state.variants.map((variant, idx) => normalizeVariant(variant, scenarioId, idx))
   };
 
-  return activity;
+  return scenario;
 }
 
-function normalizeOption(opt, activityId, idx) {
-  const optionId = opt.optionId || `${activityId}_option_${idx + 1}`;
+function normalizeVariant(opt, scenarioId, idx) {
+  const variantId = opt.variantId || `${scenarioId}_variant_${idx + 1}`;
   const modifiers = parseModifiers(opt.modifiersText);
   const data = {
-    id: optionId,
-    name: opt.name || `option_${idx + 1}`,
+    id: variantId,
+    name: opt.name || `variant_${idx + 1}`,
     description: opt.description || '',
     visibleIf: opt.visibleIf.map(normalizeCondition),
     unlockIf: opt.unlockIf.map(normalizeCondition),
@@ -1620,12 +1620,12 @@ function normalizeCondition(cond) {
       return { type: 'flagIs', key: cond.key || '', value: cond.bool !== undefined ? cond.bool : !!cond.value };
     case 'roleRevealed':
       return { type: 'roleRevealed', roleId: cond.roleId || '' };
-    case 'activityRevealed':
-      return { type: 'activityRevealed', activityId: cond.activityId || '' };
+    case 'scenarioRevealed':
+      return { type: 'scenarioRevealed', scenarioId: cond.scenarioId || '' };
     case 'staffStarsGte':
       return { type: 'staffStarsGte', roleId: cond.roleId || '', value: numberOrDefault(cond.value, 0) };
-    case 'activityCompletedGte':
-      return { type: 'activityCompletedGte', activityId: cond.activityId || '', value: numberOrDefault(cond.value, 0) };
+    case 'scenarioCompletedGte':
+      return { type: 'scenarioCompletedGte', scenarioId: cond.scenarioId || '', value: numberOrDefault(cond.value, 0) };
     default:
       return { type: cond.type || 'unknown' };
   }
@@ -1636,16 +1636,16 @@ function normalizeEffect(effect) {
   switch (effect.type) {
     case 'revealBranch':
       return { ...base, branchId: effect.branchId || '' };
-    case 'revealActivity':
-      return { ...base, activityId: effect.activityId || '' };
+    case 'revealScenario':
+      return { ...base, scenarioId: effect.scenarioId || '' };
     case 'revealResource':
       return { ...base, resourceId: effect.resourceId || '' };
     case 'revealRole':
       return { ...base, roleId: effect.roleId || '' };
     case 'revealTab':
       return { ...base, tabId: effect.tabId || '' };
-    case 'unlockActivity':
-      return { ...base, activityId: effect.activityId || '' };
+    case 'unlockScenario':
+      return { ...base, scenarioId: effect.scenarioId || '' };
     case 'setFlag':
       return { ...base, key: effect.key || '', value: effect.value || '' };
     case 'incFlagCounter':
@@ -1732,54 +1732,54 @@ function copyJSON() {
 }
 
 function clearBuilder() {
-  optionUid = 1;
-  const fresh = createActivity();
+  variantUid = 1;
+  const fresh = createScenario();
   Object.keys(state).forEach(k => state[k] = fresh[k]);
-  state.options = fresh.options;
+  state.variants = fresh.variants;
   notes = { problems: '', solutions: '' };
 
-  document.getElementById('activityId').value = '';
-  document.getElementById('activityName').value = '';
-  document.getElementById('activityDescription').value = '';
+  document.getElementById('scenarioId').value = '';
+  document.getElementById('scenarioName').value = '';
+  document.getElementById('scenarioDescription').value = '';
   document.getElementById('branchId').value = 'street';
   document.getElementById('icon').value = '';
   document.getElementById('tags').value = '';
   document.getElementById('problemsNote').value = '';
   document.getElementById('solutionsNote').value = '';
 
-  renderActivityConditions();
-  renderActivityReveals();
-  renderOptions();
+  renderScenarioConditions();
+  renderScenarioReveals();
+  renderVariants();
   refreshOutputs();
 }
 
-function applyActivityData(activity) {
-  optionUid = 1;
-  const meta = activity.meta || {};
+function applyScenarioData(scenario) {
+  variantUid = 1;
+  const meta = scenario.meta || {};
   const tags = Array.isArray(meta.tags) ? meta.tags.join(', ') : '';
 
-  state.id = activity.id || '';
-  state.name = activity.name || '';
-  state.description = activity.description || '';
-  state.branchId = activity.branchId || 'street';
+  state.id = scenario.id || '';
+  state.name = scenario.name || '';
+  state.description = scenario.description || '';
+  state.branchId = scenario.branchId || 'street';
   state.icon = meta.icon || '';
   state.tags = tags;
-  state.visibleIf = cloneJson(activity.visibleIf || []);
-  state.unlockIf = cloneJson(activity.unlockIf || []);
+  state.visibleIf = cloneJson(scenario.visibleIf || []);
+  state.unlockIf = cloneJson(scenario.unlockIf || []);
   state.reveals = {
-    onReveal: cloneJson(activity.reveals?.onReveal || []),
-    onUnlock: cloneJson(activity.reveals?.onUnlock || [])
+    onReveal: cloneJson(scenario.reveals?.onReveal || []),
+    onUnlock: cloneJson(scenario.reveals?.onUnlock || [])
   };
 
-  const options = (activity.options || []).map(inflateOption);
-  state.options = options.length ? options : [createOption()];
+  const variants = (scenario.variants || scenario.variants || []).map(inflateVariant);
+  state.variants = variants.length ? variants : [createVariant()];
 
   notes = { problems: '', solutions: '' };
 
   syncMetaInputs();
-  renderActivityConditions();
-  renderActivityReveals();
-  renderOptions();
+  renderScenarioConditions();
+  renderScenarioReveals();
+  renderVariants();
   refreshOutputs();
 }
 
@@ -1789,9 +1789,9 @@ function syncMetaInputs() {
     if (el) el.value = value;
   };
 
-  setValue('activityId', state.id);
-  setValue('activityName', state.name);
-  setValue('activityDescription', state.description);
+  setValue('scenarioId', state.id);
+  setValue('scenarioName', state.name);
+  setValue('scenarioDescription', state.description);
   setValue('branchId', state.branchId);
   setValue('icon', state.icon);
   setValue('tags', state.tags);
@@ -1799,35 +1799,35 @@ function syncMetaInputs() {
   setValue('solutionsNote', notes.solutions);
 }
 
-function inflateOption(opt) {
-  const option = createOption();
+function inflateVariant(opt) {
+  const variant = createVariant();
   const reqs = opt.requirements || {};
 
-  option.optionId = opt.id || '';
-  option.name = opt.name || '';
-  option.description = opt.description || '';
-  option.repeatable = !!opt.repeatable;
-  option.maxConcurrentRuns = opt.maxConcurrentRuns ?? '';
-  option.visibleIf = cloneJson(opt.visibleIf || []);
-  option.unlockIf = cloneJson(opt.unlockIf || []);
-  option.requirements = {
+  variant.variantId = opt.id || '';
+  variant.name = opt.name || '';
+  variant.description = opt.description || '';
+  variant.repeatable = !!opt.repeatable;
+  variant.maxConcurrentRuns = opt.maxConcurrentRuns ?? '';
+  variant.visibleIf = cloneJson(opt.visibleIf || []);
+  variant.unlockIf = cloneJson(opt.unlockIf || []);
+  variant.requirements = {
     staff: inflateStaffRequirements(reqs.staff),
     items: inflateRequirementList(reqs.items, 'itemId'),
     buildings: inflateRequirementList(reqs.buildings, 'buildingId')
   };
-  option.inputs = {
+  variant.inputs = {
     resources: kvListFromObject(opt.inputs?.resources, 'amount'),
     items: kvListFromObject(opt.inputs?.items, 'amount', 'itemId')
   };
-  option.durationMs = numberOrDefault(opt.durationMs, 10000);
-  option.xp = numberOrDefault(opt.xpRewards?.onComplete ?? opt.xpReward ?? opt.xp, 0);
-  option.cooldownMs = numberOrDefault(opt.cooldownMs, 0);
-  option.resolution = inflateResolution(opt.resolution);
-  option.modifiersText = Array.isArray(opt.modifiers) && opt.modifiers.length
+  variant.durationMs = numberOrDefault(opt.durationMs, 10000);
+  variant.xp = numberOrDefault(opt.xpRewards?.onComplete ?? opt.xpReward ?? opt.xp, 0);
+  variant.cooldownMs = numberOrDefault(opt.cooldownMs, 0);
+  variant.resolution = inflateResolution(opt.resolution);
+  variant.modifiersText = Array.isArray(opt.modifiers) && opt.modifiers.length
     ? JSON.stringify(opt.modifiers, null, 2)
     : '';
 
-  return option;
+  return variant;
 }
 
 function inflateStaffRequirements(list) {
@@ -1934,9 +1934,9 @@ function renderSummary() {
     });
   }
 
-  state.options.forEach(opt => {
+  state.variants.forEach(opt => {
     items.push({
-      title: `Option ${opt.name || opt.optionId || 'untitled'}`,
+      title: `Variant ${opt.name || opt.variantId || 'untitled'}`,
       text: describeOption(opt)
     });
   });

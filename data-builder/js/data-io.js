@@ -1,7 +1,7 @@
 import { store, rebuildMaps, emit } from './state.js';
 
 const FILES = [
-  { key: 'activities', file: 'activities.json', isArray: true },
+  { key: 'scenarios', file: 'scenarios.json', isArray: true },
   { key: 'resources', file: 'resources.json', isArray: true },
   { key: 'branches', file: 'branches.json', isArray: true },
   { key: 'roles', file: 'roles.json', isArray: true },
@@ -35,6 +35,15 @@ export async function loadAll() {
       const { key, data, isArray } = result.value;
       if (isArray) {
         store[key] = Array.isArray(data) ? data : [];
+        // Migrate old format: options -> variants
+        if (key === 'scenarios' && Array.isArray(store[key])) {
+          store[key].forEach(scenario => {
+            if (scenario.options && !scenario.variants) {
+              scenario.variants = scenario.options;
+              delete scenario.options;
+            }
+          });
+        }
       } else {
         store[key] = data || {};
       }
@@ -44,7 +53,7 @@ export async function loadAll() {
   });
 
   // Save snapshots for dirty tracking
-  store.savedSnapshots.activities = JSON.stringify(store.activities);
+  store.savedSnapshots.scenarios = JSON.stringify(store.scenarios);
   store.savedSnapshots.resources = JSON.stringify(store.resources);
   store.savedSnapshots.branches = JSON.stringify(store.branches);
   store.savedSnapshots.roles = JSON.stringify(store.roles);
@@ -88,7 +97,7 @@ export function isDirty(key) {
   return JSON.stringify(store[key]) !== store.savedSnapshots[key];
 }
 
-const ALL_KEYS = ['activities', 'resources', 'branches', 'roles', 'perks', 'modals'];
+const ALL_KEYS = ['scenarios', 'resources', 'branches', 'roles', 'perks', 'modals'];
 
 export function isAnyDirty() {
   return ALL_KEYS.some(k => isDirty(k));

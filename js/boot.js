@@ -1,7 +1,8 @@
 // Crime Committer VI - Boot Screen & DOS Prompt
 // 286-style POST screen shown during loading, optional DOS CLI
 
-import { Palette } from './palette.js';
+import { Palette, BoxStyles } from './palette.js';
+import { Layout } from './ui.js';
 import {
   SLOT_IDS,
   ensureSaveSlotStorage,
@@ -28,6 +29,24 @@ const DOT_COLUMN = 38; // Column where dots end and "OK" begins
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+// Retro stripe palette — 70s poster colors (Flow / Polaroid / Kodak vibe)
+const RETRO_STRIPES = [
+  '#cc3333',  // red
+  '#dd7722',  // orange
+  '#ddbb22',  // yellow
+  '#33aa55',  // green
+  '#2299bb',  // teal
+  '#3366aa',  // blue
+];
+
+// Deterministic hash for stripe breakup pattern (position-seeded, same every boot)
+function stripeHash(x, y) {
+  let h = (x * 374761393 + y * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h = h ^ (h >>> 16);
+  return (h >>> 0) / 4294967296;
+}
+
 // ── Boot Screen ─────────────────────────────────────────────
 
 export class BootScreen {
@@ -40,6 +59,9 @@ export class BootScreen {
     const b = this.buffer;
     b.clear();
 
+    // Retro colour stripes on right side (draw first so text sits on top)
+    this.drawStripes();
+
     // BIOS banner
     b.writeText(1, 0, 'CCVI BIOS v6.0', HEADER_COLOR);
 
@@ -48,7 +70,7 @@ export class BootScreen {
     b.writeText(16, 2, ': MOS 6502 @ 1MHz', VALUE_COLOR);
 
     b.writeText(1, 3, 'Video', LABEL_COLOR);
-    b.writeText(16, 3, ': TUI 80x25 Color', VALUE_COLOR);
+    b.writeText(16, 3, `: TUI ${Layout.WIDTH}x${Layout.HEIGHT} Color`, VALUE_COLOR);
 
     b.writeText(1, 4, 'Memory', LABEL_COLOR);
     if (slowBoot) {
@@ -63,6 +85,69 @@ export class BootScreen {
     b.writeText(1, 6, 'Loading system files...', LABEL_COLOR);
 
     this.currentLine = 8;
+  }
+
+  drawStripes() {
+    const b = this.buffer;
+    const W = 4;           // chars per stripe
+    const GAP = 1;         // black gap between stripes
+    const COUNT = RETRO_STRIPES.length;
+    const BLOCK = W * COUNT + GAP * (COUNT - 1);
+    const startX = b.width - BLOCK - 3; // 3-char right margin
+    const H = Layout.HEIGHT;
+
+    // Zone boundaries (proportional to screen height)
+    const solidEnd = Math.floor(H * 0.45);    // solid stripes
+    const breakEnd = Math.floor(H * 0.75);    // chunky breakup
+    // below breakEnd: sparse scattered pixels
+
+    for (let si = 0; si < COUNT; si++) {
+      const color = RETRO_STRIPES[si];
+      const sx = startX + si * (W + GAP);
+
+      for (let y = 0; y < H; y++) {
+        if (y < solidEnd) {
+          // Solid zone — full stripe
+          for (let dx = 0; dx < W; dx++) {
+            b.setCell(sx + dx, y, ' ', color, color);
+          }
+        } else if (y < breakEnd) {
+          // Breakup zone — chunky 2x2 blocks with increasing gaps
+          const depth = (y - solidEnd) / (breakEnd - solidEnd);
+          for (let dx = 0; dx < W; dx++) {
+            const bx = Math.floor((sx + dx) / 2);
+            const by = Math.floor(y / 2);
+            if (stripeHash(bx, by) > depth * 0.85) {
+              b.setCell(sx + dx, y, ' ', color, color);
+            }
+          }
+        } else {
+          // Sparse scatter — isolated pixels trailing off
+          const depth = (y - breakEnd) / (H - breakEnd);
+          for (let dx = 0; dx < W; dx++) {
+            const h = stripeHash(sx + dx, y);
+            if (h > 0.65 + depth * 0.34) {
+              b.setCell(sx + dx, y, ' ', color, color);
+            }
+          }
+        }
+
+        // Detached pixels outside stripe bounds (breakup zone only)
+        if (y >= solidEnd) {
+          const depth = (y - solidEnd) / (H - solidEnd);
+          if (depth > 0.15) {
+            const hl = stripeHash(sx - 1, y + 500);
+            if (hl > 0.88 && hl < 0.92) {
+              b.setCell(sx - 1, y, ' ', color, color);
+            }
+            const hr = stripeHash(sx + W, y + 700);
+            if (hr > 0.88 && hr < 0.92) {
+              b.setCell(sx + W, y, ' ', color, color);
+            }
+          }
+        }
+      }
+    }
   }
 
   async countRAM(onRender) {
@@ -109,7 +194,7 @@ export class BootScreen {
 // ── DOS Prompt ──────────────────────────────────────────────
 
 const PROMPT_STR = 'C:\\CCVI>';
-const MAX_Y = 24; // last usable row (0-indexed, 25 rows)
+const MAX_Y = Layout.HEIGHT - 1; // last usable row (0-indexed)
 const STORAGE_KEYS = {
   SETTINGS: 'ccv_tui_settings',
 };
@@ -329,7 +414,7 @@ export class DosPrompt {
       this.inputBuffer = this.inputBuffer.slice(0, -1);
     } else if (key.length === 1) {
       // Printable character — cap input length to prevent overflow
-      if (this.inputBuffer.length < 80 - PROMPT_STR.length - 1) {
+      if (this.inputBuffer.length < Layout.WIDTH - PROMPT_STR.length - 1) {
         this.inputBuffer += key;
       }
     }
@@ -535,7 +620,7 @@ export class DosPrompt {
   }
 
   writeStatusLine(row, text, color) {
-    for (let x = 0; x < 80; x++) {
+    for (let x = 0; x < Layout.WIDTH; x++) {
       this.buffer.writeText(x, row, ' ', Palette.BLACK, Palette.BLACK);
     }
     if (text) {
@@ -1312,7 +1397,7 @@ export class DosPrompt {
     const y = this.currentY;
 
     // Clear the line first
-    for (let x = 0; x < 80; x++) {
+    for (let x = 0; x < Layout.WIDTH; x++) {
       b.writeText(x, y, ' ', Palette.BLACK, Palette.BLACK);
     }
 
@@ -1349,7 +1434,7 @@ export class DosPrompt {
     const b = this.buffer;
     // Shift all rows up by 1
     for (let y = 0; y < MAX_Y; y++) {
-      for (let x = 0; x < 80; x++) {
+      for (let x = 0; x < Layout.WIDTH; x++) {
         const src = b.cells[y + 1][x];
         const dst = b.cells[y][x];
         dst.char = src.char;
@@ -1359,7 +1444,7 @@ export class DosPrompt {
       }
     }
     // Clear the bottom row
-    for (let x = 0; x < 80; x++) {
+    for (let x = 0; x < Layout.WIDTH; x++) {
       const cell = b.cells[MAX_Y][x];
       cell.char = ' ';
       cell.fg = Palette.LIGHT_GRAY;
@@ -1390,8 +1475,8 @@ export class BiosSetup {
     const b = this.buffer;
 
     // Fill background with BIOS blue
-    for (let y = 0; y < 25; y++) {
-      for (let x = 0; x < 80; x++) {
+    for (let y = 0; y < Layout.HEIGHT; y++) {
+      for (let x = 0; x < Layout.WIDTH; x++) {
         b.writeText(x, y, ' ', Palette.BLACK, Palette.BIOS_BG);
       }
     }

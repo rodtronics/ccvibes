@@ -3,18 +3,18 @@ import { safe, cloneJson, kvToObject, formatRange, showToast } from '../utils.js
 import { renderResourceOptions } from '../components/resource-picker.js';
 import { renderRoleOptions } from '../components/role-picker.js';
 import {
-  createActivity, createOption, createResolution, createOutcome,
-  defaultCondition, defaultEffect, resetOptionUid,
-  buildActivityJson, inflateOption, validateActivity
+  createScenario, createVariant, createResolution, createOutcome,
+  defaultCondition, defaultEffect, resetVariantUid,
+  buildScenarioJson, inflateVariant, validateScenario
 } from '../models.js';
 import { saveFile } from '../data-io.js';
 
 let container = null;
-let editorState = createActivity();
+let editorState = createScenario();
 let notes = { problems: '', solutions: '' };
 let lastSavedState = null;
-let collapsedOptions = new Set(); // Track which options are collapsed by uid
-let durationCalculatorState = new Map(); // Per-option D/H/M/S calculator values
+let collapsedVariants = new Set(); // Track which variants are collapsed by uid
+let durationCalculatorState = new Map(); // Per-variant D/H/M/S calculator values
 
 const wizard = {
   open: false,
@@ -28,7 +28,7 @@ const WIZARD_STEPS = [
   { id: 'template', title: 'Template' },
   { id: 'identity', title: 'Identity' },
   { id: 'gates', title: 'Gates' },
-  { id: 'option', title: 'First Option' },
+  { id: 'variant', title: 'First Option' },
   { id: 'effects', title: 'Effects' }
 ];
 
@@ -40,7 +40,7 @@ const WIZARD_TEMPLATES = {
   },
   basic_crime: {
     name: 'Basic Crime',
-    description: 'Simple criminal activity with cash reward and heat risk',
+    description: 'Simple criminal scenario with cash reward and heat risk',
     preset: {
       tags: 'crime',
       durationMs: 10000,
@@ -122,7 +122,7 @@ window._ws = W;
 
 export function init(el) {
   container = el;
-  on('activity-selected', loadActivity);
+  on('scenario-selected', loadActivity);
   on('data-loaded', () => {
     if (store.selectedActivityId) loadActivity(store.selectedActivityId);
   });
@@ -137,78 +137,80 @@ export function deactivate() {}
 
 // ── Load / Save ──
 
-function loadActivity(activityId) {
-  const activity = store.activityMap.get(activityId);
-  if (!activity) {
+function loadActivity(scenarioId) {
+  const scenario = store.scenarioMap.get(scenarioId);
+  if (!scenario) {
     render();
     return;
   }
 
-  resetOptionUid();
-  const meta = activity.meta || {};
+  resetVariantUid();
+  const meta = scenario.meta || {};
   const tags = Array.isArray(meta.tags) ? meta.tags.join(', ') : '';
 
-  editorState.id = activity.id || '';
-  editorState.name = activity.name || '';
-  editorState.description = activity.description || '';
-  editorState.branchId = activity.branchId || 'street';
+  editorState.id = scenario.id || '';
+  editorState.name = scenario.name || '';
+  editorState.description = scenario.description || '';
+  editorState.branchId = scenario.branchId || 'street';
   editorState.icon = meta.icon || '';
   editorState.tags = tags;
-  editorState.visibleIf = cloneJson(activity.visibleIf || []);
-  editorState.unlockIf = cloneJson(activity.unlockIf || []);
+  editorState.visibleIf = cloneJson(scenario.visibleIf || []);
+  editorState.unlockIf = cloneJson(scenario.unlockIf || []);
   editorState.reveals = {
-    onReveal: cloneJson(activity.reveals?.onReveal || []),
-    onUnlock: cloneJson(activity.reveals?.onUnlock || [])
+    onReveal: cloneJson(scenario.reveals?.onReveal || []),
+    onUnlock: cloneJson(scenario.reveals?.onUnlock || [])
   };
 
-  const options = (activity.options || []).map(inflateOption);
-  editorState.options = options.length ? options : [createOption()];
+  const variants = (scenario.variants || []).map(inflateVariant);
+  editorState.variants = variants.length ? variants : [createVariant()];
+  collapsedVariants.clear();
   durationCalculatorState.clear();
   notes = { problems: '', solutions: '' };
-  lastSavedState = JSON.stringify(buildActivityJson(editorState));
+  lastSavedState = JSON.stringify(buildScenarioJson(editorState));
 
-  store.selectedActivityId = activityId;
+  store.selectedActivityId = scenarioId;
   render();
 }
 
-W.saveActivity = async function() {
-  const activity = buildActivityJson(editorState);
-  if (!activity.id) {
-    showToast('Activity ID is required.', 'error');
+W.saveScenario = async function() {
+  const scenario = buildScenarioJson(editorState);
+  if (!scenario.id) {
+    showToast('Scenario ID is required.', 'error');
     return;
   }
 
-  const validation = validateActivity(activity);
+  const validation = validateScenario(scenario);
   if (!validation.valid) {
     showToast(`Validation: ${validation.errors.join(', ')}`, 'error');
     return;
   }
 
   // Update store
-  const idx = store.activities.findIndex(a => a.id === activity.id);
-  if (idx >= 0) store.activities[idx] = activity;
-  else store.activities.push(activity);
-  store.activityMap.set(activity.id, activity);
+  const idx = store.scenarios.findIndex(a => a.id === scenario.id);
+  if (idx >= 0) store.scenarios[idx] = scenario;
+  else store.scenarios.push(scenario);
+  store.scenarioMap.set(scenario.id, scenario);
 
   try {
-    await saveFile('activities');
-    lastSavedState = JSON.stringify(activity);
-    showToast(`Saved ${activity.id}`, 'success');
-    emit('activity-changed', activity.id);
+    await saveFile('scenarios');
+    lastSavedState = JSON.stringify(scenario);
+    showToast(`Saved ${scenario.id}`, 'success');
+    emit('scenario-changed', scenario.id);
     render();
   } catch (err) {
     showToast(`Failed to save: ${err.message}`, 'error');
   }
 };
 
-W.newActivity = function() {
-  resetOptionUid();
-  editorState = createActivity();
+W.newScenario = function() {
+  resetVariantUid();
+  editorState = createScenario();
+  collapsedVariants.clear();
   durationCalculatorState.clear();
   notes = { problems: '', solutions: '' };
   lastSavedState = null;
   store.selectedActivityId = null;
-  emit('activity-selected', null);
+  emit('scenario-selected', null);
   render();
 };
 
@@ -370,8 +372,8 @@ W.wizAddEffect = function(type) {
   if (!wizard.draft) return;
   if (type === 'revealBranch') wizard.draft.effects.revealBranch.push('');
   if (type === 'revealResource') wizard.draft.effects.revealResource.push('');
-  if (type === 'revealActivity') wizard.draft.effects.revealActivity.push('');
-  if (type === 'unlockActivity') wizard.draft.effects.unlockActivity.push('');
+  if (type === 'revealScenario') wizard.draft.effects.revealActivity.push('');
+  if (type === 'unlockScenario') wizard.draft.effects.unlockActivity.push('');
   renderWizard();
 };
 
@@ -388,12 +390,12 @@ W.wizCreate = function() {
 
   const draft = normalizeWizardDraft(wizard.draft);
   if (!draft.id) {
-    showToast('Wizard: Activity ID is required.', 'error');
+    showToast('Wizard: Scenario ID is required.', 'error');
     return;
   }
 
-  if (store.activityMap.has(draft.id)) {
-    showToast(`Wizard: Activity already exists: ${draft.id}`, 'error');
+  if (store.scenarioMap.has(draft.id)) {
+    showToast(`Wizard: Scenario already exists: ${draft.id}`, 'error');
     return;
   }
 
@@ -401,8 +403,8 @@ W.wizCreate = function() {
   wizard.lastBranch = draft.branchId;
   wizard.lastResolutionType = draft.resolutionType;
 
-  resetOptionUid();
-  editorState = createActivity();
+  resetVariantUid();
+  editorState = createScenario();
   editorState.id = draft.id;
   editorState.name = draft.name || draft.id;
   editorState.description = draft.description || '';
@@ -423,8 +425,8 @@ W.wizCreate = function() {
     else editorState.unlockIf.push(c);
   });
 
-  const opt = createOption();
-  opt.optionId = `${draft.id}_default`;
+  const opt = createVariant();
+  opt.variantId = `${draft.id}_default`;
   opt.name = draft.optionName || 'default';
   opt.description = draft.optionDescription || '';
   opt.durationMs = Number(draft.durationMs || 10000);
@@ -459,11 +461,12 @@ W.wizCreate = function() {
 
   opt.resolution.effects = draft.effectsList.map(inflateWizardEffect);
 
-  editorState.options = [opt];
+  editorState.variants = [opt];
+  collapsedVariants.clear();
   durationCalculatorState.clear();
   lastSavedState = null;
   store.selectedActivityId = null;
-  emit('activity-selected', null);
+  emit('scenario-selected', null);
 
   wizard.open = false;
   wizard.draft = null;
@@ -480,7 +483,7 @@ W.updateMeta = function(field, value) {
 };
 
 W.updateOptionField = function(uid, field, value) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt) return;
   if (field === 'repeatable') opt.repeatable = value;
   else if (field === 'modifiersText') opt.modifiersText = value;
@@ -490,29 +493,42 @@ W.updateOptionField = function(uid, field, value) {
 };
 
 W.addOption = function() {
-  editorState.options.push(createOption());
+  editorState.variants.push(createVariant());
   render();
 };
 
 W.removeOption = function(uid) {
-  if (editorState.options.length === 1) return;
-  editorState.options = editorState.options.filter(o => o.uid !== uid);
-  collapsedOptions.delete(uid);
+  if (editorState.variants.length === 1) return;
+  editorState.variants = editorState.variants.filter(o => o.uid !== uid);
+  collapsedVariants.delete(uid);
   durationCalculatorState.delete(uid);
   render();
 };
 
 W.toggleOptionCollapse = function(uid) {
-  if (collapsedOptions.has(uid)) {
-    collapsedOptions.delete(uid);
+  if (collapsedVariants.has(uid)) {
+    collapsedVariants.delete(uid);
   } else {
-    collapsedOptions.add(uid);
+    collapsedVariants.add(uid);
+  }
+  render();
+};
+
+W.toggleAllOptionCollapse = function() {
+  const variantUids = editorState.variants.map((opt) => opt.uid);
+  if (!variantUids.length) return;
+
+  const allCollapsed = variantUids.every((uid) => collapsedVariants.has(uid));
+  if (allCollapsed) {
+    variantUids.forEach((uid) => collapsedVariants.delete(uid));
+  } else {
+    variantUids.forEach((uid) => collapsedVariants.add(uid));
   }
   render();
 };
 
 W.setResolutionType = function(uid, type) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt) return;
   opt.resolution = createResolution(type);
   render();
@@ -572,21 +588,21 @@ W.updateEffect = function(scope, idx, field, value) {
 
 // Staff handlers
 W.addStaff = function(uid) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt) return;
   opt.requirements.staff.push({ roleId: 'player', count: 1, starsMin: 0, required: true, bonus: '' });
   render();
 };
 
 W.updateStaff = function(uid, idx, field, value) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt || !opt.requirements.staff[idx]) return;
   opt.requirements.staff[idx][field] = value;
   refreshJson();
 };
 
 W.removeStaff = function(uid, idx) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt || opt.requirements.staff.length <= 1) return;
   opt.requirements.staff.splice(idx, 1);
   render();
@@ -621,7 +637,7 @@ W.updateKv = function(scope, idx, field, value) {
 };
 
 W.updateResDelta = function(uid, type, field, value) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt) return;
   const target = type === 'heat' ? opt.resolution.heatDelta : opt.resolution.credDelta;
   target[field] = value;
@@ -630,28 +646,28 @@ W.updateResDelta = function(uid, type, field, value) {
 
 // Outcome handlers
 W.addOutcome = function(uid) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt) return;
   opt.resolution.outcomes.push(createOutcome(`outcome_${opt.resolution.outcomes.length + 1}`, 10));
   render();
 };
 
 W.removeOutcome = function(uid, idx) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt || opt.resolution.outcomes.length <= 1) return;
   opt.resolution.outcomes.splice(idx, 1);
   render();
 };
 
 W.updateOutcome = function(uid, idx, field, value) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt || !opt.resolution.outcomes[idx]) return;
   opt.resolution.outcomes[idx][field] = value;
   refreshJson();
 };
 
 W.updateOutcomeDelta = function(uid, idx, type, field, value) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt || !opt.resolution.outcomes[idx]) return;
   const target = type === 'heat' ? opt.resolution.outcomes[idx].heatDelta : opt.resolution.outcomes[idx].credDelta;
   target[field] = value;
@@ -660,21 +676,21 @@ W.updateOutcomeDelta = function(uid, idx, type, field, value) {
 
 // Requirement items
 W.addReqItem = function(uid, field) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt) return;
   opt.requirements[field].push({ [`${field === 'items' ? 'item' : 'building'}Id`]: '', count: 1 });
   render();
 };
 
 W.updateReqItem = function(uid, idx, field, prop, value) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt || !opt.requirements[field][idx]) return;
   opt.requirements[field][idx][prop] = value;
   refreshJson();
 };
 
 W.removeReqItem = function(uid, idx, field) {
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt) return;
   opt.requirements[field].splice(idx, 1);
   render();
@@ -745,7 +761,7 @@ W.applyDurationCalc = function(uid, field) {
   if (field !== 'durationMs' && field !== 'cooldownMs') return;
   const totalMs = calculateDurationMs(getDurationCalculatorParts(uid));
   W.updateOptionField(uid, field, totalMs);
-  const target = document.querySelector(`input[data-option-uid="${uid}"][data-time-field="${field}"]`);
+  const target = document.querySelector(`input[data-variant-uid="${uid}"][data-time-field="${field}"]`);
   if (target) target.value = String(totalMs);
 };
 
@@ -753,9 +769,9 @@ W.applyDurationCalc = function(uid, field) {
 
 function getConditionTarget(scope) {
   const parts = scope.split('|');
-  if (parts[0] === 'activity') return editorState[parts[1]];
-  if (parts[0] === 'option') {
-    const opt = editorState.options.find(o => o.uid === parseInt(parts[1], 10));
+  if (parts[0] === 'scenario') return editorState[parts[1]];
+  if (parts[0] === 'variant') {
+    const opt = editorState.variants.find(o => o.uid === parseInt(parts[1], 10));
     return opt ? opt[parts[2]] : null;
   }
   return null;
@@ -763,13 +779,13 @@ function getConditionTarget(scope) {
 
 function getEffectTarget(scope) {
   const parts = scope.split('|');
-  if (parts[0] === 'activity') return editorState.reveals[parts[1]];
-  if (parts[0] === 'option') {
-    const opt = editorState.options.find(o => o.uid === parseInt(parts[1], 10));
+  if (parts[0] === 'scenario') return editorState.reveals[parts[1]];
+  if (parts[0] === 'variant') {
+    const opt = editorState.variants.find(o => o.uid === parseInt(parts[1], 10));
     return opt ? opt.resolution.effects : null;
   }
   if (parts[0] === 'outcome') {
-    const opt = editorState.options.find(o => o.uid === parseInt(parts[1], 10));
+    const opt = editorState.variants.find(o => o.uid === parseInt(parts[1], 10));
     const idx = parseInt(parts[2], 10);
     return opt?.resolution.outcomes[idx]?.effects || null;
   }
@@ -780,7 +796,7 @@ function getKvTarget(scope) {
   const parts = scope.split('|');
   const kind = parts[0];
   const uid = parseInt(parts[1], 10);
-  const opt = editorState.options.find(o => o.uid === uid);
+  const opt = editorState.variants.find(o => o.uid === uid);
   if (!opt) return null;
 
   if (kind === 'in-res') return { list: opt.inputs.resources, mode: 'amount' };
@@ -802,8 +818,8 @@ function getKvTarget(scope) {
 
 function refreshJson() {
   const pre = document.getElementById('ws-json-output');
-  if (pre) pre.textContent = JSON.stringify(buildActivityJson(editorState), null, 2);
-  emit('activity-changed', editorState.id);
+  if (pre) pre.textContent = JSON.stringify(buildScenarioJson(editorState), null, 2);
+  emit('scenario-changed', editorState.id);
 }
 
 function render() {
@@ -819,10 +835,10 @@ function render() {
     container.innerHTML = `
       <div class="tab-panel__content">
         <div class="ws-empty">
-          <h3>No activity selected</h3>
-          <p>Select an activity from the sidebar, or create a new one.</p>
+          <h3>No scenario selected</h3>
+          <p>Select an scenario from the sidebar, or create a new one.</p>
           <div class="flex" style="justify-content:center;margin-top:16px">
-            <button onclick="_ws.openWizard()">🧙 Activity Wizard</button>
+            <button onclick="_ws.openWizard()">🧙 Scenario Wizard</button>
             <button class="ghost" onclick="_ws.newActivity()">Blank</button>
           </div>
         </div>
@@ -833,8 +849,9 @@ function render() {
   }
 
   const s = editorState;
-  const json = buildActivityJson(s);
-  const optCount = s.options.length;
+  const json = buildScenarioJson(s);
+  const optCount = s.variants.length;
+  const allVariantsCollapsed = optCount > 0 && s.variants.every((opt) => collapsedVariants.has(opt.uid));
   const condCount = s.visibleIf.length + s.unlockIf.length;
   const revealCount = s.reveals.onReveal.length + s.reveals.onUnlock.length;
   const difficulty = computeDifficultyHint(json);
@@ -844,7 +861,7 @@ function render() {
     <div class="section-nav">
       <button class="section-nav__btn" onclick="document.getElementById('ws-identity').scrollIntoView({behavior:'smooth'})">Identity</button>
       <button class="section-nav__btn" onclick="document.getElementById('ws-placement').scrollIntoView({behavior:'smooth'})">Placement</button>
-      <button class="section-nav__btn" onclick="document.getElementById('ws-options').scrollIntoView({behavior:'smooth'})">Options</button>
+      <button class="section-nav__btn" onclick="document.getElementById('ws-variants').scrollIntoView({behavior:'smooth'})">Options</button>
       <button class="section-nav__btn" onclick="document.getElementById('ws-balance').scrollIntoView({behavior:'smooth'})">Balance</button>
       <span style="flex:1"></span>
       <span class="muted" style="font-size:0.8rem">${safe(s.id || 'new')}</span>
@@ -858,11 +875,11 @@ function render() {
       <div class="workshop-sections">
 
         <!-- Identity -->
-        <div id="ws-identity" class="ws-section">
+        <div id="ws-identity" class="ws-section ws-section--scenario">
           <div class="ws-section__title">
             <span>Identity</span>
             <div class="ws-summary-chip">
-              <span class="ws-chip">${optCount} option${optCount !== 1 ? 's' : ''}</span>
+              <span class="ws-chip">${optCount} variant${optCount !== 1 ? 's' : ''}</span>
               ${condCount ? `<span class="ws-chip">${condCount} condition${condCount !== 1 ? 's' : ''}</span>` : ''}
               ${revealCount ? `<span class="ws-chip">${revealCount} reveal${revealCount !== 1 ? 's' : ''}</span>` : ''}
               ${diffChip}
@@ -870,7 +887,7 @@ function render() {
           </div>
           <div class="input-grid two-col">
             <div>
-              <label>Activity ID</label>
+              <label>Scenario ID</label>
               <input type="text" value="${safe(s.id)}" oninput="_ws.updateMeta('id', this.value)">
             </div>
             <div>
@@ -898,61 +915,64 @@ function render() {
           </div>
           <div style="margin-top:12px">
             <label>Description</label>
-            <textarea oninput="_ws.updateMeta('description', this.value)" placeholder="what is this activity about?">${safe(s.description)}</textarea>
+            <textarea oninput="_ws.updateMeta('description', this.value)" placeholder="what is this scenario about?">${safe(s.description)}</textarea>
           </div>
         </div>
 
         <!-- Placement -->
-        <div id="ws-placement" class="ws-section">
+        <div id="ws-placement" class="ws-section ws-section--scenario">
           <div class="ws-section__title">Placement & Progression</div>
           <div class="ws-placement">
             <div>
               <div class="subheader">
                 <span>Visible If</span>
-                <button class="ghost small" onclick="_ws.addCondition('activity|visibleIf')">+ condition</button>
+                <button class="ghost small" onclick="_ws.addCondition('scenario|visibleIf')">+ condition</button>
               </div>
-              ${renderConditionList(s.visibleIf, 'activity|visibleIf')}
+              ${renderConditionList(s.visibleIf, 'scenario|visibleIf')}
             </div>
             <div>
               <div class="subheader">
                 <span>Unlock If</span>
-                <button class="ghost small" onclick="_ws.addCondition('activity|unlockIf')">+ condition</button>
+                <button class="ghost small" onclick="_ws.addCondition('scenario|unlockIf')">+ condition</button>
               </div>
-              ${renderConditionList(s.unlockIf, 'activity|unlockIf')}
+              ${renderConditionList(s.unlockIf, 'scenario|unlockIf')}
             </div>
           </div>
           <div class="ws-placement" style="margin-top:14px">
             <div>
               <div class="subheader">
                 <span>On Reveal (effects)</span>
-                <button class="ghost small" onclick="_ws.addEffect('activity|onReveal')">+ effect</button>
+                <button class="ghost small" onclick="_ws.addEffect('scenario|onReveal')">+ effect</button>
               </div>
-              ${renderEffectList(s.reveals.onReveal, 'activity|onReveal')}
+              ${renderEffectList(s.reveals.onReveal, 'scenario|onReveal')}
             </div>
             <div>
               <div class="subheader">
                 <span>On Unlock (effects)</span>
-                <button class="ghost small" onclick="_ws.addEffect('activity|onUnlock')">+ effect</button>
+                <button class="ghost small" onclick="_ws.addEffect('scenario|onUnlock')">+ effect</button>
               </div>
-              ${renderEffectList(s.reveals.onUnlock, 'activity|onUnlock')}
+              ${renderEffectList(s.reveals.onUnlock, 'scenario|onUnlock')}
             </div>
           </div>
           ${renderNeighborhood()}
         </div>
 
         <!-- Options -->
-        <div id="ws-options" class="ws-section">
+        <div id="ws-variants" class="ws-section ws-section--variants">
           <div class="ws-section__title">
             <span>Options</span>
-            <button class="ghost small" onclick="_ws.addOption()">+ option</button>
+            <div class="flex">
+              <button class="ghost small" onclick="_ws.toggleAllOptionCollapse()">${allVariantsCollapsed ? 'Expand all' : 'Collapse all'}</button>
+              <button class="ghost small" onclick="_ws.addOption()">+ variant</button>
+            </div>
           </div>
-          <div class="ws-options-list">
-            ${s.options.map((opt, idx) => renderOptionCard(opt, idx)).join('')}
+          <div class="ws-variants-list">
+            ${s.variants.map((opt, idx) => renderOptionCard(opt, idx)).join('')}
           </div>
         </div>
 
         <!-- Balance Preview -->
-        <div id="ws-balance" class="ws-section">
+        <div id="ws-balance" class="ws-section ws-section--scenario">
           <div class="ws-section__title">Balance Preview</div>
           ${renderDifficultyPreview(difficulty)}
           ${renderBalancePreview()}
@@ -1057,7 +1077,7 @@ function renderConditionList(list, scope) {
 }
 
 function renderConditionOptions(current) {
-  const types = ['resourceGte', 'itemGte', 'flagIs', 'roleRevealed', 'activityRevealed', 'staffStarsGte', 'activityCompletedGte'];
+  const types = ['resourceGte', 'itemGte', 'flagIs', 'roleRevealed', 'scenarioRevealed', 'staffStarsGte', 'scenarioCompletedGte'];
   return types.map(t => `<option value="${t}" ${current === t ? 'selected' : ''}>${t}</option>`).join('');
 }
 
@@ -1086,10 +1106,10 @@ function renderConditionFields(cond, scope, idx) {
         </div>`;
     case 'roleRevealed':
       return `<select onchange="_ws.updateCondition('${scope}', ${idx}, 'roleId', this.value)">${renderRoleOptions(cond.roleId)}</select>`;
-    case 'activityRevealed':
-      return `<select onchange="_ws.updateCondition('${scope}', ${idx}, 'activityId', this.value)">
-        <option value="">-- activity --</option>
-        ${store.activities.map(a => `<option value="${safe(a.id)}" ${a.id === cond.activityId ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
+    case 'scenarioRevealed':
+      return `<select onchange="_ws.updateCondition('${scope}', ${idx}, 'scenarioId', this.value)">
+        <option value="">-- scenario --</option>
+        ${store.scenarios.map(a => `<option value="${safe(a.id)}" ${a.id === cond.scenarioId ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
       </select>`;
     case 'staffStarsGte':
       return `
@@ -1097,12 +1117,12 @@ function renderConditionFields(cond, scope, idx) {
           <select onchange="_ws.updateCondition('${scope}', ${idx}, 'roleId', this.value)">${renderRoleOptions(cond.roleId)}</select>
           <input type="number" value="${safe(cond.value)}" placeholder="stars" style="width:80px" oninput="_ws.updateCondition('${scope}', ${idx}, 'value', parseInt(this.value,10)||0)">
         </div>`;
-    case 'activityCompletedGte':
+    case 'scenarioCompletedGte':
       return `
         <div class="pill-row">
-          <select onchange="_ws.updateCondition('${scope}', ${idx}, 'activityId', this.value)">
-            <option value="">-- activity --</option>
-            ${store.activities.map(a => `<option value="${safe(a.id)}" ${a.id === cond.activityId ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
+          <select onchange="_ws.updateCondition('${scope}', ${idx}, 'scenarioId', this.value)">
+            <option value="">-- scenario --</option>
+            ${store.scenarios.map(a => `<option value="${safe(a.id)}" ${a.id === cond.scenarioId ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
           </select>
           <input type="number" value="${safe(cond.value)}" placeholder="count" style="width:80px" oninput="_ws.updateCondition('${scope}', ${idx}, 'value', parseInt(this.value,10)||0)">
         </div>`;
@@ -1128,7 +1148,7 @@ function renderEffectList(list, scope) {
 }
 
 function renderEffectOptions(current) {
-  const types = ['showModal', 'revealBranch', 'revealActivity', 'revealResource', 'revealRole', 'revealTab', 'unlockActivity', 'setFlag', 'incFlagCounter', 'logMessage'];
+  const types = ['showModal', 'revealBranch', 'revealScenario', 'revealResource', 'revealRole', 'revealTab', 'unlockScenario', 'setFlag', 'incFlagCounter', 'logMessage'];
   return types.map(t => `<option value="${t}" ${current === t ? 'selected' : ''}>${t}</option>`).join('');
 }
 
@@ -1144,11 +1164,11 @@ function renderEffectFields(fx, scope, idx) {
         <option value="">-- branch --</option>
         ${store.branches.map(b => `<option value="${safe(b.id)}" ${b.id === fx.branchId ? 'selected' : ''}>${safe(b.name || b.id)}</option>`).join('')}
       </select>`;
-    case 'revealActivity':
-    case 'unlockActivity':
-      return `<select onchange="_ws.updateEffect('${scope}', ${idx}, 'activityId', this.value)">
-        <option value="">-- activity --</option>
-        ${store.activities.map(a => `<option value="${safe(a.id)}" ${a.id === fx.activityId ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
+    case 'revealScenario':
+    case 'unlockScenario':
+      return `<select onchange="_ws.updateEffect('${scope}', ${idx}, 'scenarioId', this.value)">
+        <option value="">-- scenario --</option>
+        ${store.scenarios.map(a => `<option value="${safe(a.id)}" ${a.id === fx.scenarioId ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
       </select>`;
     case 'revealResource':
       return `<select onchange="_ws.updateEffect('${scope}', ${idx}, 'resourceId', this.value)">${renderResourceOptions(fx.resourceId)}</select>`;
@@ -1175,63 +1195,63 @@ function renderEffectFields(fx, scope, idx) {
   }
 }
 
-function renderOptionCard(option, idx) {
-  const uid = option.uid;
-  const isCollapsed = collapsedOptions.has(uid);
+function renderOptionCard(variant, idx) {
+  const uid = variant.uid;
+  const isCollapsed = collapsedVariants.has(uid);
+
+  if (isCollapsed) {
+    const collapsedName = (variant.name || '').trim() || (variant.variantId || '').trim() || `Variant ${idx + 1}`;
+    return `
+      <div class="variant-card collapsed" data-variant-card-uid="${uid}">
+        <div class="variant-head variant-head--collapsed" onclick="_ws.toggleOptionCollapse(${uid})" style="cursor:pointer">
+          <div class="variant-collapsed-name">${safe(collapsedName)}</div>
+        </div>
+      </div>
+    `;
+  }
+
   const calcParts = getDurationCalculatorParts(uid);
   const calcTotalMs = calculateDurationMs(calcParts);
 
-  // Build summary info
-  const hasStaff = option.requirements.staff.length > 0;
-  const hasCosts = Object.keys(option.inputs.resources).length > 0 || Object.keys(option.inputs.items).length > 0;
-  const resType = option.resolution.type;
-  const summary = [];
-  if (option.name) summary.push(option.name);
-  if (hasStaff) summary.push(`${option.requirements.staff.length} staff`);
-  if (hasCosts) summary.push('has costs');
-  if (resType === 'weighted_outcomes') summary.push('weighted');
-  const summaryText = summary.length > 0 ? summary.join(' • ') : 'no details yet';
-
   return `
-    <div class="option-card ${isCollapsed ? 'collapsed' : ''}" data-option-card-uid="${uid}">
-      <div class="option-head" onclick="_ws.toggleOptionCollapse(${uid})" style="cursor:pointer">
+    <div class="variant-card" data-variant-card-uid="${uid}">
+      <div class="variant-head" onclick="_ws.toggleOptionCollapse(${uid})" style="cursor:pointer">
         <div class="flex" style="flex:1">
           <div class="badge">Option ${idx + 1}</div>
-          <div class="muted" style="flex:1">${safe(option.optionId || 'no id yet')}</div>
-          ${isCollapsed ? `<div class="muted" style="font-size:0.85rem;margin-left:12px">${summaryText}</div>` : ''}
-          <div style="margin-left:12px;color:var(--muted);font-size:1.2rem;user-select:none">${isCollapsed ? '▸' : '▾'}</div>
+          <div class="muted" style="flex:1">${safe(variant.variantId || 'no id yet')}</div>
+          <div style="margin-left:12px;color:var(--muted);font-size:1rem;user-select:none">[-]</div>
         </div>
         <div class="flex" onclick="event.stopPropagation()">
           <label class="muted" style="margin:0">Repeatable?</label>
-          <input type="checkbox" ${option.repeatable ? 'checked' : ''} onchange="_ws.updateOptionField(${uid}, 'repeatable', this.checked)">
+          <input type="checkbox" ${variant.repeatable ? 'checked' : ''} onchange="_ws.updateOptionField(${uid}, 'repeatable', this.checked)">
           <button class="ghost small" onclick="_ws.removeOption(${uid})">remove</button>
         </div>
       </div>
 
-      ${isCollapsed ? '' : `<div class="option-details">`}
+      <div class="variant-details">
 
       <div class="input-grid two-col">
         <div>
           <label>Option ID</label>
-          <input type="text" value="${safe(option.optionId)}" placeholder="shoplifting_grab" oninput="_ws.updateOptionField(${uid}, 'optionId', this.value)">
+          <input type="text" value="${safe(variant.variantId)}" placeholder="shoplifting_grab" oninput="_ws.updateOptionField(${uid}, 'variantId', this.value)">
         </div>
         <div>
           <label>Name</label>
-          <input type="text" value="${safe(option.name)}" placeholder="grab and go" oninput="_ws.updateOptionField(${uid}, 'name', this.value)">
+          <input type="text" value="${safe(variant.name)}" placeholder="grab and go" oninput="_ws.updateOptionField(${uid}, 'name', this.value)">
         </div>
         <div>
           <label>Description</label>
-          <textarea oninput="_ws.updateOptionField(${uid}, 'description', this.value)">${safe(option.description)}</textarea>
+          <textarea oninput="_ws.updateOptionField(${uid}, 'description', this.value)">${safe(variant.description)}</textarea>
         </div>
         <div class="input-grid">
           <label>Duration (ms)</label>
-          <input type="number" data-option-uid="${uid}" data-time-field="durationMs" value="${safe(option.durationMs)}" oninput="_ws.updateOptionField(${uid}, 'durationMs', parseInt(this.value,10)||0)">
+          <input type="number" data-variant-uid="${uid}" data-time-field="durationMs" value="${safe(variant.durationMs)}" oninput="_ws.updateOptionField(${uid}, 'durationMs', parseInt(this.value,10)||0)">
           <label>XP on Complete</label>
-          <input type="number" value="${safe(option.xp)}" oninput="_ws.updateOptionField(${uid}, 'xp', parseInt(this.value,10)||0)">
+          <input type="number" value="${safe(variant.xp)}" oninput="_ws.updateOptionField(${uid}, 'xp', parseInt(this.value,10)||0)">
           <label>Cooldown (ms)</label>
-          <input type="number" data-option-uid="${uid}" data-time-field="cooldownMs" value="${safe(option.cooldownMs)}" oninput="_ws.updateOptionField(${uid}, 'cooldownMs', parseInt(this.value,10)||0)">
+          <input type="number" data-variant-uid="${uid}" data-time-field="cooldownMs" value="${safe(variant.cooldownMs)}" oninput="_ws.updateOptionField(${uid}, 'cooldownMs', parseInt(this.value,10)||0)">
           <label>Max Concurrent Runs</label>
-          <input type="number" value="${safe(option.maxConcurrentRuns)}" oninput="_ws.updateOptionField(${uid}, 'maxConcurrentRuns', this.value)">
+          <input type="number" value="${safe(variant.maxConcurrentRuns)}" oninput="_ws.updateOptionField(${uid}, 'maxConcurrentRuns', this.value)">
         </div>
       </div>
 
@@ -1266,30 +1286,30 @@ function renderOptionCard(option, idx) {
 
       <div class="input-grid two-col" style="margin-top:12px">
         <div>
-          <div class="subheader"><span>Visible If</span><button class="ghost small" onclick="_ws.addCondition('option|${uid}|visibleIf')">+ condition</button></div>
-          ${renderConditionList(option.visibleIf, `option|${uid}|visibleIf`)}
+          <div class="subheader"><span>Visible If</span><button class="ghost small" onclick="_ws.addCondition('variant|${uid}|visibleIf')">+ condition</button></div>
+          ${renderConditionList(variant.visibleIf, `variant|${uid}|visibleIf`)}
         </div>
         <div>
-          <div class="subheader"><span>Unlock If</span><button class="ghost small" onclick="_ws.addCondition('option|${uid}|unlockIf')">+ condition</button></div>
-          ${renderConditionList(option.unlockIf, `option|${uid}|unlockIf`)}
+          <div class="subheader"><span>Unlock If</span><button class="ghost small" onclick="_ws.addCondition('variant|${uid}|unlockIf')">+ condition</button></div>
+          ${renderConditionList(variant.unlockIf, `variant|${uid}|unlockIf`)}
         </div>
       </div>
 
       <div class="input-grid two-col" style="margin-top:12px">
         <div>
           <div class="subheader"><span>Staff Requirements</span><button class="ghost small" onclick="_ws.addStaff(${uid})">+ staff</button></div>
-          ${renderStaffRequirements(option)}
+          ${renderStaffRequirements(variant)}
         </div>
         <div>
           <div class="subheader"><span>Inputs & Costs</span></div>
           <div>
             <div class="muted" style="margin-bottom:6px">Resources</div>
-            ${renderKvList(option.inputs.resources, `in-res|${uid}`, 'amount')}
+            ${renderKvList(variant.inputs.resources, `in-res|${uid}`, 'amount')}
             <button class="ghost small" onclick="_ws.addKv('in-res|${uid}')">+ resource cost</button>
           </div>
           <div style="margin-top:10px">
             <div class="muted" style="margin-bottom:6px">Items</div>
-            ${renderKvList(option.inputs.items, `in-items|${uid}`, 'amount', 'itemId')}
+            ${renderKvList(variant.inputs.items, `in-items|${uid}`, 'amount', 'itemId')}
             <button class="ghost small" onclick="_ws.addKv('in-items|${uid}')">+ item cost</button>
           </div>
         </div>
@@ -1301,36 +1321,35 @@ function renderOptionCard(option, idx) {
           <div class="flex">
             <label class="muted" style="margin:0">Type</label>
             <select onchange="_ws.setResolutionType(${uid}, this.value)">
-              <option value="deterministic" ${option.resolution.type === 'deterministic' ? 'selected' : ''}>deterministic</option>
-              <option value="ranged_outputs" ${option.resolution.type === 'ranged_outputs' ? 'selected' : ''}>ranged_outputs</option>
-              <option value="weighted_outcomes" ${option.resolution.type === 'weighted_outcomes' ? 'selected' : ''}>weighted_outcomes</option>
+              <option value="deterministic" ${variant.resolution.type === 'deterministic' ? 'selected' : ''}>deterministic</option>
+              <option value="ranged_outputs" ${variant.resolution.type === 'ranged_outputs' ? 'selected' : ''}>ranged_outputs</option>
+              <option value="weighted_outcomes" ${variant.resolution.type === 'weighted_outcomes' ? 'selected' : ''}>weighted_outcomes</option>
             </select>
           </div>
         </div>
-        ${renderResolution(option)}
+        ${renderResolution(variant)}
       </div>
 
       <div style="margin-top:12px">
         <label>Modifiers (raw JSON array)</label>
-        <textarea placeholder='[{"type":"staffStars","roleId":"thief","applyPerStar":{"outcomeWeightAdjustment":{"caught":-5}}}]' oninput="_ws.updateOptionField(${uid}, 'modifiersText', this.value)">${safe(option.modifiersText)}</textarea>
+        <textarea placeholder='[{"type":"staffStars","roleId":"thief","applyPerStar":{"outcomeWeightAdjustment":{"caught":-5}}}]' oninput="_ws.updateOptionField(${uid}, 'modifiersText', this.value)">${safe(variant.modifiersText)}</textarea>
       </div>
-      ${isCollapsed ? '' : '</div>'}
+      </div>
     </div>
   `;
 }
+function renderStaffRequirements(variant) {
+  if (!variant.requirements.staff.length) return `<div class="pill hint">No staff requirements.</div>`;
 
-function renderStaffRequirements(option) {
-  if (!option.requirements.staff.length) return `<div class="pill hint">No staff requirements.</div>`;
-
-  return option.requirements.staff.map((req, idx) => `
+  return variant.requirements.staff.map((req, idx) => `
     <div class="pill">
       <div class="pill-row">
-        <select onchange="_ws.updateStaff(${option.uid}, ${idx}, 'roleId', this.value)">${renderRoleOptions(req.roleId)}</select>
-        <input type="number" value="${safe(req.count)}" placeholder="count" style="width:60px" oninput="_ws.updateStaff(${option.uid}, ${idx}, 'count', parseInt(this.value,10)||0)">
-        <input type="number" value="${safe(req.starsMin)}" placeholder="stars" style="width:60px" oninput="_ws.updateStaff(${option.uid}, ${idx}, 'starsMin', parseInt(this.value,10)||0)">
+        <select onchange="_ws.updateStaff(${variant.uid}, ${idx}, 'roleId', this.value)">${renderRoleOptions(req.roleId)}</select>
+        <input type="number" value="${safe(req.count)}" placeholder="count" style="width:60px" oninput="_ws.updateStaff(${variant.uid}, ${idx}, 'count', parseInt(this.value,10)||0)">
+        <input type="number" value="${safe(req.starsMin)}" placeholder="stars" style="width:60px" oninput="_ws.updateStaff(${variant.uid}, ${idx}, 'starsMin', parseInt(this.value,10)||0)">
         <label class="muted" style="margin:0">Req?</label>
-        <input type="checkbox" ${req.required !== false ? 'checked' : ''} onchange="_ws.updateStaff(${option.uid}, ${idx}, 'required', this.checked)">
-        <button class="ghost small" onclick="_ws.removeStaff(${option.uid}, ${idx})">x</button>
+        <input type="checkbox" ${req.required !== false ? 'checked' : ''} onchange="_ws.updateStaff(${variant.uid}, ${idx}, 'required', this.checked)">
+        <button class="ghost small" onclick="_ws.removeStaff(${variant.uid}, ${idx})">x</button>
       </div>
     </div>
   `).join('');
@@ -1362,12 +1381,12 @@ function renderKvList(list, scope, mode = 'amount', keyLabel = 'resourceId') {
   }).join('');
 }
 
-function renderResolution(option) {
-  const res = option.resolution;
-  const uid = option.uid;
+function renderResolution(variant) {
+  const res = variant.resolution;
+  const uid = variant.uid;
 
   if (res.type === 'weighted_outcomes') {
-    const outcomes = res.outcomes.map((outcome, idx) => renderOutcome(option, outcome, idx)).join('');
+    const outcomes = res.outcomes.map((outcome, idx) => renderOutcome(variant, outcome, idx)).join('');
     return `<div class="stacked">${outcomes}<button class="ghost small" onclick="_ws.addOutcome(${uid})">+ outcome</button></div>`;
   }
 
@@ -1401,14 +1420,14 @@ function renderResolution(option) {
       </div>
     </div>
     <div style="margin-top:8px">
-      <div class="subheader"><span>Effects</span><button class="ghost small" onclick="_ws.addEffect('option|${uid}|resolution')">+ effect</button></div>
-      ${renderEffectList(res.effects, `option|${uid}|resolution`)}
+      <div class="subheader"><span>Effects</span><button class="ghost small" onclick="_ws.addEffect('variant|${uid}|resolution')">+ effect</button></div>
+      ${renderEffectList(res.effects, `variant|${uid}|resolution`)}
     </div>
   `;
 }
 
-function renderOutcome(option, outcome, idx) {
-  const uid = option.uid;
+function renderOutcome(variant, outcome, idx) {
+  const uid = variant.uid;
   return `
     <div class="pill">
       <div class="pill-row" style="justify-content:space-between">
@@ -1468,13 +1487,13 @@ function renderNeighborhood() {
   const actId = editorState.id;
   const neighbors = new Map();
 
-  // Find activities that reveal/unlock this one
-  store.activities.forEach(act => {
+  // Find scenarios that reveal/unlock this one
+  store.scenarios.forEach(act => {
     if (act.id === actId) return;
     const allEffects = [];
     (act.reveals?.onReveal || []).forEach(e => allEffects.push(e));
     (act.reveals?.onUnlock || []).forEach(e => allEffects.push(e));
-    (act.options || []).forEach(opt => {
+    (act.variants || []).forEach(opt => {
       (opt.resolution?.effects || []).forEach(e => allEffects.push(e));
       (opt.resolution?.outcomes || []).forEach(out => {
         (out.effects || []).forEach(e => allEffects.push(e));
@@ -1482,17 +1501,17 @@ function renderNeighborhood() {
     });
 
     allEffects.forEach(e => {
-      if ((e.type === 'revealActivity' || e.type === 'unlockActivity') && e.activityId === actId) {
+      if ((e.type === 'revealScenario' || e.type === 'unlockScenario') && e.scenarioId === actId) {
         neighbors.set(act.id, { id: act.id, dir: 'in', type: e.type });
       }
     });
   });
 
-  // Find what this activity reveals/unlocks
+  // Find what this scenario reveals/unlocks
   const thisEffects = [];
   (editorState.reveals.onReveal || []).forEach(e => thisEffects.push(e));
   (editorState.reveals.onUnlock || []).forEach(e => thisEffects.push(e));
-  editorState.options.forEach(opt => {
+  editorState.variants.forEach(opt => {
     (opt.resolution?.effects || []).forEach(e => thisEffects.push(e));
     (opt.resolution?.outcomes || []).forEach(out => {
       (out.effects || []).forEach(e => thisEffects.push(e));
@@ -1500,8 +1519,8 @@ function renderNeighborhood() {
   });
 
   thisEffects.forEach(e => {
-    if (e.type === 'revealActivity' || e.type === 'unlockActivity') {
-      if (e.activityId) neighbors.set(e.activityId, { id: e.activityId, dir: 'out', type: e.type });
+    if (e.type === 'revealScenario' || e.type === 'unlockScenario') {
+      if (e.scenarioId) neighbors.set(e.scenarioId, { id: e.scenarioId, dir: 'out', type: e.type });
     }
     if (e.type === 'revealBranch') {
       neighbors.set(`branch:${e.branchId}`, { id: e.branchId, dir: 'out', type: 'revealBranch', isBranch: true });
@@ -1546,12 +1565,12 @@ function renderNeighborhood() {
 }
 
 function renderBalancePreview() {
-  const json = buildActivityJson(editorState);
-  if (!json.options.length) return '<div class="hint">Add options to see balance.</div>';
+  const json = buildScenarioJson(editorState);
+  if (!json.variants.length) return '<div class="hint">Add variants to see balance.</div>';
 
   const flows = new Map();
 
-  json.options.forEach(opt => {
+  json.variants.forEach(opt => {
     // Inputs (consumed)
     if (opt.inputs?.resources) {
       Object.entries(opt.inputs.resources).forEach(([id, val]) => {
@@ -1635,12 +1654,12 @@ function scoreCondition(cond, weight = 1) {
       const v = safeNumber(cond.value, 0);
       return weight * (4 + Math.max(0, v) * 8);
     }
-    case 'activityCompletedGte': {
+    case 'scenarioCompletedGte': {
       const v = safeNumber(cond.value, 0);
       return weight * (6 + Math.max(0, v) * 6);
     }
     case 'roleRevealed':
-    case 'activityRevealed':
+    case 'scenarioRevealed':
       return weight * 3;
     case 'flagIs':
       return weight * 2;
@@ -1663,8 +1682,8 @@ function difficultyClass(score) {
   return 'bad';
 }
 
-function computeDifficultyHint(activity) {
-  if (!activity) {
+function computeDifficultyHint(scenario) {
+  if (!scenario) {
     return {
       score: 0,
       label: '—',
@@ -1676,11 +1695,11 @@ function computeDifficultyHint(activity) {
   const parts = { gates: 0, costs: 0, time: 0, risk: 0 };
 
   // Activity-level gates
-  (activity.visibleIf || []).forEach((c) => (parts.gates += scoreCondition(c, 0.8)));
-  (activity.unlockIf || []).forEach((c) => (parts.gates += scoreCondition(c, 1.2)));
+  (scenario.visibleIf || []).forEach((c) => (parts.gates += scoreCondition(c, 0.8)));
+  (scenario.unlockIf || []).forEach((c) => (parts.gates += scoreCondition(c, 1.2)));
 
-  const options = Array.isArray(activity.options) ? activity.options : [];
-  if (!options.length) {
+  const variants = Array.isArray(scenario.variants) ? scenario.variants : [];
+  if (!variants.length) {
     return {
       score: 0,
       label: '—',
@@ -1692,7 +1711,7 @@ function computeDifficultyHint(activity) {
   let durationSum = 0;
   let durationCount = 0;
 
-  options.forEach((opt) => {
+  variants.forEach((opt) => {
     // Option-level gates
     (opt.visibleIf || []).forEach((c) => (parts.gates += scoreCondition(c, 0.6)));
     (opt.unlockIf || []).forEach((c) => (parts.gates += scoreCondition(c, 1.0)));
@@ -1838,13 +1857,13 @@ function normalizeWizardDraft(draft) {
     const id = String(resourceId || '').trim();
     if (id) effectsList.push({ type: 'revealResource', resourceId: id });
   });
-  (effects.revealActivity || []).forEach((activityId) => {
-    const id = String(activityId || '').trim();
-    if (id) effectsList.push({ type: 'revealActivity', activityId: id });
+  (effects.revealScenario || []).forEach((scenarioId) => {
+    const id = String(scenarioId || '').trim();
+    if (id) effectsList.push({ type: 'revealScenario', scenarioId: id });
   });
-  (effects.unlockActivity || []).forEach((activityId) => {
-    const id = String(activityId || '').trim();
-    if (id) effectsList.push({ type: 'unlockActivity', activityId: id });
+  (effects.unlockScenario || []).forEach((scenarioId) => {
+    const id = String(scenarioId || '').trim();
+    if (id) effectsList.push({ type: 'unlockScenario', scenarioId: id });
   });
 
   const allowedResolution = ['deterministic', 'ranged_outputs', 'weighted_outcomes'].includes(draft?.resolutionType)
@@ -1901,19 +1920,19 @@ function inflateWizardEffect(effect) {
 }
 
 function wizardDraftToActivity(draft) {
-  // Convert normalized draft to activity structure for difficulty calculation
-  const activity = {
+  // Convert normalized draft to scenario structure for difficulty calculation
+  const scenario = {
     id: draft.id || 'temp',
     visibleIf: [],
     unlockIf: [],
-    options: []
+    variants: []
   };
 
   draft.gates.forEach((g) => {
     if (!g.resourceId) return;
     const c = { type: 'resourceGte', resourceId: g.resourceId, value: g.value };
-    if (g.scope === 'visibleIf') activity.visibleIf.push(c);
-    else activity.unlockIf.push(c);
+    if (g.scope === 'visibleIf') scenario.visibleIf.push(c);
+    else scenario.unlockIf.push(c);
   });
 
   const opt = {
@@ -1953,8 +1972,8 @@ function wizardDraftToActivity(draft) {
     });
   }
 
-  activity.options.push(opt);
-  return activity;
+  scenario.variants.push(opt);
+  return scenario;
 }
 
 function computeWizardWarnings(draft, difficulty) {
@@ -1966,12 +1985,12 @@ function computeWizardWarnings(draft, difficulty) {
 
   // No costs check
   if (draft.costs.length === 0 && hasOutputs) {
-    warnings.push('Activity has rewards but no costs (free money?)');
+    warnings.push('Scenario has rewards but no costs (free money?)');
   }
 
   // No outputs check
   if (!hasOutputs && draft.costs.length > 0) {
-    warnings.push('Activity has costs but no outputs (waste of resources?)');
+    warnings.push('Scenario has costs but no outputs (waste of resources?)');
   }
 
   // Weighted outcomes specific warnings
@@ -1984,7 +2003,7 @@ function computeWizardWarnings(draft, difficulty) {
 
   // High heat, no gates
   if (draft.heatDelta > 10 && draft.gates.length === 0) {
-    warnings.push('High heat activity with no unlock gates (too easy?)');
+    warnings.push('High heat scenario with no unlock gates (too easy?)');
   }
 
   // Very high difficulty
@@ -1994,7 +2013,7 @@ function computeWizardWarnings(draft, difficulty) {
 
   // No XP reward
   if (draft.xp === 0 && draft.outputs.length > 0) {
-    warnings.push('Activity has rewards but grants no XP');
+    warnings.push('Scenario has rewards but grants no XP');
   }
 
   // Long duration + long cooldown
@@ -2015,7 +2034,7 @@ function renderWizardModal() {
 
   // Compute live difficulty and warnings
   const draft = normalizeWizardDraft(wizard.draft);
-  const tempActivity = wizardDraftToActivity(draft);
+  const tempScenario = wizardDraftToActivity(draft);
   const difficulty = computeDifficultyHint(tempActivity);
   const warnings = computeWizardWarnings(draft, difficulty);
 
@@ -2024,7 +2043,7 @@ function renderWizardModal() {
       <div class="ws-modal" role="dialog" aria-modal="true">
         <div class="ws-modal__head">
           <div>
-            <div class="ws-modal__title">Activity Wizard</div>
+            <div class="ws-modal__title">Scenario Wizard</div>
             <div class="ws-modal__subtitle">${safe(step.title)}</div>
           </div>
           <button class="ghost small" onclick="_ws.wizClose()">Close</button>
@@ -2066,7 +2085,7 @@ function renderWizardStep(id) {
       return renderWizardIdentity(wizard.draft);
     case 'gates':
       return renderWizardGates(wizard.draft);
-    case 'option':
+    case 'variant':
       return renderWizardOption(wizard.draft);
     case 'effects':
       return renderWizardEffects(wizard.draft);
@@ -2115,7 +2134,7 @@ function renderWizardIdentity(draft) {
   return `
     <div class="input-grid two-col">
       <div>
-        <label>Activity ID</label>
+        <label>Scenario ID</label>
         <input type="text" data-focus-id="wiz-id" value="${safe(draft.id)}" placeholder="shoplifting" oninput="_ws.wizSet('id', this.value)">
         <div class="hint" style="font-size:0.8rem;margin-top:6px">Unique key. Use lowercase + underscores.</div>
       </div>
@@ -2166,13 +2185,13 @@ function renderWizardGates(draft) {
           <button class="ghost small" onclick="_ws.wizRemoveGate(${idx})">remove</button>
         </div>
       </div>
-    `).join('') : '<div class="hint">No gates. This activity will be available immediately.</div>'}
+    `).join('') : '<div class="hint">No gates. This scenario will be available immediately.</div>'}
 
     <div class="hint" style="margin-top:10px;padding:10px;background:rgba(125,211,252,0.08);border:1px solid rgba(125,211,252,0.2);border-radius:var(--radius-sm)">
       <strong>Note:</strong> The wizard only supports resource-based gates (resourceGte). After creating the draft, you can add:
       <ul style="margin:6px 0 0 20px;font-size:0.9em">
         <li>Staff requirements (staffStarsGte)</li>
-        <li>Activity completion gates (activityCompletedGte)</li>
+        <li>Scenario completion gates (activityCompletedGte)</li>
         <li>Item requirements (itemGte)</li>
         <li>Flag checks (flagIs)</li>
       </ul>
@@ -2188,7 +2207,7 @@ function renderWizardOption(draft) {
   const isDeterministic = draft.resolutionType === 'deterministic';
 
   return `
-    <div class="hint" style="margin-bottom:12px">This wizard creates a single option. Add additional options after creating the draft.</div>
+    <div class="hint" style="margin-bottom:12px">This wizard creates a single variant. Add additional variants after creating the draft.</div>
 
     <div class="input-grid two-col">
       <div>
@@ -2323,7 +2342,7 @@ function renderWizardOutcomes(outcomes) {
 function renderWizardEffects(draft) {
   const fx = draft.effects || {};
   const branches = store.branches || [];
-  const activities = store.activities || [];
+  const scenarios = store.scenarios || [];
 
   const renderIdList = (type, label, items, renderSelect) => `
     <div style="margin-top:12px">
@@ -2343,7 +2362,7 @@ function renderWizardEffects(draft) {
   `;
 
   return `
-    <div class="hint">These effects apply when the first option completes.</div>
+    <div class="hint">These effects apply when the first variant completes.</div>
 
     ${renderIdList('revealBranch', 'Reveal Branch', fx.revealBranch, (id, idx) => `
       <select onchange="_ws.wizSetEffect('revealBranch', ${idx}, this.value)">
@@ -2356,18 +2375,20 @@ function renderWizardEffects(draft) {
       <select onchange="_ws.wizSetEffect('revealResource', ${idx}, this.value)">${renderResourceOptions(id)}</select>
     `)}
 
-    ${renderIdList('revealActivity', 'Reveal Activity', fx.revealActivity, (id, idx) => `
-      <select onchange="_ws.wizSetEffect('revealActivity', ${idx}, this.value)">
-        <option value="">-- activity --</option>
-        ${activities.map(a => `<option value="${safe(a.id)}" ${a.id === id ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
+    ${renderIdList('revealScenario', 'Reveal Activity', fx.revealActivity, (id, idx) => `
+      <select onchange="_ws.wizSetEffect('revealScenario', ${idx}, this.value)">
+        <option value="">-- scenario --</option>
+        ${scenarios.map(a => `<option value="${safe(a.id)}" ${a.id === id ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
       </select>
     `)}
 
-    ${renderIdList('unlockActivity', 'Unlock Activity', fx.unlockActivity, (id, idx) => `
-      <select onchange="_ws.wizSetEffect('unlockActivity', ${idx}, this.value)">
-        <option value="">-- activity --</option>
-        ${activities.map(a => `<option value="${safe(a.id)}" ${a.id === id ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
+    ${renderIdList('unlockScenario', 'Unlock Activity', fx.unlockActivity, (id, idx) => `
+      <select onchange="_ws.wizSetEffect('unlockScenario', ${idx}, this.value)">
+        <option value="">-- scenario --</option>
+        ${scenarios.map(a => `<option value="${safe(a.id)}" ${a.id === id ? 'selected' : ''}>${safe(a.id)}</option>`).join('')}
       </select>
     `)}
   `;
 }
+
+

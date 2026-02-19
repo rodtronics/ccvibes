@@ -1,7 +1,7 @@
 // Central data store — all tabs read/write from here
 export const store = {
   // Raw data arrays from server
-  activities: [],
+  scenarios: [],
   resources: [],
   branches: [],
   roles: [],
@@ -13,11 +13,11 @@ export const store = {
   resourceMap: new Map(),
   branchMap: new Map(),
   roleMap: new Map(),
-  activityMap: new Map(),
+  scenarioMap: new Map(),
   modalMap: new Map(),
 
   // Editor state
-  selectedActivityId: null,
+  selectedScenarioId: null,
   selectedResourceId: null,
   selectedBranchId: null,
   selectedRoleId: null,
@@ -26,7 +26,7 @@ export const store = {
 
   // Dirty tracking per file
   dirty: {
-    activities: false,
+    scenarios: false,
     resources: false,
     branches: false,
     roles: false,
@@ -36,7 +36,7 @@ export const store = {
 
   // Last saved snapshots for change detection
   savedSnapshots: {
-    activities: null,
+    scenarios: null,
     resources: null,
     branches: null,
     roles: null,
@@ -54,7 +54,7 @@ export function rebuildMaps() {
   store.resourceMap = new Map(store.resources.map(r => [r.id, r]));
   store.branchMap = new Map(store.branches.map(b => [b.id, b]));
   store.roleMap = new Map(store.roles.map(r => [r.id, r]));
-  store.activityMap = new Map(store.activities.map(a => [a.id, a]));
+  store.scenarioMap = new Map(store.scenarios.map(a => [a.id, a]));
   store.modalMap = new Map(store.modals.map(m => [m.id, m]));
 }
 
@@ -100,8 +100,8 @@ export function getBranchColor(branchId) {
 // When an entity ID changes, update all references across other data
 
 export function cascadeBranchRename(oldId, newId) {
-  // Update activities referencing this branch
-  store.activities.forEach(a => {
+  // Update scenarios referencing this branch
+  store.scenarios.forEach(a => {
     if (a.branchId === oldId) a.branchId = newId;
   });
   // Update resources referencing this branch
@@ -111,9 +111,9 @@ export function cascadeBranchRename(oldId, newId) {
 }
 
 export function cascadeRoleRename(oldId, newId) {
-  // Update staff requirements in all activity options
-  store.activities.forEach(a => {
-    (a.options || []).forEach(opt => {
+  // Update staff requirements in all scenario variants
+  store.scenarios.forEach(a => {
+    (a.variants || []).forEach(opt => {
       const staff = opt.requirements?.staff || [];
       staff.forEach(s => {
         if (s.roleId === oldId) s.roleId = newId;
@@ -123,12 +123,12 @@ export function cascadeRoleRename(oldId, newId) {
 }
 
 export function cascadeResourceRename(oldId, newId) {
-  store.activities.forEach(a => {
+  store.scenarios.forEach(a => {
     // Update conditions
     (a.visibleIf || []).forEach(c => { if (c.resourceId === oldId) c.resourceId = newId; });
     (a.unlockIf || []).forEach(c => { if (c.resourceId === oldId) c.resourceId = newId; });
-    // Update options
-    (a.options || []).forEach(opt => {
+    // Update variants
+    (a.variants || []).forEach(opt => {
       // Conditions
       (opt.visibleIf || []).forEach(c => { if (c.resourceId === oldId) c.resourceId = newId; });
       (opt.unlockIf || []).forEach(c => { if (c.resourceId === oldId) c.resourceId = newId; });
@@ -171,13 +171,13 @@ export function cascadeResourceRename(oldId, newId) {
 }
 
 export function cascadeModalRename(oldId, newId) {
-  // Update showModal effects in activities
-  store.activities.forEach(a => {
+  // Update showModal effects in scenarios
+  store.scenarios.forEach(a => {
     const allEffects = [
       ...(a.reveals?.onReveal || []),
       ...(a.reveals?.onUnlock || [])
     ];
-    (a.options || []).forEach(opt => {
+    (a.variants || []).forEach(opt => {
       const res = opt.resolution;
       if (res?.effects) allEffects.push(...res.effects);
       (res?.outcomes || []).forEach(out => {

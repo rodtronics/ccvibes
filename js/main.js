@@ -16,6 +16,7 @@ import {
   cycleFontSetting,
   switchFontCategory,
   cycleFpsSetting,
+  GRID_HEIGHTS,
   MIN_ZOOM,
   MAX_ZOOM,
   ZOOM_STEP
@@ -39,10 +40,10 @@ if (bloomLayer) {
 // UI state (navigation, selections, options)
 const ui = {
   tab: 'jobs', // jobs, active, crew, resources, stats, options
-  focus: 'activity', // activity | option | runs | crimeDetail
+  focus: 'scenario', // scenario | variant | runs | crimeDetail
   branchIndex: 0,
-  activityIndex: 0,
-  optionIndex: 0,
+  scenarioIndex: 0,
+  variantIndex: 0,
   logOffset: 0,
   settings: loadSettings(),
   scroll: {
@@ -77,13 +78,13 @@ const ui = {
   },
   crimeDetail: {
     active: false,
-    activityId: null,
-    optionId: null,
+    scenarioId: null,
+    variantId: null,
     repeatMode: 'single', // 'single' | 'multi' | 'infinite'
     repeatCount: 2,
     stopPolicy: 'stopOnFail', // 'stopOnFail' | 'retryRegardless'
     selectedSlotIndex: 0, // Which crew slot is selected (for multi-crew crimes)
-    crewSlots: [], // Array of { options: [], selectedIndex: 0 } for each slot
+    crewSlots: [], // Array of { variants: [], selectedIndex: 0 } for each slot
   },
   runDetail: {
     active: false,
@@ -114,6 +115,11 @@ const bootInput = {
   active: false,
   delQueued: false,
 };
+
+function isDeleteKey(event) {
+  const key = event?.key;
+  return key === 'Delete' || key === 'Del' || event?.keyCode === 46;
+}
 
 // Input handling
 document.addEventListener('keydown', handleInput);
@@ -342,14 +348,14 @@ async function main() {
   // Mark first boot as seen
   localStorage.setItem('ccv_has_booted', '1');
 
-  if (shouldShowDelPrompt) {
-    // 1-second window to press DEL
-    const delPressed = await waitForDelKey(1000);
+  // Give DEL a BIOS-entry window on every boot.
+  // Authentic/rebooted boots keep the longer prompt window.
+  const delWindowMs = shouldShowDelPrompt ? 1000 : 350;
+  const delPressed = await waitForDelKey(delWindowMs);
 
-    if (delPressed) {
-      enterBiosSetup();
-      return;
-    }
+  if (delPressed) {
+    enterBiosSetup();
+    return;
   }
 
   if (shouldBootToDos) {
@@ -480,7 +486,7 @@ function handleInput(e) {
 
   // During boot screen, ignore all game input except DEL for BIOS queue.
   if (bootInput.active) {
-    if (e.key === 'Delete') {
+    if (isDeleteKey(e)) {
       bootInput.delQueued = true;
     }
     // Keep browser refresh available while blocking game input.
@@ -519,8 +525,8 @@ function handleInput(e) {
   // Tab switching (J, A, C, O) - C is conditional on not being in runs panel
   if (e.key === 'j' || e.key === 'J') {
     ui.tab = 'jobs';
-    ui.focus = 'activity';  // Reset to branch/activity list
-    ui.optionIndex = 0;
+    ui.focus = 'scenario';  // Reset to branch/scenario list
+    ui.variantIndex = 0;
     closeCrimeDetail(); // Close crime detail if open
     // ui.branchIndex already persists, so last branch is remembered
   }
@@ -573,23 +579,23 @@ function handleJobsInput(e) {
   const key = (e.key || '').toLowerCase();
   const branches = uiLayer.getVisibleBranches();
   const branch = branches[ui.branchIndex] || branches[0];
-  const activities = uiLayer.getVisibleActivities(branch?.id);
-  const activity = activities[ui.activityIndex];
-  const options = activity ? uiLayer.getVisibleOptions(activity) : [];
+  const scenarios = uiLayer.getVisibleScenarios(branch?.id);
+  const scenario = scenarios[ui.scenarioIndex];
+  const variants = scenario ? uiLayer.getVisibleVariants(scenario) : [];
   // Number keys for selection
   if (e.key >= '1' && e.key <= '9') {
     const num = parseInt(e.key);
-    if (ui.focus === 'activity') {
-      // Select activity by number and auto-drill into it
-      if (num - 1 < activities.length) {
-        ui.activityIndex = num - 1;
-        ui.focus = 'option';
-        ui.optionIndex = 0;
+    if (ui.focus === 'scenario') {
+      // Select scenario by number and auto-drill into it
+      if (num - 1 < scenarios.length) {
+        ui.scenarioIndex = num - 1;
+        ui.focus = 'variant';
+        ui.variantIndex = 0;
       }
-    } else if (ui.focus === 'option') {
-      // Select option by number (don't start it)
-      if (num - 1 < options.length) {
-        ui.optionIndex = num - 1;
+    } else if (ui.focus === 'variant') {
+      // Select variant by number (don't start it)
+      if (num - 1 < variants.length) {
+        ui.variantIndex = num - 1;
       }
     }
   }
@@ -597,106 +603,106 @@ function handleJobsInput(e) {
   // Backspace/Escape to go back
   if (e.key === 'Backspace' || e.key === 'Escape') {
     if (ui.focus === 'branch') {
-      ui.focus = 'activity';
-    } else if (ui.focus === 'option') {
-      ui.focus = 'activity';
-      ui.optionIndex = 0;
+      ui.focus = 'scenario';
+    } else if (ui.focus === 'variant') {
+      ui.focus = 'scenario';
+      ui.variantIndex = 0;
     }
   }
 
   // Arrow key navigation
   if (ui.focus === 'branch') {
-    // BRANCH TAB FOCUS - left/right to switch branches, down to enter activity list
+    // BRANCH TAB FOCUS - left/right to switch branches, down to enter scenario list
     if (e.key === 'ArrowLeft') {
       ui.branchIndex = Math.max(0, ui.branchIndex - 1);
-      ui.activityIndex = 0;
-      ui.optionIndex = 0;
+      ui.scenarioIndex = 0;
+      ui.variantIndex = 0;
     }
     if (e.key === 'ArrowRight') {
       ui.branchIndex = Math.min(branches.length - 1, ui.branchIndex + 1);
-      ui.activityIndex = 0;
-      ui.optionIndex = 0;
+      ui.scenarioIndex = 0;
+      ui.variantIndex = 0;
     }
     if (e.key === 'ArrowDown' || e.key === 'Enter') {
-      ui.focus = 'activity';
+      ui.focus = 'scenario';
     }
-  } else if (ui.focus === 'activity') {
+  } else if (ui.focus === 'scenario') {
     if (e.key === 'ArrowUp') {
-      if (ui.activityIndex === 0) {
+      if (ui.scenarioIndex === 0) {
         // At top of list — move focus to branch tabs
         ui.focus = 'branch';
       } else {
-        ui.activityIndex = Math.max(0, ui.activityIndex - 1);
+        ui.scenarioIndex = Math.max(0, ui.scenarioIndex - 1);
       }
     }
-    if (e.key === 'ArrowDown') ui.activityIndex = Math.min(Math.max(0, activities.length - 1), ui.activityIndex + 1);
+    if (e.key === 'ArrowDown') ui.scenarioIndex = Math.min(Math.max(0, scenarios.length - 1), ui.scenarioIndex + 1);
 
-    // Right to enter options for selected activity
-    if (e.key === 'ArrowRight' && activity) {
-      ui.focus = 'option';
-      ui.optionIndex = Math.max(0, Math.min(ui.optionIndex, Math.max(0, options.length - 1)));
+    // Right to enter variants for selected scenario
+    if (e.key === 'ArrowRight' && scenario) {
+      ui.focus = 'variant';
+      ui.variantIndex = Math.max(0, Math.min(ui.variantIndex, Math.max(0, variants.length - 1)));
     }
 
-    if (e.key === 'Enter' && activity) {
-      ui.focus = 'option';
-      ui.optionIndex = 0;
+    if (e.key === 'Enter' && scenario) {
+      ui.focus = 'variant';
+      ui.variantIndex = 0;
     }
 
-    // Q for quick start from activity level (uses first available option)
-    if (key === 'q' && activity && options.length > 0) {
-      startSelectedRun(activity, options[0]);
+    // Q for quick start from scenario level (uses first available variant)
+    if (key === 'q' && scenario && variants.length > 0) {
+      startSelectedRun(scenario, variants[0]);
     }
-  } else if (ui.focus === 'option') {
+  } else if (ui.focus === 'variant') {
     if (e.key === 'ArrowLeft') {
-      ui.focus = 'activity';
-      ui.optionIndex = 0;
+      ui.focus = 'scenario';
+      ui.variantIndex = 0;
     }
 
     if (e.key === 'ArrowUp') {
-      ui.optionIndex = Math.max(0, ui.optionIndex - 1);
+      ui.variantIndex = Math.max(0, ui.variantIndex - 1);
     }
-    if (e.key === 'ArrowDown') ui.optionIndex = Math.min(Math.max(0, options.length - 1), ui.optionIndex + 1);
+    if (e.key === 'ArrowDown') ui.variantIndex = Math.min(Math.max(0, variants.length - 1), ui.variantIndex + 1);
 
     // D opens crime detail window (details screen)
     if (key === 'd') {
-      const selectedOption = options[ui.optionIndex];
-      if (selectedOption) {
-        openCrimeDetail(activity, selectedOption);
+      const selectedVariant = variants[ui.variantIndex];
+      if (selectedVariant) {
+        openCrimeDetail(scenario, selectedVariant);
       }
     }
 
     // Q for quick start
     if (key === 'q') {
-      const opt = options[ui.optionIndex];
-      if (opt) {
-        startSelectedRun(activity, opt);
+      const selectedVariant = variants[ui.variantIndex];
+      if (selectedVariant) {
+        startSelectedRun(scenario, selectedVariant);
       } else {
-        engine.log('No option available to quick start', 'warning');
+        engine.log('No variant available to quick start', 'warning');
       }
     }
 
     // RIGHT arrow switches to runs column
-    if (e.key === 'ArrowRight' && activity) {
-      const activityRuns = engine.state.runs.filter(r => r.activityId === activity.id);
+    if (e.key === 'ArrowRight' && scenario) {
+      const scenarioRuns = engine.state.runs.filter(r => r.scenarioId === scenario.id);
       ui.focus = 'runs';
       const current = ui.selectedRun ?? 0;
-      ui.selectedRun = activityRuns.length > 0
-        ? Math.max(0, Math.min(activityRuns.length - 1, current))
+      ui.selectedRun = scenarioRuns.length > 0
+        ? Math.max(0, Math.min(scenarioRuns.length - 1, current))
         : 0;
     }
   } else if (ui.focus === 'runs') {
     // RUNS PANEL FOCUS - navigate and manage runs
     // Determine which runs to show based on context
     let contextRuns;
-    if (activity) {
-      // In options view: show activity-filtered runs
-      contextRuns = engine.state.runs.filter(r => r.activityId === activity.id);
+    if (scenario) {
+      // In variants view: show scenario-filtered runs
+      contextRuns = engine.state.runs.filter(r => r.scenarioId === scenario.id);
     } else {
-      // In activity list view: show branch-filtered runs
+      // In scenario list view: show branch-filtered runs
       const branch = branches[ui.branchIndex] || branches[0];
       contextRuns = engine.state.runs.filter(r => {
-        const a = engine.data.activities.find(act => act.id === r.activityId);
-        return a && a.branchId === branch?.id;
+        const s = engine.data.scenarios.find(scn => scn.id === r.scenarioId);
+        return s && s.branchId === branch?.id;
       });
     }
 
@@ -706,7 +712,7 @@ function handleJobsInput(e) {
     if (contextRuns.length === 0) {
       ui.selectedRun = 0;
       if (e.key === 'ArrowLeft' || e.key === 'Escape') {
-        ui.focus = activity ? 'option' : 'activity';
+        ui.focus = scenario ? 'variant' : 'scenario';
       }
       return;
     }
@@ -719,7 +725,7 @@ function handleJobsInput(e) {
 
     // LEFT arrow or ESCAPE switches back to left panel
     if (e.key === 'ArrowLeft' || e.key === 'Escape') {
-      ui.focus = activity ? 'option' : 'activity';
+      ui.focus = scenario ? 'variant' : 'scenario';
     }
 
     // UP/DOWN navigate runs
@@ -765,10 +771,10 @@ function handleJobsInput(e) {
 }
 
 // Open crime detail window
-function openCrimeDetail(activity, option) {
+function openCrimeDetail(scenario, variant) {
   ui.crimeDetail.active = true;
-  ui.crimeDetail.activityId = activity.id;
-  ui.crimeDetail.optionId = option.id;
+  ui.crimeDetail.scenarioId = scenario.id;
+  ui.crimeDetail.variantId = variant.id;
   // Reset to defaults
   ui.crimeDetail.repeatMode = 'single';
   ui.crimeDetail.repeatCount = 2;
@@ -776,7 +782,7 @@ function openCrimeDetail(activity, option) {
   ui.crimeDetail.selectedSlotIndex = 0;
 
   // Build crew slots based on requirements
-  const staffReqs = option.requirements?.staff || [];
+  const staffReqs = variant.requirements?.staff || [];
   ui.crimeDetail.crewSlots = staffReqs.map(req => {
     // Get all available crew matching this role
     const available = engine.state.crew.staff.filter(
@@ -786,7 +792,7 @@ function openCrimeDetail(activity, option) {
     return {
       roleId: req.roleId,
       count: req.count,
-      options: available,
+      variants: available,
       selectedIndex: 0
     };
   });
@@ -795,17 +801,17 @@ function openCrimeDetail(activity, option) {
 // Close crime detail window
 function closeCrimeDetail() {
   ui.crimeDetail.active = false;
-  ui.crimeDetail.activityId = null;
-  ui.crimeDetail.optionId = null;
+  ui.crimeDetail.scenarioId = null;
+  ui.crimeDetail.variantId = null;
 }
 
 // Handle input for crime detail window
 function handleCrimeDetailInput(e) {
   const key = (e.key || '').toLowerCase();
-  const activity = engine.data.activities.find(a => a.id === ui.crimeDetail.activityId);
-  const option = activity?.options.find(o => o.id === ui.crimeDetail.optionId);
+  const scenario = engine.data.scenarios.find(s => s.id === ui.crimeDetail.scenarioId);
+  const variant = scenario?.variants.find(v => v.id === ui.crimeDetail.variantId);
 
-  if (!activity || !option) {
+  if (!scenario || !variant) {
     closeCrimeDetail();
     return;
   }
@@ -818,14 +824,14 @@ function handleCrimeDetailInput(e) {
 
   // Q for quick start (single run with default policy)
   if (key === 'q') {
-    startRunFromDetail(activity, option, 'single');
+    startRunFromDetail(scenario, variant, 'single');
     closeCrimeDetail();
     return;
   }
 
   // I key cycles through iterate modes (only if repeatable)
   if (key === 'i') {
-    if (option.repeatable) {
+    if (variant.repeatable) {
       const modes = ['single', 'multi', 'infinite'];
       const currentIndex = modes.indexOf(ui.crimeDetail.repeatMode);
       ui.crimeDetail.repeatMode = modes[(currentIndex + 1) % modes.length];
@@ -860,32 +866,32 @@ function handleCrimeDetailInput(e) {
     ui.crimeDetail.selectedSlotIndex = Math.min(slots.length - 1, ui.crimeDetail.selectedSlotIndex + 1);
   }
 
-  // LEFT/RIGHT cycle through crew options for selected slot
+  // LEFT/RIGHT cycle through crew variants for selected slot
   if (slots.length > 0) {
     const currentSlot = slots[ui.crimeDetail.selectedSlotIndex];
-    if (currentSlot && currentSlot.options.length > 0) {
+    if (currentSlot && currentSlot.variants.length > 0) {
       if (e.key === 'ArrowLeft') {
         currentSlot.selectedIndex = Math.max(0, currentSlot.selectedIndex - 1);
       }
       if (e.key === 'ArrowRight') {
-        currentSlot.selectedIndex = Math.min(currentSlot.options.length - 1, currentSlot.selectedIndex + 1);
+        currentSlot.selectedIndex = Math.min(currentSlot.variants.length - 1, currentSlot.selectedIndex + 1);
       }
     }
   }
 
   // ENTER to start with configured settings
   if (e.key === 'Enter') {
-    startRunFromDetail(activity, option, ui.crimeDetail.repeatMode);
+    startRunFromDetail(scenario, variant, ui.crimeDetail.repeatMode);
     closeCrimeDetail();
   }
 }
 
 // Start run using crime detail settings
-function startRunFromDetail(activity, option, repeatMode) {
+function startRunFromDetail(scenario, variant, repeatMode) {
   const mode = repeatMode || ui.crimeDetail.repeatMode;
   let runsLeft = 0;
 
-  if (option.repeatable) {
+  if (variant.repeatable) {
     if (mode === 'infinite') {
       runsLeft = -1;
     } else if (mode === 'multi') {
@@ -898,7 +904,7 @@ function startRunFromDetail(activity, option, repeatMode) {
   if (ui.crimeDetail.crewSlots.length > 0) {
     staffIds = [];
     for (const slot of ui.crimeDetail.crewSlots) {
-      const selectedStaff = slot.options[slot.selectedIndex];
+      const selectedStaff = slot.variants[slot.selectedIndex];
       if (selectedStaff) {
         // Add this staff member 'count' times for the requirement
         for (let i = 0; i < slot.count; i++) {
@@ -910,7 +916,7 @@ function startRunFromDetail(activity, option, repeatMode) {
     if (staffIds.length === 0) staffIds = null;
   }
 
-  const result = engine.startRun(activity.id, option.id, staffIds, runsLeft);
+  const result = engine.startRun(scenario.id, variant.id, staffIds, runsLeft);
   if (!result.ok) {
     engine.log(`Start failed: ${result.reason}`, 'error');
   }
@@ -936,8 +942,8 @@ function handleActiveInput(e) {
         const branches = uiLayer.getVisibleBranches();
         const branch = branches[ui.activeBranchFilter || 0];
         return engine.state.runs.filter(r => {
-          const a = engine.data.activities.find(act => act.id === r.activityId);
-          return a && a.branchId === branch?.id;
+          const s = engine.data.scenarios.find(scn => scn.id === r.scenarioId);
+          return s && s.branchId === branch?.id;
         });
       }
       case 4: return engine.state.runs.filter(r => r.status === 'completed');  // completed
@@ -1452,12 +1458,12 @@ function handleFontSubMenuInput(e) {
     return;
   }
 
-  // Navigation (0-2)
+  // Navigation (0-4)
   if (e.key === 'ArrowUp') {
     ui.fontSubMenuIndex = Math.max(0, ui.fontSubMenuIndex - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.fontSubMenuIndex = Math.min(3, ui.fontSubMenuIndex + 1);
+    ui.fontSubMenuIndex = Math.min(4, ui.fontSubMenuIndex + 1);
   }
 
   // 0: Generation (Toggle)
@@ -1496,6 +1502,17 @@ function handleFontSubMenuInput(e) {
       cycleFpsSetting(ui.settings, -1);
     } else if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
       cycleFpsSetting(ui.settings, 1);
+    }
+  }
+
+  // 4: Screen Height (Toggle + reload)
+  if (ui.fontSubMenuIndex === 4) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
+      const current = ui.settings.gridHeight || 43;
+      const idx = GRID_HEIGHTS.indexOf(current);
+      ui.settings.gridHeight = GRID_HEIGHTS[(idx + 1) % GRID_HEIGHTS.length];
+      saveSettings(ui.settings);
+      location.reload();
     }
   }
 }
@@ -1616,14 +1633,14 @@ function dismissModal() {
   }
 }
 
-function startSelectedRun(activity, option) {
-  if (!activity || !option) return;
+function startSelectedRun(scenario, variant) {
+  if (!scenario || !variant) return;
 
   // Calculate runsLeft based on repeat mode
   const mode = ui.repeatMode || 'single';
   let runsLeft = 0; // default: single run
 
-  if (option.repeatable) {
+  if (variant.repeatable) {
     if (mode === 'infinite') {
       runsLeft = -1; // infinite repeats
     } else if (mode === 'multi') {
@@ -1632,7 +1649,7 @@ function startSelectedRun(activity, option) {
     }
   }
 
-  const result = engine.startRun(activity.id, option.id, null, runsLeft);
+  const result = engine.startRun(scenario.id, variant.id, null, runsLeft);
   if (!result.ok) {
     engine.log(`Start failed: ${result.reason}`, 'error');
   }
@@ -1659,30 +1676,30 @@ function syncSelection() {
   const branches = uiLayer.getVisibleBranches();
   if (branches.length === 0) {
     ui.branchIndex = 0;
-    ui.activityIndex = 0;
-    ui.optionIndex = 0;
+    ui.scenarioIndex = 0;
+    ui.variantIndex = 0;
     return;
   }
 
   ui.branchIndex = Math.max(0, Math.min(branches.length - 1, ui.branchIndex));
 
   const branch = branches[ui.branchIndex];
-  const activities = uiLayer.getVisibleActivities(branch?.id);
-  if (activities.length === 0) {
-    ui.activityIndex = 0;
-    ui.optionIndex = 0;
+  const scenarios = uiLayer.getVisibleScenarios(branch?.id);
+  if (scenarios.length === 0) {
+    ui.scenarioIndex = 0;
+    ui.variantIndex = 0;
     return;
   }
 
-  ui.activityIndex = Math.max(0, Math.min(activities.length - 1, ui.activityIndex));
+  ui.scenarioIndex = Math.max(0, Math.min(scenarios.length - 1, ui.scenarioIndex));
 
-  const options = uiLayer.getVisibleOptions(activities[ui.activityIndex]);
-  if (options.length === 0) {
-    ui.optionIndex = 0;
+  const variants = uiLayer.getVisibleVariants(scenarios[ui.scenarioIndex]);
+  if (variants.length === 0) {
+    ui.variantIndex = 0;
     return;
   }
 
-  ui.optionIndex = Math.max(0, Math.min(options.length - 1, ui.optionIndex));
+  ui.variantIndex = Math.max(0, Math.min(variants.length - 1, ui.variantIndex));
 }
 
 // Start the application

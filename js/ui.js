@@ -5,17 +5,21 @@
 import { Palette, BoxStyles } from "./palette.js";
 import { parseModalContent } from "./modal.js";
 import { sortRunsActiveFirst } from "./engine.js";
+import { loadSettings } from "./settings.js";
 
-// Layout constants for 80x25 viewport
+// Read grid height from saved settings at module load time (before anything uses Layout)
+const _h = loadSettings().gridHeight || 43;
+
+// Layout constants for 132×_h viewport
 export const Layout = {
-  WIDTH: 80,
-  HEIGHT: 25,
+  WIDTH: 132,
+  HEIGHT: _h,
 
-  statusRail: { x: 0, y: 0, width: 80, height: 1 },
-  tabBar: { x: 0, y: 1, width: 80, height: 1 },
-  mainPanel: { x: 0, y: 2, width: 56, height: 23 },
-  logPanel: { x: 56, y: 2, width: 24, height: 23 },
-  footer: { x: 0, y: 24, width: 80, height: 1 },
+  statusRail: { x: 0, y: 0, width: 132, height: 1 },
+  tabBar: { x: 0, y: 1, width: 132, height: 1 },
+  mainPanel: { x: 0, y: 2, width: 92, height: _h - 2 },
+  logPanel: { x: 92, y: 2, width: 40, height: _h - 2 },
+  footer: { x: 0, y: _h - 1, width: 132, height: 1 },
 };
 
 export class UI {
@@ -131,21 +135,21 @@ export class UI {
   renderJobsTab() {
     const branches = this.getVisibleBranches();
     const branch = branches[this.ui.branchIndex] || branches[0];
-    const activities = this.getVisibleActivities(branch?.id);
-    const activity = activities[this.ui.activityIndex];
-    const options = activity ? this.getVisibleOptions(activity) : [];
+    const scenarios = this.getVisibleScenarios(branch?.id);
+    const scenario = scenarios[this.ui.scenarioIndex];
+    const variants = scenario ? this.getVisibleVariants(scenario) : [];
 
     // Branch selection bar with box-drawing borders
     const branchFocused = this.ui.focus === "branch";
     this.renderBranchSelectionBar(branches, this.ui.branchIndex, branchFocused);
 
     // Determine layout based on focus
-    const showingOptions = (this.ui.focus === "option" || this.ui.focus === "runs") && activity;
+    const showingVariants = (this.ui.focus === "variant" || this.ui.focus === "runs") && scenario;
 
     // Focus border colors: highlight the focused section's borders
     const focus = this.ui.focus;
-    const runsListOnLeft = showingOptions && focus === "runs";
-    const leftFocused = focus === "activity" || focus === "option" || runsListOnLeft;
+    const runsListOnLeft = showingVariants && focus === "runs";
+    const leftFocused = focus === "scenario" || focus === "variant" || runsListOnLeft;
     const rightFocused = focus === "runs" && !runsListOnLeft;
     const leftBorderColor = leftFocused ? Palette.PANEL_SELECTED : Palette.DIM_GRAY;
 
@@ -154,30 +158,30 @@ export class UI {
     this.buffer.drawVLine(0, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, leftBorderColor, Palette.BLACK);
     // Bottom-left corner and left portion of bottom border
     this.buffer.setCell(0, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomLeft, leftBorderColor, Palette.BLACK);
-    this.buffer.drawHLine(1, Layout.HEIGHT - 1, 38, BoxStyles.SINGLE.horizontal, leftBorderColor, Palette.BLACK);
+    this.buffer.drawHLine(1, Layout.HEIGHT - 1, 64, BoxStyles.SINGLE.horizontal, leftBorderColor, Palette.BLACK);
 
     if (rightFocused) {
       // DOUBLE border box around the entire right panel
-      this.buffer.drawBox(39, 4, 41, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
+      this.buffer.drawBox(65, 4, 67, Layout.HEIGHT - 4, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
     } else {
       // Subtle right-side borders when not focused
       this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.drawHLine(40, Layout.HEIGHT - 1, 39, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.drawHLine(66, Layout.HEIGHT - 1, 65, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
       this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomRight, Palette.DIM_GRAY, Palette.BLACK);
     }
 
-    if (!showingOptions) {
-      // ACTIVITY LIST VIEW (50/50 split: left=activities/run detail, right=active runs for branch)
+    if (!showingVariants) {
+      // SCENARIO LIST VIEW (50/50 split: left=scenarios/run detail, right=active runs for branch)
       const listTop = 5;
-      const leftWidth = 36; // x=2 to x=38
-      const dividerX = 39;
-      const rightX = 41;
-      const rightWidth = 38; // x=41 to x=78
+      const leftWidth = 62; // x=2 to x=64
+      const dividerX = 65;
+      const rightX = 67;
+      const rightWidth = 64; // x=67 to x=130
 
       // Get runs for this branch (needed for both left and right panels)
       const branchRuns = this.engine.state.runs.filter((r) => {
-        const a = this.engine.data.activities.find((act) => act.id === r.activityId);
-        return a && a.branchId === branch?.id;
+        const s = this.engine.data.scenarios.find((scn) => scn.id === r.scenarioId);
+        return s && s.branchId === branch?.id;
       });
 
       // Sort runs: active first, then completed
@@ -192,7 +196,7 @@ export class UI {
         const panelHeight = Layout.HEIGHT - listTop - 1;
         this.renderRunDetailPanel(selectedRun?.runId, 2, listTop, leftWidth, panelHeight, Palette.BLACK);
       } else if (branchFocused) {
-        // BRANCH SELECTION MODE: Show branch info instead of activity list
+        // BRANCH SELECTION MODE: Show branch info instead of scenario list
         if (branch) {
           const branchColor = branch.ui?.color ? Palette[branch.ui.color] : Palette.NEON_CYAN;
 
@@ -231,38 +235,38 @@ export class UI {
           this.buffer.writeText(2, Layout.HEIGHT - 2, "[LEFT/RIGHT] Switch branch  [DOWN] Jobs", Palette.SUCCESS_GREEN, Palette.BLACK);
         }
       } else {
-        // ACTIVITY SELECTION MODE: Show activity list
+        // SCENARIO SELECTION MODE: Show scenario list
         const listTitle = branch ? branch.name.toUpperCase() + " JOBS" : "JOBS";
-        const activityFocused = this.ui.focus === "activity";
-        const titleColor = activityFocused ? Palette.WHITE : Palette.NEON_CYAN;
+        const scenarioFocused = this.ui.focus === "scenario";
+        const titleColor = scenarioFocused ? Palette.WHITE : Palette.NEON_CYAN;
         this.buffer.writeText(2, listTop, listTitle, titleColor, Palette.BLACK);
 
-        // Show numbered list of activities
-        activities.slice(0, 9).forEach((a, i) => {
+        // Show numbered list of scenarios
+        scenarios.slice(0, 9).forEach((s, i) => {
           const row = listTop + 2 + i;
           const number = i + 1;
-          const selected = this.ui.activityIndex === i;
-          const fg = selected ? (activityFocused ? Palette.WHITE : Palette.NEON_CYAN) : Palette.NEON_TEAL;
+          const selected = this.ui.scenarioIndex === i;
+          const fg = selected ? (scenarioFocused ? Palette.WHITE : Palette.NEON_CYAN) : Palette.NEON_TEAL;
           const prefix = selected ? ">" : " ";
 
           this.buffer.writeText(2, row, `${prefix}${number}.`, fg, Palette.BLACK);
           const nameMax = leftWidth - 6; // Space for prefix + number
-          const truncatedName = a.name.substring(0, nameMax);
+          const truncatedName = s.name.substring(0, nameMax);
           this.buffer.writeText(6, row, truncatedName, fg, Palette.BLACK);
         });
 
-        // Show description of selected activity (left half only)
-        if (activity) {
+        // Show description of selected scenario (left half only)
+        if (scenario) {
           const descY = listTop + 13;
           this.buffer.drawHLine(2, descY, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
-          this.buffer.writeText(2, descY + 1, activity.name.toUpperCase(), Palette.NEON_CYAN, Palette.BLACK);
+          this.buffer.writeText(2, descY + 1, scenario.name.toUpperCase(), Palette.NEON_CYAN, Palette.BLACK);
 
-          const descLines = this.wrapText(activity.description || "", leftWidth - 2);
+          const descLines = this.wrapText(scenario.description || "", leftWidth - 2);
           descLines.slice(0, 3).forEach((line, idx) => {
             this.buffer.writeText(2, descY + 2 + idx, line, Palette.MID_GRAY, Palette.BLACK);
           });
 
-          this.buffer.writeText(2, Layout.HEIGHT - 2, "[ENTER/RIGHT] Options", Palette.SUCCESS_GREEN, Palette.BLACK);
+          this.buffer.writeText(2, Layout.HEIGHT - 2, "[ENTER/RIGHT] Variants", Palette.SUCCESS_GREEN, Palette.BLACK);
         }
       }
 
@@ -277,12 +281,12 @@ export class UI {
       const branchContext = branch?.name || "?";
       this.renderActiveRunsPanel(branchRuns, rightX, listTop, rightWidth, Palette.BLACK, branchContext);
     } else {
-      // OPTIONS VIEW (50/50 split: left=options/run detail, right=active runs for activity)
+      // VARIANTS VIEW (50/50 split: left=variants/run detail, right=active runs for scenario)
       const optionsTop = 5;
-      const leftWidth = 36; // x=2 to x=38
-      const dividerX = 39;
-      const rightX = 41;
-      const rightWidth = 38; // x=41 to x=78
+      const leftWidth = 62; // x=2 to x=64
+      const dividerX = 65;
+      const rightX = 67;
+      const rightWidth = 64; // x=67 to x=130
 
       // Apply branch background color if specified
       const branchBgColor = branch?.ui?.bgColor ? Palette[branch.ui.bgColor] : Palette.BLACK;
@@ -294,15 +298,15 @@ export class UI {
       // Redraw panel borders after branch fill
       this.buffer.drawVLine(0, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, leftBorderColor, branchBgColor);
       this.buffer.setCell(0, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomLeft, leftBorderColor, branchBgColor);
-      this.buffer.drawHLine(1, Layout.HEIGHT - 1, 38, BoxStyles.SINGLE.horizontal, leftBorderColor, branchBgColor);
+      this.buffer.drawHLine(1, Layout.HEIGHT - 1, 64, BoxStyles.SINGLE.horizontal, leftBorderColor, branchBgColor);
 
       if (runsListOnLeft) {
-        this.buffer.drawBox(0, 4, 40, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, branchBgColor);
+        this.buffer.drawBox(0, 4, 66, Layout.HEIGHT - 4, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, branchBgColor);
       } else if (rightFocused) {
-        this.buffer.drawBox(39, 4, 41, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, branchBgColor);
+        this.buffer.drawBox(65, 4, 67, Layout.HEIGHT - 4, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, branchBgColor);
       } else {
         this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, branchBgColor);
-        this.buffer.drawHLine(40, Layout.HEIGHT - 1, 39, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, branchBgColor);
+        this.buffer.drawHLine(66, Layout.HEIGHT - 1, 65, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, branchBgColor);
         this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomRight, Palette.DIM_GRAY, branchBgColor);
       }
 
@@ -313,12 +317,12 @@ export class UI {
         this.buffer.setCell(dividerX, Layout.HEIGHT - 1, BoxStyles.SINGLE.teeUp, dividerColor, branchBgColor);
       }
 
-      // Get runs for this activity (needed for both panels)
-      const activityRuns = this.engine.state.runs.filter((r) => r.activityId === activity.id);
-      const activityContext = `${branch?.name || "?"} > ${activity?.name || "?"}`;
+      // Get runs for this scenario (needed for both panels)
+      const scenarioRuns = this.engine.state.runs.filter((r) => r.scenarioId === scenario.id);
+      const scenarioContext = `${branch?.name || "?"} > ${scenario?.name || "?"}`;
 
       if (runsListOnLeft) {
-        this.renderRunBrowser(activityRuns, {
+        this.renderRunBrowser(scenarioRuns, {
           listX: 2,
           listY: optionsTop,
           listWidth: leftWidth,
@@ -326,76 +330,76 @@ export class UI {
           detailY: optionsTop,
           detailWidth: rightWidth,
           bgColor: branchBgColor,
-          contextPath: activityContext,
+          contextPath: scenarioContext,
           detailHeader: "RUN DETAILS",
-          detailHint: "[LEFT] BACK TO OPTIONS",
+          detailHint: "[LEFT] BACK TO VARIANTS",
         });
       } else {
-        // LEFT HALF: Streamlined options view
+        // LEFT HALF: Streamlined variants view
         // Zone 1: Header (rows 5-6)
-        const breadcrumb = `ACTIVITIES > ${activity.name}`.toUpperCase();
+        const breadcrumb = `SCENARIOS > ${scenario.name}`.toUpperCase();
         this.buffer.writeText(2, optionsTop, breadcrumb.substring(0, leftWidth), Palette.NEON_CYAN, branchBgColor);
         this.buffer.drawHLine(2, optionsTop + 1, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, branchBgColor);
 
-        // Zone 2: Scrollable options (rows 7-18, 12 rows available)
+        // Zone 2: Scrollable variants (rows 7-18, 12 rows available)
         const scrollTop = optionsTop + 2;
         const footerTop = Layout.HEIGHT - 6;
         const scrollRows = footerTop - scrollTop;
         const buttonsStr = "[Q]uick [D]etails";
         const buttonsWidth = buttonsStr.length;
 
-        // Pre-calculate option heights and total
-        const optionHeights = options.map((opt, i) => {
-          const validation = this.engine.canStartRun(activity.id, opt.id);
+        // Pre-calculate variant heights and total
+        const variantHeights = variants.map((variant, i) => {
+          const validation = this.engine.canStartRun(scenario.id, variant.id);
           return validation.ok ? 1 : 2;
         });
 
-        // Auto-scroll to keep selected option visible
-        if (this.ui.optionScroll === undefined) this.ui.optionScroll = 0;
-        const selectedIdx = this.ui.optionIndex;
+        // Auto-scroll to keep selected variant visible
+        if (this.ui.variantScroll === undefined) this.ui.variantScroll = 0;
+        const selectedIdx = this.ui.variantIndex;
 
-        // Calculate row position of selected option
+        // Calculate row position of selected variant
         let rowsBefore = 0;
-        for (let i = 0; i < selectedIdx && i < options.length; i++) {
-          rowsBefore += optionHeights[i];
+        for (let i = 0; i < selectedIdx && i < variants.length; i++) {
+          rowsBefore += variantHeights[i];
         }
-        const selectedHeight = optionHeights[selectedIdx] || 1;
+        const selectedHeight = variantHeights[selectedIdx] || 1;
 
-        // Adjust scroll so selected option is visible
-        if (rowsBefore < this.ui.optionScroll) {
-          this.ui.optionScroll = rowsBefore;
+        // Adjust scroll so selected variant is visible
+        if (rowsBefore < this.ui.variantScroll) {
+          this.ui.variantScroll = rowsBefore;
         }
-        if (rowsBefore + selectedHeight > this.ui.optionScroll + scrollRows) {
-          this.ui.optionScroll = rowsBefore + selectedHeight - scrollRows;
+        if (rowsBefore + selectedHeight > this.ui.variantScroll + scrollRows) {
+          this.ui.variantScroll = rowsBefore + selectedHeight - scrollRows;
         }
-        this.ui.optionScroll = Math.max(0, this.ui.optionScroll);
+        this.ui.variantScroll = Math.max(0, this.ui.variantScroll);
 
-        // Render visible options
+        // Render visible variants
         let currentRow = 0;
-        for (let i = 0; i < options.length; i++) {
-          const opt = options[i];
-          const h = optionHeights[i];
+        for (let i = 0; i < variants.length; i++) {
+          const variant = variants[i];
+          const h = variantHeights[i];
 
           // Skip if entirely above scroll viewport
-          if (currentRow + h <= this.ui.optionScroll) {
+          if (currentRow + h <= this.ui.variantScroll) {
             currentRow += h;
             continue;
           }
           // Stop if below scroll viewport
-          if (currentRow >= this.ui.optionScroll + scrollRows) break;
+          if (currentRow >= this.ui.variantScroll + scrollRows) break;
 
-          const drawY = scrollTop + (currentRow - this.ui.optionScroll);
+          const drawY = scrollTop + (currentRow - this.ui.variantScroll);
           if (drawY >= footerTop) break;
 
           const selected = selectedIdx === i;
-          const validation = this.engine.canStartRun(activity.id, opt.id);
+          const validation = this.engine.canStartRun(scenario.id, variant.id);
           const fg = selected ? (validation.ok ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE) : Palette.NEON_TEAL;
 
           // Row 1: Number + name + buttons
           const number = i + 1;
           const nameMax = leftWidth - buttonsWidth - 5;
           this.buffer.writeText(2, drawY, `${number}.`, fg, branchBgColor);
-          this.buffer.writeText(5, drawY, opt.name.substring(0, nameMax), fg, branchBgColor);
+          this.buffer.writeText(5, drawY, variant.name.substring(0, nameMax), fg, branchBgColor);
 
           // Buttons (right-aligned)
           if (selected) {
@@ -414,14 +418,14 @@ export class UI {
           currentRow += h;
         }
 
-        // Zone 3: Footer (selected option description + controls)
+        // Zone 3: Footer (selected variant description + controls)
         this.buffer.drawHLine(2, footerTop, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, branchBgColor);
 
-        const selectedOpt = options[selectedIdx];
-        if (selectedOpt) {
-          this.buffer.writeText(2, footerTop + 1, selectedOpt.name.toUpperCase(), Palette.NEON_CYAN, branchBgColor);
+        const selectedVariant = variants[selectedIdx];
+        if (selectedVariant) {
+          this.buffer.writeText(2, footerTop + 1, selectedVariant.name.toUpperCase(), Palette.NEON_CYAN, branchBgColor);
 
-          const desc = selectedOpt.description || "";
+          const desc = selectedVariant.description || "";
           if (desc) {
             const descLines = this.wrapText(desc, leftWidth - 2);
             descLines.slice(0, 3).forEach((line, idx) => {
@@ -430,22 +434,22 @@ export class UI {
           }
         }
 
-        this.buffer.writeText(2, Layout.HEIGHT - 2, "[RIGHT] Runs  [LEFT/ESC] Activities", Palette.SUCCESS_GREEN, branchBgColor);
+        this.buffer.writeText(2, Layout.HEIGHT - 2, "[RIGHT] Runs  [LEFT/ESC] Scenarios", Palette.SUCCESS_GREEN, branchBgColor);
       }
 
-      // RIGHT HALF: Active runs for this activity
+      // RIGHT HALF: Active runs for this scenario
       if (!runsListOnLeft) {
-        this.renderActiveRunsPanel(activityRuns, rightX, optionsTop, rightWidth, branchBgColor, activityContext);
+        this.renderActiveRunsPanel(scenarioRuns, rightX, optionsTop, rightWidth, branchBgColor, scenarioContext);
       }
     }
   }
 
-  // Render compact 3-line run card for options view right column
+  // Render compact 3-line run card for variants view right column
   renderCompactRunCard(run, x, y, maxWidth, bgColor = Palette.BLACK, selected = false, indexLabel = "") {
-    const activity = this.engine.data.activities.find((a) => a.id === run.activityId);
-    const option = activity?.options.find((o) => o.id === run.optionId);
+    const scenario = this.engine.data.scenarios.find((s) => s.id === run.scenarioId);
+    const variant = scenario?.variants.find((v) => v.id === run.variantId);
 
-    // Line 1: Option name + repeat status
+    // Line 1: Variant name + repeat status
     const label = indexLabel ? `${indexLabel} ` : "";
     let suffix = "";
     if (run.runsLeft === -1) {
@@ -454,7 +458,7 @@ export class UI {
       suffix = ` +${run.runsLeft}`;
     }
     const nameMax = Math.max(0, maxWidth - label.length - suffix.length);
-    const trimmedName = (option?.name || "?").substring(0, nameMax);
+    const trimmedName = (variant?.name || "?").substring(0, nameMax);
     const line1 = `${label}${trimmedName}${suffix}`.substring(0, maxWidth);
     this.buffer.writeText(x, y, line1, Palette.NEON_TEAL, bgColor);
 
@@ -489,11 +493,11 @@ export class UI {
 
   // Render ultra-compact 2-line run card for 50/50 split layout
   renderCompactRunCard3Line(run, x, y, maxWidth, bgColor = Palette.BLACK, selected = false) {
-    const activity = this.engine.data.activities.find((a) => a.id === run.activityId);
-    const option = activity?.options.find((o) => o.id === run.optionId);
+    const scenario = this.engine.data.scenarios.find((s) => s.id === run.scenarioId);
+    const variant = scenario?.variants.find((v) => v.id === run.variantId);
     const isCompleted = run.status === "completed";
 
-    // Line 1: Option name (left) + time remaining or DONE (right-aligned)
+    // Line 1: Variant name (left) + time remaining or DONE (right-aligned)
     let timeText;
     if (isCompleted) {
       timeText = "DONE";
@@ -503,7 +507,7 @@ export class UI {
     }
 
     const nameWidth = maxWidth - timeText.length - 1;
-    const trimmedName = (option?.name || "?").substring(0, nameWidth);
+    const trimmedName = (variant?.name || "?").substring(0, nameWidth);
 
     const nameFg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
     const timeFg = isCompleted ? Palette.SUCCESS_GREEN : selected ? Palette.WHITE : Palette.MID_GRAY;
@@ -732,15 +736,15 @@ export class UI {
       return;
     }
 
-    const activity = this.engine.data.activities.find((a) => a.id === run.activityId);
-    const option = activity?.options.find((o) => o.id === run.optionId);
-    if (!activity || !option) return;
+    const scenario = this.engine.data.scenarios.find((s) => s.id === run.scenarioId);
+    const variant = scenario?.variants.find((v) => v.id === run.variantId);
+    if (!scenario || !variant) return;
 
     const isCompleted = run.status === "completed";
     const titleColor = isCompleted ? Palette.SUCCESS_GREEN : Palette.NEON_CYAN;
 
-    // Row 1: Option name
-    const title = option.name.toUpperCase();
+    // Row 1: Variant name
+    const title = variant.name.toUpperCase();
     this.buffer.writeText(x, y, title.substring(0, width), titleColor, bgColor);
 
     // Row 2: Status
@@ -878,10 +882,10 @@ export class UI {
   renderActiveTab() {
     // 50/50 split
     const listTop = 5;
-    const leftWidth = 36; // x=2 to x=38
-    const dividerX = 39;
-    const rightX = 41;
-    const rightWidth = 38; // x=41 to x=78
+    const leftWidth = 62; // x=2 to x=64
+    const dividerX = 65;
+    const rightX = 67;
+    const rightWidth = 64; // x=67 to x=130
 
     // Initialize filter state if missing
     if (this.ui.activeFilter === undefined) this.ui.activeFilter = 0;
@@ -904,8 +908,8 @@ export class UI {
           const branches = this.getVisibleBranches();
           const branch = branches[branchIndex];
           return this.engine.state.runs.filter((r) => {
-            const a = this.engine.data.activities.find((act) => act.id === r.activityId);
-            return a && a.branchId === branch?.id;
+            const s = this.engine.data.scenarios.find((scn) => scn.id === r.scenarioId);
+            return s && s.branchId === branch?.id;
           });
         },
       },
@@ -925,9 +929,9 @@ export class UI {
 
     const runsFocused = this.ui.focus === "runs";
     if (runsFocused) {
-      this.buffer.drawBox(0, 4, 40, 21, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
+      this.buffer.drawBox(0, 4, 66, Layout.HEIGHT - 4, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
       this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.drawHLine(40, Layout.HEIGHT - 1, 39, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
+      this.buffer.drawHLine(66, Layout.HEIGHT - 1, 65, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
       this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomRight, Palette.DIM_GRAY, Palette.BLACK);
 
       this.renderRunBrowser(filteredRuns, {
@@ -1128,11 +1132,11 @@ export class UI {
     if (member.status === "busy") {
       const activeRun = this.engine.state.runs.find((r) => r.assignedStaffIds.includes(member.id));
       if (activeRun) {
-        const activity = this.engine.data.activities.find((a) => a.id === activeRun.activityId);
-        const option = activity?.options.find((o) => o.id === activeRun.optionId);
+        const scenario = this.engine.data.scenarios.find((s) => s.id === activeRun.scenarioId);
+        const variant = scenario?.variants.find((v) => v.id === activeRun.variantId);
         const remainingMs = activeRun.endsAt - this.engine.state.now;
         const remainingText = this.engine.formatDuration(remainingMs);
-        const jobText = `${activity?.name || "?"} / ${option?.name || "?"}`;
+        const jobText = `${scenario?.name || "?"} / ${variant?.name || "?"}`;
         this.buffer.writeText(4, y, `Job: ${jobText}`, Palette.NEON_TEAL, bgColor);
         y += 1;
         this.buffer.writeText(4, y, `Time left: ${remainingText}`, Palette.DIM_GRAY, bgColor);
@@ -1627,7 +1631,7 @@ export class UI {
     }
 
     this.buffer.writeText(2, top - 2, "OPTIONS", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 17, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 28, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
     this.buffer.writeText(4, top, " DISPLAY ", Palette.NEON_CYAN, Palette.BLACK);
 
     // 1. Font (Submenu)
@@ -1750,7 +1754,7 @@ export class UI {
     const valueCol = 22;
 
     this.buffer.writeText(2, top - 2, "OPTIONS > FONT", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 12, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.drawBox(2, top, Layout.WIDTH - 4, 14, BoxStyles.SINGLE, Palette.DIM_GRAY, Palette.BLACK);
     this.buffer.writeText(4, top, " CONFIGURATION ", Palette.NEON_CYAN, Palette.BLACK);
 
     const fontNames = {
@@ -1810,7 +1814,16 @@ export class UI {
     this.buffer.writeText(valueCol, fpsRow, `${fps} FPS`, Palette.WHITE, Palette.BLACK);
     if (fpsSelected) this.buffer.writeText(Layout.WIDTH - 25, fpsRow, "[ARROWS] CYCLE", Palette.SUCCESS_GREEN, Palette.BLACK);
 
-    this.buffer.writeText(4, top + 10, "<ESC/BACKSPACE> BACK", Palette.DIM_GRAY, Palette.BLACK);
+    // 5. Screen Height
+    const heightRow = top + 6;
+    const heightSelected = selected === 4;
+    const gridHeight = this.ui.settings.gridHeight || 43;
+    this.buffer.writeText(3, heightRow, heightSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
+    this.buffer.writeText(4, heightRow, "5. Screen Height", heightSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(valueCol, heightRow, `${gridHeight} rows`, Palette.WHITE, Palette.BLACK);
+    if (heightSelected) this.buffer.writeText(Layout.WIDTH - 25, heightRow, "[ARROWS] TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
+
+    this.buffer.writeText(4, top + 12, "<ESC/BACKSPACE> BACK", Palette.DIM_GRAY, Palette.BLACK);
   }
 
   // Tab rendering helper - renders tab with colored hotkey letter
@@ -1939,30 +1952,30 @@ export class UI {
     return this.engine.data.branches.filter((b) => this.engine.state.reveals.branches[b.id]).sort((a, b) => (a.order || 0) - (b.order || 0));
   }
 
-  getVisibleActivities(branchId) {
-    return this.engine.data.activities
-      .filter((a) => !branchId || a.branchId === branchId)
-      .filter((a) => this.engine.isActivityVisible(a))
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  getVisibleScenarios(branchId) {
+    return this.engine.data.scenarios
+      .filter((s) => !branchId || s.branchId === branchId)
+      .filter((s) => this.engine.isScenarioVisible(s))
+      .sort((s1, s2) => (s1.order || 0) - (s2.order || 0));
   }
 
-  getVisibleOptions(activity) {
-    if (!activity) return [];
-    if (this.engine.state.debugMode) return activity.options || [];
-    // If activity is locked, show no options (visible but not playable)
-    if (!this.engine.isActivityUnlocked(activity)) return [];
-    return (activity.options || []).filter((opt) => this.engine.checkConditions(opt.visibleIf || [])).filter((opt) => this.engine.isOptionUnlocked(opt));
+  getVisibleVariants(scenario) {
+    if (!scenario) return [];
+    if (this.engine.state.debugMode) return scenario.variants || [];
+    // If scenario is locked, show no variants (visible but not playable)
+    if (!this.engine.isScenarioUnlocked(scenario)) return [];
+    return (scenario.variants || []).filter((variant) => this.engine.checkConditions(variant.visibleIf || [])).filter((variant) => this.engine.isVariantUnlocked(variant));
   }
 
   getBranchStats(branchId) {
-    const branchActivities = this.engine.data.activities.filter((a) => a.branchId === branchId);
-    const branchActivityIds = new Set(branchActivities.map((a) => a.id));
+    const branchScenarios = this.engine.data.scenarios.filter((s) => s.branchId === branchId);
+    const branchScenarioIds = new Set(branchScenarios.map((s) => s.id));
 
     // Count active runs
-    const activeRuns = this.engine.state.runs.filter((r) => r.status !== "completed" && branchActivityIds.has(r.activityId));
+    const activeRuns = this.engine.state.runs.filter((r) => r.status !== "completed" && branchScenarioIds.has(r.scenarioId));
 
     // Get completed runs for this branch and aggregate their results
-    const completedRuns = this.engine.state.runs.filter((r) => r.status === "completed" && branchActivityIds.has(r.activityId));
+    const completedRuns = this.engine.state.runs.filter((r) => r.status === "completed" && branchScenarioIds.has(r.scenarioId));
 
     // Count successes/failures from results arrays
     let successCount = 0;
@@ -2164,10 +2177,10 @@ export class UI {
     const detail = this.ui.crimeDetail;
     if (!detail || !detail.active) return;
 
-    const activity = this.engine.data.activities.find((a) => a.id === detail.activityId);
-    const option = activity?.options.find((o) => o.id === detail.optionId);
+    const scenario = this.engine.data.scenarios.find((s) => s.id === detail.scenarioId);
+    const variant = scenario?.variants.find((v) => v.id === detail.variantId);
 
-    if (!activity || !option) return;
+    if (!scenario || !variant) return;
 
     const bgColor = Palette.BLACK;
     const borderColor = Palette.NEON_CYAN;
@@ -2187,13 +2200,13 @@ export class UI {
     this.buffer.drawBox(0, startY, Layout.WIDTH, height, BoxStyles.DOUBLE, borderColor, bgColor);
 
     // Title and Description (compact header)
-    const title = `${activity.name.toUpperCase()} - ${option.name.toUpperCase()}`;
+    const title = `${scenario.name.toUpperCase()} - ${variant.name.toUpperCase()}`;
     this.buffer.writeText(2, startY + 1, title.substring(0, Layout.WIDTH - 4), Palette.NEON_CYAN, bgColor);
 
     // Description (2 lines max)
     let y = startY + 2;
-    if (activity.description) {
-      const descLines = this.wrapText(activity.description, Layout.WIDTH - 6);
+    if (scenario.description) {
+      const descLines = this.wrapText(scenario.description, Layout.WIDTH - 6);
       descLines.slice(0, 2).forEach((line, idx) => {
         this.buffer.writeText(2, y + idx, line, Palette.MID_GRAY, bgColor);
       });
@@ -2208,11 +2221,11 @@ export class UI {
     y += 1;
 
     // Duration
-    this.buffer.writeText(4, y, `Duration: ${this.formatMs(option.durationMs)}`, Palette.WHITE, bgColor);
+    this.buffer.writeText(4, y, `Duration: ${this.formatMs(variant.durationMs)}`, Palette.WHITE, bgColor);
     y += 1;
 
     // Staff requirements (show all)
-    const staffReqs = option.requirements?.staff || [];
+    const staffReqs = variant.requirements?.staff || [];
     if (staffReqs.length > 0) {
       staffReqs.forEach((req) => {
         this.buffer.writeText(4, y, `Crew: ${req.count}x ${req.roleId}`, Palette.WHITE, bgColor);
@@ -2224,8 +2237,8 @@ export class UI {
     }
 
     // Resource requirements
-    if (option.requirements?.resources) {
-      Object.entries(option.requirements.resources).forEach(([id, amt]) => {
+    if (variant.requirements?.resources) {
+      Object.entries(variant.requirements.resources).forEach(([id, amt]) => {
         this.buffer.writeText(4, y, `Cost: $${amt} ${id}`, Palette.WHITE, bgColor);
         y += 1;
       });
@@ -2245,17 +2258,17 @@ export class UI {
     }
 
     // Define left and right columns (50/50 split)
-    const leftCol = { x: 2, width: 38 };
-    const rightCol = { x: 42, width: 36 };
+    const leftCol = { x: 2, width: 62 };
+    const rightCol = { x: 68, width: 62 };
 
     // LEFT COLUMN: Outcomes
     let leftY = y;
-    if (option.resolution?.type === "weighted_outcomes") {
+    if (variant.resolution?.type === "weighted_outcomes") {
       this.buffer.writeText(leftCol.x, leftY, "Outcomes:", Palette.SUCCESS_GREEN, bgColor);
       leftY += 1;
 
       // Apply modifiers based on selected crew
-      const modifiedOutcomes = this.engine.applyModifiers(option, selectedStaff);
+      const modifiedOutcomes = this.engine.applyModifiers(variant, selectedStaff);
       const totalWeight = modifiedOutcomes.reduce((sum, o) => sum + Math.max(0, o.weight), 0);
 
       modifiedOutcomes.slice(0, 4).forEach((outcome) => {
@@ -2341,8 +2354,8 @@ export class UI {
     // Toggle controls section (near bottom)
     const controlsY = Layout.HEIGHT - 6;
 
-    // Only show iteration controls if the option is repeatable
-    if (option.repeatable) {
+    // Only show iteration controls if the variant is repeatable
+    if (variant.repeatable) {
       this.buffer.writeText(2, controlsY, "[I] Iterate:", Palette.NEON_CYAN, bgColor);
       const mode = detail.repeatMode;
       const modeText = mode === "single" ? "Single" : mode === "multi" ? `Multi (${detail.repeatCount})` : "Infinite";
@@ -2357,7 +2370,7 @@ export class UI {
     }
 
     // Validation check
-    const validation = this.engine.canStartRun(activity.id, option.id);
+    const validation = this.engine.canStartRun(scenario.id, variant.id);
     if (!validation.ok) {
       this.buffer.writeText(2, Layout.HEIGHT - 4, `! ${validation.reason}`, Palette.HEAT_RED, bgColor);
     }
@@ -2369,7 +2382,7 @@ export class UI {
     this.buffer.writeText(30, Layout.HEIGHT - 2, "[U/D/L/R]Crew", Palette.NEON_CYAN, bgColor);
 
     // Only show iteration/policy hints if repeatable
-    if (option.repeatable) {
+    if (variant.repeatable) {
       this.buffer.writeText(46, Layout.HEIGHT - 2, "[I]Iterate", Palette.NEON_CYAN, bgColor);
       this.buffer.writeText(60, Layout.HEIGHT - 2, "[P]Policy", Palette.NEON_CYAN, bgColor);
     }
@@ -2381,6 +2394,10 @@ export class UI {
   renderModal() {
     const modal = this.ui.modal;
     if (!modal || !modal.active) return;
+
+    // Modals render with mixed case regardless of the allCaps setting
+    const savedUppercase = this.buffer.forceUppercase;
+    this.buffer.forceUppercase = false;
 
     const {
       title,
@@ -2443,5 +2460,7 @@ export class UI {
     if (parsedLines.length > contentHeight) {
       this.renderScrollBar(Layout.WIDTH - 2, contentStartY, contentHeight, parsedLines.length, scrollOffset, borderColor, backgroundColor, contentHeight);
     }
+
+    this.buffer.forceUppercase = savedUppercase;
   }
 }

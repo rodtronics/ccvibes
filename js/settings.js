@@ -16,6 +16,7 @@ export const MIN_ZOOM = 100; // %
 export const MAX_ZOOM = 300; // %
 export const ZOOM_STEP = 50; // %
 
+export const GRID_HEIGHTS = [43, 55];
 export const FPS_OPTIONS = [1, 2, 5, 10, 20, 30, 60, 120, 240];
 export const FPS_TO_MS = {
   1: 1000,
@@ -54,6 +55,7 @@ export function loadSettings() {
     skipTutorials: false, // Skip tutorial and story modals
     authenticBoot: false, // Slow boot with DOS CLI prompt every time
     fps: 60, // Active frame rate (20/30/60/120/240)
+    gridHeight: 43, // Vertical resolution (43 or 55 rows)
   };
 
   try {
@@ -68,6 +70,14 @@ export function loadSettings() {
       // Validate FPS
       if (parsed.fps && !FPS_OPTIONS.includes(parsed.fps)) {
         parsed.fps = 60; // Default to 60 if invalid
+      }
+
+      // Validate gridHeight (coerce string→number, clamp to allowed values)
+      const gh = parseInt(parsed.gridHeight, 10);
+      if (!GRID_HEIGHTS.includes(gh)) {
+        parsed.gridHeight = 43;
+      } else {
+        parsed.gridHeight = gh;
       }
 
       // Merge with defaults to ensure new settings exist

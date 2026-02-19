@@ -16,7 +16,7 @@
       "onReveal": [],
       "onUnlock": []
     },
-    "options": [
+    "variants": [
       {
         "id": "bedtime_default",
         "name": "staying up",
@@ -106,8 +106,8 @@
               "heatDelta": 0,
               "effects": [
                 {
-                  "type": "revealActivity",
-                  "activityId": ""
+                  "type": "revealScenario",
+                  "scenarioId": ""
                 }
               ]
             },
@@ -158,7 +158,7 @@
       "onReveal": [],
       "onUnlock": []
     },
-    "options": [
+    "variants": [
       {
         "id": "kids_home_raid_default",
         "name": "raid the drawers",

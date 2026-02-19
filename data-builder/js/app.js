@@ -38,7 +38,7 @@ async function boot() {
   updateStatus('Loading data...');
   try {
     await loadAll();
-    updateStatus(`Loaded: ${store.activities.length} activities, ${store.resources.length} resources, ${store.branches.length} branches`);
+    updateStatus(`Loaded: ${store.scenarios.length} scenarios, ${store.resources.length} resources, ${store.branches.length} branches`);
   } catch (err) {
     updateStatus(`Failed to load: ${err.message}`);
   }
@@ -52,7 +52,7 @@ async function boot() {
       e.preventDefault();
       const tab = getActiveTab();
       if (tab === 'workshop') {
-        window._ws?.saveActivity?.();
+        window._ws?.saveScenario?.();
       } else if (tab === 'economy') {
         window._econ?.saveResources?.();
       } else if (tab === 'world') {
@@ -71,7 +71,7 @@ async function boot() {
       e.preventDefault();
       switchTab('workshop');
       if (window._ws?.openWizard) window._ws.openWizard();
-      else if (window._ws?.newActivity) window._ws.newActivity();
+      else if (window._ws?.newScenario) window._ws.newScenario();
     }
     // Tab shortcuts: Ctrl+1-5
     if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') {
@@ -85,12 +85,12 @@ async function boot() {
 }
 
 function wireShellActions() {
-  const btnNewActivity = document.getElementById('btnNewActivity');
-  if (btnNewActivity) {
-    btnNewActivity.addEventListener('click', () => {
+  const btnNewScenario = document.getElementById('btnNewScenario');
+  if (btnNewScenario) {
+    btnNewScenario.addEventListener('click', () => {
       switchTab('workshop');
       if (window._ws?.openWizard) window._ws.openWizard();
-      else if (window._ws?.newActivity) window._ws.newActivity();
+      else if (window._ws?.newScenario) window._ws.newScenario();
     });
   }
 

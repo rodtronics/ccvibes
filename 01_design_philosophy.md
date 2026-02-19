@@ -9,20 +9,20 @@ Purpose: single source for mechanics philosophy and intent. Pair with `02_ui_spe
 - The game should feel alive, slightly opaque, and interconnected, not linear or tutorialised.
 
 ## 2. Core Loop
-- Pick an activity (crime, research, build, or other operation).
-- Choose an execution option and assign an available worker.
+- Pick a scenario (crime, research, build, or other operation).
+- Choose an execution variant and assign an available worker.
 - Each assignment creates an independent time-based run that continues offline.
 - Rewards may include cash, heat, items, flags, or revelations; abandoning forfeits rewards.
 - Multiple workers create parallel runs; they do not speed up a single run.
 
 ## 3. Fundamental Units
-- **Activity**: UI container and conceptual grouping; has name/description, branch, visibility states; holds Options; never directly consumes resources, assigns staff, or resolves outcomes.
-- **Option**: Specific way to perform an Activity; defines requirements/inputs/duration/XP/rewards/side effects/modifiers/cooldowns. Multiple Options can reach the same result with different efficiency, risk, speed, or reliability.
+- **Scenario**: UI container and conceptual grouping; has name/description, branch, visibility states; holds Variants; never directly consumes resources, assigns staff, or resolves outcomes.
+- **Variant**: Specific way to perform a Scenario; defines requirements/inputs/duration/XP/rewards/side effects/modifiers/cooldowns. Multiple Variants can reach the same result with different efficiency, risk, speed, or reliability.
 
 ## 4. Staff, XP, and Stars
-- Staff are assigned to Options, not Activities.
+- Staff are assigned to Variants, not Scenarios.
 - XP comes from time spent or completed runs; stars are derived from XP thresholds.
-- Stars improve reliability, efficiency, and access to safer/faster Options; stars do not directly unlock content.
+- Stars improve reliability, efficiency, and access to safer/faster Variants; stars do not directly unlock content.
 - Skill bends probability; it never guarantees success.
 
 ## 5. Outcomes and Randomness
@@ -44,18 +44,18 @@ Purpose: single source for mechanics philosophy and intent. Pair with `02_ui_spe
 ## 8. Resources and Transformations
 - Resources exist to enable recipes, not hoarding.
 - Types: currencies (cash, heat, notoriety, cred), consumables (tools, supplies), loot, processed goods, abstract/meta (intel, contacts, flags).
-- Many Activities are resource transformations; multiple recipes can yield the same output.
+- Many Scenarios are resource transformations; multiple recipes can yield the same output.
 
 ## 9. Discovery and Progression
 - Branches or systems may be hidden at game start; revelation is distinct from unlocking capability.
 - Progression relies on flags, reveals, and cross-branch effects; avoid explicit dependency chains in favor of discovery.
 
 ## 10. Tech Web and Research
-- Reveals capabilities, methods, or opportunities; may expose new Activities, Options, roles, or resources.
+- Reveals capabilities, methods, or opportunities; may expose new Scenarios, Variants, roles, or resources.
 - Should not function as a transparent linear tech tree; supports discovery, not full explanation.
 
 ## 11. Cred and Heat Philosophy
-- **Cred (0–100)**: Reputation gate for crew recruitment and activity access; gains scale with risk, losses scale with current cred; recoverable through low-risk reputation jobs.
+- **Cred (0–100)**: Reputation gate for crew recruitment and scenario access; gains scale with risk, losses scale with current cred; recoverable through low-risk reputation jobs.
 - **Heat (0+)**: Always rises from crimes and decays naturally; increases failure/discovery rates; never blocks actions directly; punishment is indirect risk.
 
 ## 12. RPG Crew Composition Philosophy
@@ -76,8 +76,8 @@ Purpose: single source for mechanics philosophy and intent. Pair with `02_ui_spe
 - When in doubt, preserve curiosity over clarity.
 
 ## 15. Authoring Guidelines
-- Respect the Activity + Option + Run structure; no custom per-activity code.
-- Use conditions and effects, not bespoke logic; prefer adding Options over creating new Activities.
+- Respect the Scenario + Variant + Run structure; no custom per-scenario code.
+- Use conditions and effects, not bespoke logic; prefer adding Variants over creating new Scenarios.
 - Prefer flags and reveals over explicit unlocks; all content must be data-driven and expressible in the schema.
 - Tone: dry, understated, cynical, never congratulatory.
 

@@ -36,7 +36,7 @@ function render() {
   const branches = store.branches.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
   const branchColors = ['NEON_CYAN', 'LAVA_RED', 'ELECTRIC_BLUE', 'GOLD', 'HOT_PINK', 'TERMINAL_GREEN', 'PURPLE', 'ORANGE'];
   const gradients = ['street', 'new_branch'];
-  const totalActivities = store.activities.length;
+  const totalActivities = store.scenarios.length;
 
   container.innerHTML = `
     <div class="tab-panel__content">
@@ -55,7 +55,7 @@ function render() {
             ${branches.map(b => {
               const color = getBranchColor(b.id);
               const isSelected = b.id === store.selectedBranchId;
-              const actCount = store.activities.filter(a => a.branchId === b.id).length;
+              const actCount = store.scenarios.filter(a => a.branchId === b.id).length;
               return `
                 <div class="item" style="cursor:pointer;${isSelected ? 'border-color:var(--accent)' : ''}" onclick="_world.selectBranch('${safe(b.id)}')">
                   <div class="flex" style="justify-content:space-between">
@@ -63,7 +63,7 @@ function render() {
                       <span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block"></span>
                       <strong>${safe(b.name || b.id)}</strong>
                     </div>
-                    <span class="muted">order: ${b.order || 0} | ${actCount} activities</span>
+                    <span class="muted">order: ${b.order || 0} | ${actCount} scenarios</span>
                   </div>
                   <div class="muted" style="font-size:0.85rem">${safe(b.description || '')}</div>
                 </div>`;
@@ -236,7 +236,7 @@ async function saveBranches() {
 }
 
 function renderNewGamePanel() {
-  const totalActivities = store.activities.length;
+  const totalActivities = store.scenarios.length;
   const totalResources = store.resources.length;
   const totalBranches = store.branches.length;
 
@@ -275,7 +275,7 @@ function renderNewGamePanel() {
         <ul style="margin:0 0 14px 20px;color:var(--muted);font-size:0.9rem;line-height:1.8">
           <li>1 starter branch ("street")</li>
           <li>Core resources (cash, heat, intel)</li>
-          <li>Empty activities file (ready for your first crime)</li>
+          <li>Empty scenarios file (ready for your first crime)</li>
         </ul>
         <button class="danger" onclick="_world.confirmClearAll()" style="width:100%">
           🗑️ Clear All & Start Fresh
@@ -288,7 +288,7 @@ function renderNewGamePanel() {
           <li>Start fresh or keep existing content</li>
           <li>Use the <strong style="color:var(--text)">Activity Wizard</strong> (🧙 button) to create your first crime</li>
           <li>Keep it simple: cash reward, low/no gates, instant duration</li>
-          <li>Build outward: each activity unlocks the next</li>
+          <li>Build outward: each scenario unlocks the next</li>
           <li>Use the <strong style="color:var(--text)">Map tab</strong> to visualize progression</li>
         </ol>
       </div>
@@ -298,7 +298,7 @@ function renderNewGamePanel() {
 
 function confirmClearAll() {
   const confirmed = confirm(
-    'WARNING: This will DELETE all activities, resources, and branches.\n\n' +
+    'WARNING: This will DELETE all scenarios, resources, and branches.\n\n' +
     'This action cannot be undone. A minimal starter template will be created.\n\n' +
     'Are you absolutely sure?'
   );
@@ -306,7 +306,7 @@ function confirmClearAll() {
   if (confirmed) {
     const doubleCheck = confirm(
       'FINAL WARNING: All your work will be lost!\n\n' +
-      `You have ${store.activities.length} activities, ${store.resources.length} resources, and ${store.branches.length} branches.\n\n` +
+      `You have ${store.scenarios.length} scenarios, ${store.resources.length} resources, and ${store.branches.length} branches.\n\n` +
       'Click OK to proceed with deletion.'
     );
 
@@ -318,8 +318,8 @@ function confirmClearAll() {
 
 async function startFromScratch() {
   // Clear everything
-  store.activities = [];
-  store.activityMap.clear();
+  store.scenarios = [];
+  store.scenarioMap.clear();
 
   // Create minimal starter resources
   store.resources = [
@@ -352,7 +352,7 @@ async function startFromScratch() {
   // Save all files
   try {
     await Promise.all([
-      saveFile('activities'),
+      saveFile('scenarios'),
       saveFile('resources'),
       saveFile('branches')
     ]);

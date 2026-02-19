@@ -35,7 +35,7 @@
     "estimated_completion": "will finish at"
   },
   "tabs": {
-    "activities": "ACTIVITIES",
+    "scenarios": "SCENARIOS",
     "crew": "CREW",
     "resources": "RESOURCES",
     "settings": "SETTINGS",
@@ -50,9 +50,9 @@
     "event_log": "EVENT LOG"
   },
   "log_templates": {
-    "run_started": "Started: {activityName} → {optionName}",
-    "run_completed": "Completed: {activityName} → {optionName}",
-    "run_dropped": "Dropped: {activityName} → {optionName}",
+    "run_started": "Started: {scenarioName} → {variantName}",
+    "run_completed": "Completed: {scenarioName} → {variantName}",
+    "run_dropped": "Dropped: {scenarioName} → {variantName}",
     "repeat_stopped": "Repeat stopped: {reason}",
     "staff_hired": "Hired: {staffName}",
     "staff_unavailable": "{staffName} unavailable until {time}",
@@ -60,8 +60,8 @@
     "insufficient_crew": "No available crew"
   },
   "errors": {
-    "no_activity": "Activity not found",
-    "no_option": "Option not found",
+    "no_scenario": "Scenario not found",
+    "no_variant": "Variant not found",
     "no_staff": "No available staff",
     "insufficient_resources": "Not enough resources",
     "staff_busy": "Staff already assigned",

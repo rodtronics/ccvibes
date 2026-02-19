@@ -15,7 +15,7 @@ let camStart = { x: 0, y: 0 };
 const NODE_COLORS = {
   resource: '#7dd3fc',
   branch: '#a78bfa',
-  activity: '#34d399',
+  scenario: '#34d399',
   milestone: '#fbbf24'
 };
 
@@ -53,7 +53,7 @@ export function init(el) {
   canvas.addEventListener('dblclick', onDblClick);
 
   on('data-loaded', buildGraph);
-  on('activity-changed', buildGraph);
+  on('scenario-changed', buildGraph);
   on('save-complete', buildGraph);
 
   window._map = { resetView, autoLayout, spreadOut };
@@ -90,8 +90,8 @@ function buildGraph() {
   store.resources.forEach(r => getOrCreate(r.id, r.name, 'resource'));
   store.branches.forEach(b => getOrCreate(b.id, b.name, 'branch'));
 
-  store.activities.forEach(act => {
-    const actNode = getOrCreate(act.id, act.name, 'activity');
+  store.scenarios.forEach(act => {
+    const actNode = getOrCreate(act.id, act.name, 'scenario');
 
     (act.visibleIf || []).forEach(c => {
       if (c.type === 'resourceGte' && c.resourceId) {
@@ -109,14 +109,14 @@ function buildGraph() {
       (effects || []).forEach(e => {
         if (e.type === 'revealBranch' && e.branchId) graph.connections.push({ from: actNode, to: getOrCreate(e.branchId, e.branchId, 'branch'), type: 'reveals' });
         if (e.type === 'revealResource' && e.resourceId) graph.connections.push({ from: actNode, to: getOrCreate(e.resourceId, e.resourceId, 'resource'), type: 'reveals' });
-        if ((e.type === 'revealActivity' || e.type === 'unlockActivity') && e.activityId) graph.connections.push({ from: actNode, to: getOrCreate(e.activityId, e.activityId, 'activity'), type: 'reveals' });
+        if ((e.type === 'revealScenario' || e.type === 'unlockScenario') && e.scenarioId) graph.connections.push({ from: actNode, to: getOrCreate(e.scenarioId, e.scenarioId, 'scenario'), type: 'reveals' });
       });
     };
 
     addEffects(act.reveals?.onReveal);
     addEffects(act.reveals?.onUnlock);
 
-    (act.options || []).forEach(opt => {
+    (act.variants || []).forEach(opt => {
       if (opt.inputs?.resources) {
         Object.keys(opt.inputs.resources).forEach(rid => {
           graph.connections.push({ from: actNode, to: getOrCreate(rid, rid, 'resource'), type: 'consumes' });
@@ -346,9 +346,9 @@ function onDblClick(e) {
   const rect = canvas.getBoundingClientRect();
   const { x, y } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
   const node = findNode(x, y);
-  if (node && node.type === 'activity') {
+  if (node && node.type === 'scenario') {
     store.selectedActivityId = node.id;
-    emit('activity-selected', node.id);
+    emit('scenario-selected', node.id);
     // Switch to workshop tab
     const wsBtn = document.querySelector('[data-tab="workshop"]');
     if (wsBtn) wsBtn.click();

@@ -13,6 +13,23 @@
   box-shadow: 0 12px 30px rgba(0,0,0,0.25);
 }
 
+.ws-section--scenario {
+  border-color: rgba(125, 211, 252, 0.22);
+}
+
+.ws-section--scenario .ws-section__title {
+  color: var(--accent);
+}
+
+.ws-section--variants {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: linear-gradient(180deg, rgba(44, 33, 12, 0.45), var(--panel));
+}
+
+.ws-section--variants .ws-section__title {
+  color: var(--warning);
+}
+
 .ws-section__title {
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -67,6 +84,58 @@
 .ws-options-list {
   display: grid;
   gap: 12px;
+}
+
+.ws-variants-list {
+  display: grid;
+  gap: 10px;
+}
+
+.variant-card {
+  background: rgba(251, 191, 36, 0.05);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.variant-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(251, 191, 36, 0.2);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.14), rgba(245, 158, 11, 0.08));
+}
+
+.variant-card.collapsed .variant-head {
+  border-bottom: none;
+}
+
+.variant-head--collapsed {
+  justify-content: flex-start;
+  padding: 8px 12px;
+}
+
+.variant-collapsed-name {
+  min-width: 0;
+  width: 100%;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.variant-card .badge {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.16);
+  color: #facc15;
+}
+
+.variant-details {
+  padding: 12px;
 }
 
 /* Option card collapse/expand */

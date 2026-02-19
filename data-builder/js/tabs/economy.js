@@ -133,8 +133,8 @@ function buildFlowTable() {
   const flows = new Map();
   store.resources.forEach(r => flows.set(r.id, { producers: [], consumers: [] }));
 
-  store.activities.forEach(act => {
-    (act.options || []).forEach(opt => {
+  store.scenarios.forEach(act => {
+    (act.variants || []).forEach(opt => {
       if (opt.inputs?.resources) {
         Object.keys(opt.inputs.resources).forEach(rid => {
           if (!flows.has(rid)) flows.set(rid, { producers: [], consumers: [] });
@@ -177,7 +177,7 @@ function renderFlowTable(flows) {
         <tbody>
           ${flow.producers.map(p => `<tr><td class="positive">Produces</td><td>${safe(p)}</td></tr>`).join('')}
           ${flow.consumers.map(c => `<tr><td class="negative">Consumes</td><td>${safe(c)}</td></tr>`).join('')}
-          ${(!flow.producers.length && !flow.consumers.length) ? '<tr><td colspan="2" class="muted">No activities use this resource.</td></tr>' : ''}
+          ${(!flow.producers.length && !flow.consumers.length) ? '<tr><td colspan="2" class="muted">No scenarios use this resource.</td></tr>' : ''}
         </tbody>
       </table>
     </div>

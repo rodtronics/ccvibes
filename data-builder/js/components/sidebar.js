@@ -13,8 +13,8 @@ export function init() {
   }
 
   on('data-loaded', renderTree);
-  on('activity-selected', renderTree);
-  on('activity-changed', renderTree);
+  on('scenario-selected', renderTree);
+  on('scenario-changed', renderTree);
   on('save-complete', renderTree);
 }
 
@@ -22,7 +22,7 @@ export function renderTree() {
   const container = document.getElementById('navTree');
   if (!container) return;
 
-  if (!store.loaded || !store.activities.length) {
+  if (!store.loaded || !store.scenarios.length) {
     container.innerHTML = '<div class="hint" style="padding:8px">Loading data...</div>';
     return;
   }
@@ -30,38 +30,38 @@ export function renderTree() {
   const branches = store.branches.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
   const grouped = new Map();
 
-  // Group activities by branch
-  store.activities.forEach(act => {
+  // Group scenarios by branch
+  store.scenarios.forEach(act => {
     const bid = act.branchId || 'unassigned';
     if (!grouped.has(bid)) grouped.set(bid, []);
     grouped.get(bid).push(act);
   });
 
-  // Sort activities within each branch
+  // Sort scenarios within each branch
   grouped.forEach((list) => list.sort((a, b) => (a.id || '').localeCompare(b.id || '')));
 
   // Build HTML
   const html = branches
     .filter(b => grouped.has(b.id))
     .map(branch => {
-      let activities = grouped.get(branch.id) || [];
+      let scenarios = grouped.get(branch.id) || [];
 
       // Apply search filter
       if (searchText) {
-        activities = activities.filter(act => {
+        scenarios = scenarios.filter(act => {
           return (act.id || '').toLowerCase().includes(searchText) ||
                  (act.name || '').toLowerCase().includes(searchText);
         });
       }
 
-      if (!activities.length) return '';
+      if (!scenarios.length) return '';
 
       const color = getBranchColor(branch.id);
-      const items = activities.map(act => {
+      const items = scenarios.map(act => {
         const isSelected = act.id === store.selectedActivityId;
-        const optCount = (act.options || []).length;
+        const optCount = (act.variants || []).length;
         return `
-          <button class="nav-item ${isSelected ? 'selected' : ''}" data-activity-id="${safe(act.id)}">
+          <button class="nav-item ${isSelected ? 'selected' : ''}" data-scenario-id="${safe(act.id)}">
             ${safe(act.id)}
             <span class="nav-item__meta">${safe(act.name || '')}${optCount ? ` (${optCount})` : ''}</span>
           </button>
@@ -73,7 +73,7 @@ export function renderTree() {
           <div class="nav-branch">
             <span class="nav-branch__dot" style="background:${color}"></span>
             ${safe(branch.name || branch.id)}
-            <span class="muted" style="font-size:0.7rem">${activities.length}</span>
+            <span class="muted" style="font-size:0.7rem">${scenarios.length}</span>
           </div>
           <div class="nav-items">${items}</div>
         </div>
@@ -82,7 +82,7 @@ export function renderTree() {
     .filter(Boolean)
     .join('');
 
-  // Check for unassigned activities
+  // Check for unassigned scenarios
   let unassigned = grouped.get('unassigned') || [];
   if (searchText) {
     unassigned = unassigned.filter(act =>
@@ -100,20 +100,20 @@ export function renderTree() {
       <div class="nav-items">
         ${unassigned.map(act => {
           const isSelected = act.id === store.selectedActivityId;
-          return `<button class="nav-item ${isSelected ? 'selected' : ''}" data-activity-id="${safe(act.id)}">${safe(act.id)}</button>`;
+          return `<button class="nav-item ${isSelected ? 'selected' : ''}" data-scenario-id="${safe(act.id)}">${safe(act.id)}</button>`;
         }).join('')}
       </div>
     </div>
   ` : '';
 
-  container.innerHTML = html + unassignedHtml || '<div class="hint" style="padding:8px">No activities found.</div>';
+  container.innerHTML = html + unassignedHtml || '<div class="hint" style="padding:8px">No scenarios found.</div>';
 
   // Wire click events via delegation
   container.onclick = (e) => {
-    const btn = e.target.closest('[data-activity-id]');
+    const btn = e.target.closest('[data-scenario-id]');
     if (!btn) return;
-    const activityId = btn.dataset.activityId;
-    store.selectedActivityId = activityId;
-    emit('activity-selected', activityId);
+    const scenarioId = btn.dataset.scenarioId;
+    store.selectedActivityId = scenarioId;
+    emit('scenario-selected', scenarioId);
   };
 }

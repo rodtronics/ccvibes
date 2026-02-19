@@ -31,7 +31,7 @@
   {
     "id": "onboardingIntroductionModal",
     "title": "CRIME COMMITTER VI",
-    "body": "this is the game. please welcome. the aim of this game is crime, and lots of it. you start out as a grown baby (toddler) and you are just about to learn just how delicious and nutritious doing something naughty is.\n\nyou start in your bedroom, and you're tempted to break some rules, you're tempted to stay up past your bedtime. if you do this, you start down a slippery slope and a life of crime. your only real opportunity to escape this life is to quit this god foreskin game right this second, and go outside and feel some sweet blades of grass. \n\nif on the other hand you dare to dive headfirst into this life of crime, then this is the game for you. \n\ntake your time. committe a crime. find a crime, and press D to sort out the details before you start, or Q to just go for it. and then wait. this game is about waiting but hopefully not too long. after waiting, you'll maybe have success or not. use this succcess to access more crime. use more crime to access more waiting. you can literally do both of those things in game. one is fictional but waiting is for life. \n\nenjoy\n",
+    "body": "this is the game. please welcome. the aim of this game is crime, and lots of it. you start out as a grown baby (toddler) and you are just about to learn just how delicious and nutritious doing something naughty is.\n\nyou start in your bedroom, and you're tempted to break some rules, you're tempted to stay up past your bedtime. if you do this, you start down a slippery slope and a life of crime. your only real opportunity to escape this life is to quit this god foreskin game right this second, and go outside and feel some sweet blades of grass. \n\nif on the other hand you dare to dive headfirst into this life of crime, then this is the game for you. \n\ntake your time. committe a crime. find a crime, and press D to sort out the details before you start, or Q to just go for it. and then wait. this game is about waiting but hopefully not too long. after waiting, you'll maybe have success or not. use this succcess to access more crime. use more crime to access more waiting. you can literally do both of those things in game. one is fictional but waiting is for life. \n...enjoy\n",
     "type": "lesson",
     "showOnce": true,
     "titleColor": "INTRO_B",
@@ -64,5 +64,13 @@
     "borderColor": "PURPLE",
     "backgroundColor": "MAGENTA",
     "bodyColor": "EMERALD"
+  },
+  {
+    "id": "uplate",
+    "title": "Stayed up Late",
+    "body": "you actually did it.. for like a few days you'd had this idea.. what if I just didn't go to bed when dad told me too.. what's the worst that could happen?\n\ndad is a cop. I know this because its true. he tells me its kinda normal for 6 year olds to go to jail or to the electric chair for breaking the rules.. not gonna lie dad that sounds a bit extreme and I think you're full of shit. regardless I've been tempted to stayu up late for a few days now.. which feels like a life time. and tonight was the night.. I did it.. I was meant to be in bed but I jumped out of my bed after dad said goodnight and sat down on the floor in front of my bed. I pretended to be ghandi. by all accounts I was basically up. and you know what.. **it felt good**.. too good even\n\nI think I've found my thing",
+    "type": "story",
+    "showOnce": true,
+    "countdown": false
   }
 ]

@@ -21,8 +21,8 @@ Opens at `http://localhost:3000`. Reads/writes JSON files in `../data/`.
 ## Legacy Standalone Editors (pre-workbench)
 | File | Purpose |
 |------|---------|
-| `index.html` | Original standalone activity editor. |
-| `activity-options-builder.html` | Standalone option/resolution editor. |
+| `index.html` | Original standalone scenario editor. |
+| `scenarios-variants-builder.html` | Standalone variant/resolution editor. |
 | `branches-designer.html` | Standalone branch editor. |
 | `resources-designer.html` | Standalone resource editor. |
 | `progression-designer.html` | Standalone progression/flow designer. |
@@ -39,23 +39,25 @@ Opens at `http://localhost:3000`. Reads/writes JSON files in `../data/`.
 
 ## js/ - Workbench JavaScript
 
+All workbench JavaScript files have been refactored to use new terminology: `scenario/scenarios` (was `activity/activities`), `variant/variants` (was `option/options`). Legacy standalone HTML editors may still contain old terminology.
+
 ### Core
 | File | Purpose |
 |------|---------|
 | `app.js` | App bootstrap, tab routing, global event handling. |
-| `builder.js` (~68KB) | Legacy monolithic builder used by standalone editor pages. |
-| `state.js` | Reactive store - loads all game data, provides `store` object, handles save/load via server API. |
-| `data-io.js` | Data import/export, file I/O helpers. |
+| `builder.js` (~68KB) | Legacy monolithic builder used by standalone editor pages. Refactored to use scenario/variant terminology. |
+| `state.js` | Reactive store - loads all game data, provides `store` object, handles save/load via server API. Uses scenario/variant terminology. |
+| `data-io.js` | Data import/export, file I/O helpers. Includes migration logic to convert old `options` to `variants` on load. |
 | `hub-storage.js` | Shared localStorage utilities used by standalone pages and workbench. |
-| `models.js` | Data model factories - `createActivity()`, `createOption()`, `createResolution()`, etc. Default values for new entities. |
+| `models.js` | Data model factories - `createScenario()`, `createVariant()`, `createResolution()`, etc. Default values for new entities. |
 | `utils.js` | Shared utilities - DOM helpers, ID generation, formatting. |
 | `modal-preview.js` | Live preview renderer for modal content (matches game's modal rendering). |
 
 ### js/components/ - Shared UI Components
 | File | Purpose |
 |------|---------|
-| `sidebar.js` | Navigation sidebar - branch/activity tree with drag-and-drop. |
-| `mini-map.js` | Visual branch/activity overview map. |
+| `sidebar.js` | Navigation sidebar - branch/scenario tree with drag-and-drop. |
+| `mini-map.js` | Visual branch/scenario overview map. |
 | `tab-bar.js` | Tab bar component for editor sections. |
 | `resource-picker.js` | Dropdown for selecting resources (used in requirements/outputs). |
 | `role-picker.js` | Dropdown for selecting crew roles. |
@@ -63,7 +65,7 @@ Opens at `http://localhost:3000`. Reads/writes JSON files in `../data/`.
 ### js/tabs/ - Editor Tabs
 | File | Purpose |
 |------|---------|
-| `workshop.js` (~89KB) | Main activity/option editor. The largest and most complex editor - handles activities, options, resolutions, requirements, effects, outcomes. |
+| `workshop.js` (~89KB) | Main scenario/variant editor. The largest and most complex editor - handles scenarios, variants, resolutions, requirements, effects, outcomes. |
 | `world.js` (~36KB) | World editor - branches, roles, perks. |
 | `economy.js` (~13KB) | Economy editor - resources, balance tuning. |
 | `map.js` (~11KB) | Visual progression map editor. |

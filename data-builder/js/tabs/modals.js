@@ -29,7 +29,7 @@ function escapeJsSingleQuoted(value) {
     .replace(/\n/g, '\\n');
 }
 
-// ── Color options for the formatting toolbar ──
+// ── Color variants for the formatting toolbar ──
 const fgColors = [
   { tag: 'neon_cyan',       label: 'Cyan',        hex: '#00ffff' },
   { tag: 'terminal_green',  label: 'Green',       hex: '#00ff00' },
@@ -205,7 +205,7 @@ function render() {
 }
 
 function renderEditor(m) {
-  // Palette options for style dropdowns
+  // Palette variants for style dropdowns
   const paletteOptions = [
     { value: '', label: '(default)' },
     { value: 'BLACK', label: 'Black' }, { value: 'WHITE', label: 'White' },

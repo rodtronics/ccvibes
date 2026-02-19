@@ -17,7 +17,17 @@
       "Bash(git log:*)",
       "Bash(wc:*)",
       "Bash(git -C \"c:\\\\Users\\\\Andrew\\\\Documents\\\\GitHub\\\\ccvibes\\\\ccvibes\" log --oneline -5)",
-      "Bash(del \"c:\\\\Users\\\\Andrew\\\\Documents\\\\GitHub\\\\ccvibes\\\\ccvibes\\\\CNAME\")"
+      "Bash(del \"c:\\\\Users\\\\Andrew\\\\Documents\\\\GitHub\\\\ccvibes\\\\ccvibes\\\\CNAME\")",
+      "Bash(git mv:*)",
+      "Bash(for file in builder.js state.js app.js data-io.js tabs/world.js tabs/economy.js tabs/map.js tabs/modals.js)",
+      "Bash(do node -c \"$file\")",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(for file in components/*.js tabs/*.js *.js)",
+      "Bash(do)",
+      "Bash(if [ -f \"$file\" ])",
+      "Bash(then)",
+      "Bash(fi)"
     ],
     "defaultMode": "bypassPermissions"
   }

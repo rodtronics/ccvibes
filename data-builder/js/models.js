@@ -1,18 +1,18 @@
 import { numberOrDefault, cleanObject, cloneJson, kvToObject, kvListFromObject, toRangeFields, rangeValue, parseTags, parseModifiers } from './utils.js';
 
-let optionUid = 1;
+let variantUid = 1;
 
-export function nextOptionUid() {
-  return optionUid++;
+export function nextVariantUid() {
+  return variantUid++;
 }
 
-export function resetOptionUid() {
-  optionUid = 1;
+export function resetVariantUid() {
+  variantUid = 1;
 }
 
 // ── Factory functions ──
 
-export function createActivity() {
+export function createScenario() {
   return {
     id: '',
     name: '',
@@ -23,14 +23,14 @@ export function createActivity() {
     visibleIf: [],
     unlockIf: [],
     reveals: { onReveal: [], onUnlock: [] },
-    options: [createOption()]
+    variants: [createVariant()]
   };
 }
 
-export function createOption() {
+export function createVariant() {
   return {
-    uid: optionUid++,
-    optionId: '',
+    uid: variantUid++,
+    variantId: '',
     name: '',
     description: '',
     repeatable: false,
@@ -86,7 +86,7 @@ export function defaultCondition() {
     resourceId: '',
     itemId: '',
     roleId: '',
-    activityId: '',
+    scenarioId: '',
     key: '',
     value: 0,
     bool: true
@@ -95,8 +95,8 @@ export function defaultCondition() {
 
 export function defaultEffect() {
   return {
-    type: 'revealActivity',
-    activityId: '',
+    type: 'revealScenario',
+    scenarioId: '',
     branchId: '',
     resourceId: '',
     roleId: '',
@@ -111,12 +111,12 @@ export function defaultEffect() {
 
 // ── Serialization (editor state → JSON) ──
 
-export function buildActivityJson(state) {
+export function buildScenarioJson(state) {
   const tags = parseTags(state.tags);
-  const activityId = state.id || 'untitled_activity';
+  const scenarioId = state.id || 'untitled_scenario';
 
   return {
-    id: activityId,
+    id: scenarioId,
     branchId: state.branchId || 'street',
     name: state.name || 'untitled',
     description: state.description || '',
@@ -127,49 +127,49 @@ export function buildActivityJson(state) {
       onReveal: state.reveals.onReveal.map(normalizeEffect),
       onUnlock: state.reveals.onUnlock.map(normalizeEffect)
     },
-    options: state.options.map((opt, idx) => normalizeOption(opt, activityId, idx))
+    variants: state.variants.map((variant, idx) => normalizeVariant(variant, scenarioId, idx))
   };
 }
 
-export function normalizeOption(opt, activityId, idx) {
-  const optionId = opt.optionId || `${activityId}_option_${idx + 1}`;
-  const modifiers = parseModifiers(opt.modifiersText);
+export function normalizeVariant(variant, scenarioId, idx) {
+  const variantId = variant.variantId || `${scenarioId}_variant_${idx + 1}`;
+  const modifiers = parseModifiers(variant.modifiersText);
   const data = {
-    id: optionId,
-    name: opt.name || `option_${idx + 1}`,
-    description: opt.description || '',
-    visibleIf: opt.visibleIf.map(normalizeCondition),
-    unlockIf: opt.unlockIf.map(normalizeCondition),
+    id: variantId,
+    name: variant.name || `variant_${idx + 1}`,
+    description: variant.description || '',
+    visibleIf: variant.visibleIf.map(normalizeCondition),
+    unlockIf: variant.unlockIf.map(normalizeCondition),
     requirements: {
-      staff: opt.requirements.staff.map(s => cleanObject({
+      staff: variant.requirements.staff.map(s => cleanObject({
         roleId: s.roleId || 'player',
         count: numberOrDefault(s.count, 1),
         starsMin: numberOrDefault(s.starsMin, 0),
         required: s.required !== false,
         bonus: s.bonus || undefined
       })),
-      items: opt.requirements.items.map(i => cleanObject({
+      items: variant.requirements.items.map(i => cleanObject({
         itemId: i.itemId || '',
         count: numberOrDefault(i.count, 1)
       })),
-      buildings: opt.requirements.buildings.map(b => cleanObject({
+      buildings: variant.requirements.buildings.map(b => cleanObject({
         buildingId: b.buildingId || '',
         count: numberOrDefault(b.count, 1)
       }))
     },
     inputs: {
-      resources: kvToObject(opt.inputs.resources, 'amount'),
-      items: kvToObject(opt.inputs.items, 'amount')
+      resources: kvToObject(variant.inputs.resources, 'amount'),
+      items: kvToObject(variant.inputs.items, 'amount')
     },
-    durationMs: numberOrDefault(opt.durationMs, 10000),
-    xpRewards: { onComplete: numberOrDefault(opt.xp, 0) },
-    resolution: buildResolution(opt.resolution),
+    durationMs: numberOrDefault(variant.durationMs, 10000),
+    xpRewards: { onComplete: numberOrDefault(variant.xp, 0) },
+    resolution: buildResolution(variant.resolution),
     modifiers: modifiers,
-    cooldownMs: numberOrDefault(opt.cooldownMs, 0)
+    cooldownMs: numberOrDefault(variant.cooldownMs, 0)
   };
 
-  if (opt.repeatable) data.repeatable = true;
-  if (opt.maxConcurrentRuns) data.maxConcurrentRuns = Number(opt.maxConcurrentRuns);
+  if (variant.repeatable) data.repeatable = true;
+  if (variant.maxConcurrentRuns) data.maxConcurrentRuns = Number(variant.maxConcurrentRuns);
 
   return data;
 }
@@ -225,12 +225,12 @@ export function normalizeCondition(cond) {
       return { type: 'flagIs', key: cond.key || '', value: cond.bool !== undefined ? cond.bool : !!cond.value };
     case 'roleRevealed':
       return { type: 'roleRevealed', roleId: cond.roleId || '' };
-    case 'activityRevealed':
-      return { type: 'activityRevealed', activityId: cond.activityId || '' };
+    case 'scenarioRevealed':
+      return { type: 'scenarioRevealed', scenarioId: cond.scenarioId || '' };
     case 'staffStarsGte':
       return { type: 'staffStarsGte', roleId: cond.roleId || '', value: numberOrDefault(cond.value, 0) };
-    case 'activityCompletedGte':
-      return { type: 'activityCompletedGte', activityId: cond.activityId || '', value: numberOrDefault(cond.value, 0) };
+    case 'scenarioCompletedGte':
+      return { type: 'scenarioCompletedGte', scenarioId: cond.scenarioId || '', value: numberOrDefault(cond.value, 0) };
     default:
       return { type: cond.type || 'unknown' };
   }
@@ -241,16 +241,16 @@ export function normalizeEffect(effect) {
   switch (effect.type) {
     case 'revealBranch':
       return { ...base, branchId: effect.branchId || '' };
-    case 'revealActivity':
-      return { ...base, activityId: effect.activityId || '' };
+    case 'revealScenario':
+      return { ...base, scenarioId: effect.scenarioId || '' };
     case 'revealResource':
       return { ...base, resourceId: effect.resourceId || '' };
     case 'revealRole':
       return { ...base, roleId: effect.roleId || '' };
     case 'revealTab':
       return { ...base, tabId: effect.tabId || '' };
-    case 'unlockActivity':
-      return { ...base, activityId: effect.activityId || '' };
+    case 'unlockScenario':
+      return { ...base, scenarioId: effect.scenarioId || '' };
     case 'setFlag':
       return { ...base, key: effect.key || '', value: effect.value || '' };
     case 'incFlagCounter':
@@ -264,35 +264,35 @@ export function normalizeEffect(effect) {
 
 // ── Deserialization (JSON → editor state) ──
 
-export function inflateOption(opt) {
-  const option = createOption();
-  const reqs = opt.requirements || {};
+export function inflateVariant(variant) {
+  const variantState = createVariant();
+  const reqs = variant.requirements || {};
 
-  option.optionId = opt.id || '';
-  option.name = opt.name || '';
-  option.description = opt.description || '';
-  option.repeatable = !!opt.repeatable;
-  option.maxConcurrentRuns = opt.maxConcurrentRuns ?? '';
-  option.visibleIf = cloneJson(opt.visibleIf || []);
-  option.unlockIf = cloneJson(opt.unlockIf || []);
-  option.requirements = {
+  variantState.variantId = variant.id || '';
+  variantState.name = variant.name || '';
+  variantState.description = variant.description || '';
+  variantState.repeatable = !!variant.repeatable;
+  variantState.maxConcurrentRuns = variant.maxConcurrentRuns ?? '';
+  variantState.visibleIf = cloneJson(variant.visibleIf || []);
+  variantState.unlockIf = cloneJson(variant.unlockIf || []);
+  variantState.requirements = {
     staff: inflateStaffRequirements(reqs.staff),
     items: inflateRequirementList(reqs.items, 'itemId'),
     buildings: inflateRequirementList(reqs.buildings, 'buildingId')
   };
-  option.inputs = {
-    resources: kvListFromObject(opt.inputs?.resources, 'amount'),
-    items: kvListFromObject(opt.inputs?.items, 'amount', 'itemId')
+  variantState.inputs = {
+    resources: kvListFromObject(variant.inputs?.resources, 'amount'),
+    items: kvListFromObject(variant.inputs?.items, 'amount', 'itemId')
   };
-  option.durationMs = numberOrDefault(opt.durationMs, 10000);
-  option.xp = numberOrDefault(opt.xpRewards?.onComplete ?? opt.xpReward ?? opt.xp, 0);
-  option.cooldownMs = numberOrDefault(opt.cooldownMs, 0);
-  option.resolution = inflateResolution(opt.resolution);
-  option.modifiersText = Array.isArray(opt.modifiers) && opt.modifiers.length
-    ? JSON.stringify(opt.modifiers, null, 2)
+  variantState.durationMs = numberOrDefault(variant.durationMs, 10000);
+  variantState.xp = numberOrDefault(variant.xpRewards?.onComplete ?? variant.xpReward ?? variant.xp, 0);
+  variantState.cooldownMs = numberOrDefault(variant.cooldownMs, 0);
+  variantState.resolution = inflateResolution(variant.resolution);
+  variantState.modifiersText = Array.isArray(variant.modifiers) && variant.modifiers.length
+    ? JSON.stringify(variant.modifiers, null, 2)
     : '';
 
-  return option;
+  return variantState;
 }
 
 function inflateStaffRequirements(list) {
@@ -355,35 +355,35 @@ export function inflateResolution(resolution) {
 
 // ── Validation ──
 
-export function validateActivity(activity) {
+export function validateScenario(scenario) {
   const errors = [];
 
-  if (!activity.id || !activity.id.trim()) {
-    errors.push('Activity ID is required');
+  if (!scenario.id || !scenario.id.trim()) {
+    errors.push('Scenario ID is required');
   }
 
-  if (!activity.name || !activity.name.trim()) {
-    errors.push('Activity name is required');
+  if (!scenario.name || !scenario.name.trim()) {
+    errors.push('Scenario name is required');
   }
 
-  const optionIds = new Set();
-  activity.options.forEach((opt, idx) => {
-    if (!opt.id || !opt.id.trim()) {
-      errors.push(`Option ${idx + 1} has no ID`);
-    } else if (optionIds.has(opt.id)) {
-      errors.push(`Duplicate option ID: ${opt.id}`);
+  const variantIds = new Set();
+  scenario.variants.forEach((variant, idx) => {
+    if (!variant.id || !variant.id.trim()) {
+      errors.push(`Variant ${idx + 1} has no ID`);
+    } else if (variantIds.has(variant.id)) {
+      errors.push(`Duplicate variant ID: ${variant.id}`);
     } else {
-      optionIds.add(opt.id);
+      variantIds.add(variant.id);
     }
 
-    if (!opt.requirements.staff.length) {
-      errors.push(`Option ${opt.id || idx + 1} has no staff requirements`);
+    if (!variant.requirements.staff.length) {
+      errors.push(`Variant ${variant.id || idx + 1} has no staff requirements`);
     }
 
-    if (opt.resolution.type === 'weighted_outcomes') {
-      const totalWeight = opt.resolution.outcomes.reduce((sum, out) => sum + (out.weight || 0), 0);
+    if (variant.resolution.type === 'weighted_outcomes') {
+      const totalWeight = variant.resolution.outcomes.reduce((sum, out) => sum + (out.weight || 0), 0);
       if (totalWeight === 0) {
-        errors.push(`Option ${opt.id || idx + 1} has outcomes with zero total weight`);
+        errors.push(`Variant ${variant.id || idx + 1} has outcomes with zero total weight`);
       }
     }
   });

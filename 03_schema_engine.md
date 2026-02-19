@@ -3,13 +3,13 @@
 Purpose: single source of truth for data structures and engine behavior. All game content must be expressible here; no custom per-activity code. Pair with `01_design_philosophy.md` for intent and `02_ui_spec.md` for presentation.
 
 ## 0. Global Conventions
-- IDs: stable string IDs; `snake_case` recommended; unique within each namespace. Examples: `activityId: shoplifting`, `optionId: shoplifting_grab_and_go`, `resourceId: cash`, `roleId: thief`.
+- IDs: stable string IDs; `snake_case` recommended; unique within each namespace. Examples: `scenarioId: shoplifting`, `variantId: shoplifting_grab_and_go`, `resourceId: cash`, `roleId: thief`.
 - Time: all durations are in milliseconds; all timestamps are Unix epoch milliseconds.
 - All content is JSON-serialisable.
 
 ### Data Files
 - `data/branches.json` — Branch definitions (UI grouping).
-- `data/activities.json` — Activities and their Options.
+- `data/scenarios.json` — Scenarios and their Variants.
 - `data/resources.json` — Resource definitions (currencies, equipment, intel, reputation).
 - `data/roles.json` — Staff role definitions with XP/star progression.
 - `data/modals.json` — Modal content (story, lore, lessons).
@@ -30,7 +30,7 @@ Purpose: single source of truth for data structures and engine behavior. All gam
   "flags": {},
   "reveals": {
     "branches": {},
-    "activities": {},
+    "scenarios": {},
     "resources": {},
     "roles": {},
     "tabs": {}
@@ -72,8 +72,8 @@ Repeat logic is now unified using a single `runsLeft` field on each run instance
 ```json
 {
   "runId": "r_001",
-  "activityId": "shoplifting",
-  "optionId": "shoplifting_grab_and_go",
+  "scenarioId": "shoplifting",
+  "variantId": "shoplifting_grab_and_go",
   "startedAt": 1700000000000,
   "endsAt": 1700000006000,
   "assignedStaffIds": ["s_001"],
@@ -95,7 +95,7 @@ Repeat logic is now unified using a single `runsLeft` field on each run instance
 ### Behavior
 - On run completion, `checkRepeatQueue(run)` examines `run.runsLeft`.
 - If `runsLeft === 0`, do nothing (single run completed).
-- If `runsLeft > 0`, decrement by 1 and call `startRun(activityId, optionId, assignedStaffIds, order, newRunsLeft)`.
+- If `runsLeft > 0`, decrement by 1 and call `startRun(scenarioId, variantId, assignedStaffIds, order, newRunsLeft)`.
 - If `runsLeft === -1`, call `startRun()` with `runsLeft = -1` (infinite continuation).
 - If auto-restart fails (insufficient resources, crew busy, etc.), log warning and stop repeating.
 
@@ -109,8 +109,8 @@ Repeat logic is now unified using a single `runsLeft` field on each run instance
   - Old `repeatQueues` structure is deleted.
 
 ### Availability
-- Currently available for all options; `option.repeatable` gating is planned but not yet enforced.
-- Run-bound design allows multiple concurrent runs of the same option to each have independent repeat states.
+- Currently available for all variants; `variant.repeatable` gating is planned but not yet enforced.
+- Run-bound design allows multiple concurrent runs of the same variant to each have independent repeat states.
 
 ## 3. Persistent Operations
 Long-running passive operations distinct from runs.
@@ -128,7 +128,7 @@ Long-running passive operations distinct from runs.
 ```
 - Fields: unique `id`; `type`; timestamps; optional `locationId`; `discoveryChance`; `yieldChance`; `checkIntervalMs`.
 - Behavior: on each tick, if `now - lastCheckAt >= checkIntervalMs`, process: (1) possible yield; (2) possible discovery/removal (heat can raise discovery); (3) nothing. Modifiers can adjust chances. Operations are removed on discovery or manual removal.
-- Option extension example:
+- Variant extension example:
 ```json
 {
   "createsPersistentOperation": {
@@ -238,7 +238,7 @@ Perk choice flow (permanent):
 Redemption (tentative):
 - At star 5, if `unchosen` is non-empty, the staff member gets a redemption choice: pick one previously passed perk from `unchosen`. Chosen perk is removed from `unchosen` and added to `perks`.
 
-### Activity
+### Scenario
 UI container; never executes directly.
 ```json
 {
@@ -250,11 +250,11 @@ UI container; never executes directly.
   "visibleIf": [],
   "unlockIf": [],
   "reveals": { "onReveal": [], "onUnlock": [] },
-  "options": []
+  "variants": []
 }
 ```
 
-### Option
+### Variant
 Executable recipe; each creates a Run.
 ```json
 {
@@ -278,15 +278,15 @@ Executable recipe; each creates a Run.
   "cooldownMs": 0
 }
 ```
-- `repeatable` (planned, not yet enforced) controls whether repeat queue UI/behavior is available for this specific option. Currently all options can repeat.
+- `repeatable` (planned, not yet enforced) controls whether repeat queue UI/behavior is available for this specific variant. Currently all variants can repeat.
 - Staff requirements support `required` (default true) and optional slots; optional slots describe bonuses and are expressed via modifiers.
 
 ### Run (runtime instance)
 ```json
 {
   "runId": "r_001",
-  "activityId": "shoplifting",
-  "optionId": "shoplifting_grab_and_go",
+  "scenarioId": "shoplifting",
+  "variantId": "shoplifting_grab_and_go",
   "startedAt": 1700000000000,
   "endsAt": 1700000006000,
   "assignedStaffIds": ["s_001"],
@@ -318,7 +318,7 @@ Executable recipe; each creates a Run.
   "durationMs": 600000,
   "inputs": { "resources": { "cash": 200, "fakeID": 1 } },
   "effects": [
-    { "type": "revealActivity", "activityId": "laundering" }
+    { "type": "revealScenario", "scenarioId": "laundering" }
   ]
 }
 ```
@@ -367,7 +367,7 @@ Modals are the primary narrative and tutorial delivery system. They are intended
   "type": "weighted_outcomes",
   "outcomes": [
     { "id": "ok", "weight": 70, "outputs": { "resources": { "cash": 40 } }, "credDelta": 3, "heatDelta": 2, "effects": [] },
-    { "id": "lucky", "weight": 20, "outputs": { "resources": { "cash": 120 } }, "credDelta": 8, "heatDelta": 1, "effects": [{ "type": "revealActivity", "activityId": "fencing_goods" }] },
+    { "id": "lucky", "weight": 20, "outputs": { "resources": { "cash": 120 } }, "credDelta": 8, "heatDelta": 1, "effects": [{ "type": "revealScenario", "scenarioId": "fencing_goods" }] },
     { "id": "caught", "weight": 10, "outputs": {}, "credDelta": -20, "heatDelta": 6, "jail": { "durationMs": 43200000 }, "effects": [] }
   ]
 }
@@ -409,7 +409,7 @@ Modifiers adjust resolution parameters before rolling; they stack additively and
 Design principle: modifiers only adjust numeric values; they do not execute logic or mutate state directly.
 
 ## 7. Conditions (visibleIf/unlockIf)
-Atomic types: `flagIs`, `resourceGte`, `roleRevealed`, `activityRevealed`.
+Atomic types: `flagIs`, `resourceGte`, `roleRevealed`, `scenarioRevealed`.
 Logical wrappers: `allOf`, `anyOf`, `not`.
 Example:
 ```json
@@ -423,27 +423,27 @@ Example:
 ```
 
 ## 8. Effects
-Reveal effects: `revealBranch`, `revealActivity`, `revealResource`, `revealRole`, `revealTab`.
-Capability effects: `unlockActivity`.
+Reveal effects: `revealBranch`, `revealScenario`, `revealResource`, `revealRole`, `revealTab`.
+Capability effects: `unlockScenario`.
 State effects: `setFlag`, `incFlagCounter`, `logMessage`, `showModal`.
 Examples:
 ```json
 { "type": "revealBranch", "branchId": "finance" }
-{ "type": "unlockActivity", "activityId": "laundering" }
+{ "type": "unlockScenario", "scenarioId": "laundering" }
 ```
 
-### Visibility States (branches and activities only)
+### Visibility States (branches and scenarios only)
 - **Unrevealed**: the player has no knowledge of it; completely hidden.
 - **Revealed**: the player can see it exists (e.g. a branch tab appears, a job shows in the list) but cannot interact with it yet.
 - **Unlocked**: the player can see it and use it.
-- Options have no locked-but-visible state; they are either visible+unlocked or hidden entirely.
+- Variants have no locked-but-visible state; they are either visible+unlocked or hidden entirely.
 
 ## 9. Engine Rules (non-negotiable)
-- No custom per-activity code; all behavior emerges from data.
+- No custom per-scenario code; all behavior emerges from data.
 - Heat never blocks actions; consequences are time-based, not permanent.
-- Unlocking grants capability; revealing grants knowledge. This distinction applies to branches and activities only.
+- Unlocking grants capability; revealing grants knowledge. This distinction applies to branches and scenarios only.
 - The system must tolerate content being incomplete or hidden.
-- Engine validation for `Engine.startRun(activityId, optionId, assignedStaffIds, orderOverride, runsLeft)`:
+- Engine validation for `Engine.startRun(scenarioId, variantId, assignedStaffIds, orderOverride, runsLeft)`:
   - All required roles filled.
   - Assigned crew meet star minimums and are available (not busy, not in jail).
   - Staff can only be assigned to matching roles.
@@ -463,8 +463,8 @@ Engine.emit(event, data);    // Publish events
 ### Standard Events
 - **tick**: Emitted every game tick (50ms intervals). UI uses this for smooth progress bar updates and countdown timers.
 - **stateChange**: Emitted when game state changes (resources, flags, reveals, etc.). UI re-renders affected components.
-- **runStarted**: Emitted when a new run begins. Payload: `{ run, activity, option }`.
-- **runCompleted**: Emitted when a run finishes. Payload: `{ run, activity, option, outcome }`.
+- **runStarted**: Emitted when a new run begins. Payload: `{ run, scenario, variant }`.
+- **runCompleted**: Emitted when a run finishes. Payload: `{ run, scenario, variant, outcome }`.
 - **runCancelled**: Emitted when a run is cancelled. Payload: `{ run }`.
 - **repeatStopped**: Emitted when repeat behavior is stopped via `stopRepeat()`. Payload: `{ run }`.
 - **runsCompleted**: Emitted when runs array changes (completion, cancellation, or new run).

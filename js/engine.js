@@ -26,10 +26,10 @@ function createDefaultState(playerName = 'player1') {
     flags: {},
     reveals: {
       branches: {},
-      activities: {},
+      scenarios: {},
       resources: {},
       roles: {},
-      tabs: { activities: true, log: true }
+      tabs: { scenarios: true, log: true }
     },
     crew: {
       staff: [
@@ -61,7 +61,7 @@ export class Engine {
     this.activeSaveSlot = getActiveSaveSlot();
     this.state = createDefaultState(getDefaultPlayerName(this.activeSaveSlot));
     this.data = {
-      activities: [],
+      scenarios: [],
       branches: [],
       // items merged into resources
       lexicon: {},
@@ -85,7 +85,7 @@ export class Engine {
 
   async loadData(onProgress) {
     const files = [
-      ["activities.json", "activities"],
+      ["scenarios.json", "scenarios"],
       ["branches.json", "branches"],
       // items.json merged into resources.json
       ["lexicon.json", "lexicon"],
@@ -171,6 +171,28 @@ export class Engine {
           totalRuns: run.totalRuns || (run.runsLeft === -1 ? -1 : (run.runsLeft || 0) + 1),
           completedAt: run.completedAt || null,
         }));
+      }
+
+      // Migrate legacy run fields: activityId/optionId -> scenarioId/variantId
+      if (this.state.runs) {
+        this.state.runs = this.state.runs.map(run => {
+          const migrated = { ...run };
+          if (run.activityId && !run.scenarioId) {
+            migrated.scenarioId = run.activityId;
+            delete migrated.activityId;
+          }
+          if (run.optionId && !run.variantId) {
+            migrated.variantId = run.optionId;
+            delete migrated.optionId;
+          }
+          return migrated;
+        });
+      }
+
+      // Migrate legacy reveal key: activities -> scenarios
+      if (this.state.reveals?.activities && !this.state.reveals?.scenarios) {
+        this.state.reveals.scenarios = this.state.reveals.activities;
+        delete this.state.reveals.activities;
       }
 
       // Process any runs that should have completed while offline
@@ -585,42 +607,42 @@ export class Engine {
     }
   }
 
-  startRun(activityId, optionId, assignedStaffIds, runsLeft = 0, replaceIndex = -1) {
+  startRun(scenarioId, variantId, assignedStaffIds, runsLeft = 0, replaceIndex = -1) {
     this.state.now = Date.now();
-    const activity = this.data.activities.find((a) => a.id === activityId);
-    if (!activity) return { ok: false, reason: "Activity not found" };
+    const scenario = this.data.scenarios.find((scn) => scn.id === scenarioId);
+    if (!scenario) return { ok: false, reason: "Scenario not found" };
 
-    const option = activity.options.find((o) => o.id === optionId);
-    if (!option) return { ok: false, reason: "Option not found" };
+    const variant = scenario.variants.find((v) => v.id === variantId);
+    if (!variant) return { ok: false, reason: "Variant not found" };
 
-    if (!this.isActivityVisible(activity)) {
-      return { ok: false, reason: "Activity hidden" };
+    if (!this.isScenarioVisible(scenario)) {
+      return { ok: false, reason: "Scenario hidden" };
     }
 
-    if (!this.isOptionUnlocked(option)) {
-      return { ok: false, reason: "Option locked" };
+    if (!this.isVariantUnlocked(variant)) {
+      return { ok: false, reason: "Variant locked" };
     }
 
-    const staffIds = assignedStaffIds || this.autoAssign(option.requirements);
+    const staffIds = assignedStaffIds || this.autoAssign(variant.requirements);
     if (!staffIds || staffIds.length === 0) {
       return { ok: false, reason: "No crew available" };
     }
 
-    const reqCheck = this.checkRequirements(option.requirements, staffIds);
+    const reqCheck = this.checkRequirements(variant.requirements, staffIds);
     if (!reqCheck.ok) return reqCheck;
 
-    const inputCheck = this.checkInputs(option.inputs);
+    const inputCheck = this.checkInputs(variant.inputs);
     if (!inputCheck.ok) return inputCheck;
 
-    this.consumeInputs(option.inputs);
+    this.consumeInputs(variant.inputs);
 
     const staff = staffIds
       .map((id) => this.state.crew.staff.find((s) => s.id === id))
       .filter(Boolean);
     staff.forEach((s) => (s.status = "busy"));
 
-    const plannedOutcomeId = this.planOutcome(option, staff);
-    const duration = option.durationMs || 5000;
+    const plannedOutcomeId = this.planOutcome(variant, staff);
+    const duration = variant.durationMs || 5000;
 
     // Calculate totalRuns based on runsLeft
     let totalRuns;
@@ -634,8 +656,8 @@ export class Engine {
 
     const run = {
       runId: `r_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      activityId,
-      optionId,
+      scenarioId,
+      variantId,
       startedAt: this.state.now,
       endsAt: this.state.now + duration,
       assignedStaffIds: staffIds,
@@ -661,14 +683,14 @@ export class Engine {
     } else {
       this.state.runs.push(run);
     }
-    this.log(`Started: ${activity.name} / ${option.name}`, "info");
+    this.log(`Started: ${scenario.name} / ${variant.name}`, "info");
     this.saveState();  // Save state after starting run
     return { ok: true, run };
   }
 
-  planOutcome(option, staff) {
-    if (!option.resolution || option.resolution.type !== "weighted_outcomes") return null;
-    const outcomes = this.applyModifiers(option, staff);
+  planOutcome(variant, staff) {
+    if (!variant.resolution || variant.resolution.type !== "weighted_outcomes") return null;
+    const outcomes = this.applyModifiers(variant, staff);
     const total = outcomes.reduce((sum, o) => sum + Math.max(0, o.weight), 0);
     const roll = Math.random() * total;
     let acc = 0;
@@ -680,9 +702,9 @@ export class Engine {
   }
 
   completeRun(run, originalIndex = -1) {
-    const activity = this.data.activities.find((a) => a.id === run.activityId);
-    const option = activity?.options.find((o) => o.id === run.optionId);
-    if (!activity || !option) return;
+    const scenario = this.data.scenarios.find((scn) => scn.id === run.scenarioId);
+    const variant = scenario?.variants.find((v) => v.id === run.variantId);
+    if (!scenario || !variant) return;
 
     const staff = run.assignedStaffIds
       .map((id) => this.state.crew.staff.find((s) => s.id === id))
@@ -690,9 +712,9 @@ export class Engine {
     staff.forEach((s) => (s.status = "available"));
 
     // Resolve outcome and capture the result
-    const outcomeResult = this.resolveOutcome(option, run, staff);
+    const outcomeResult = this.resolveOutcome(variant, run, staff);
     if (!run.snapshot?.botched) {
-      this.log(`Completed: ${activity.name} / ${option.name}`, "success");
+      this.log(`Completed: ${scenario.name} / ${variant.name}`, "success");
     }
 
     // Record this sub-run's result
@@ -711,8 +733,8 @@ export class Engine {
 
       // Try to continue with same staff, updating the existing run in-place
       const result = this.startRun(
-        run.activityId,
-        run.optionId,
+        run.scenarioId,
+        run.variantId,
         run.assignedStaffIds,
         nextRunsLeft,
         originalIndex  // Update at same position
@@ -819,46 +841,46 @@ export class Engine {
     return { ok: true, removed };
   }
 
-  canStartRun(activityId, optionId) {
+  canStartRun(scenarioId, variantId) {
     // Validate WITHOUT mutating state
-    const activity = this.data.activities.find((a) => a.id === activityId);
-    if (!activity) return { ok: false, reason: 'Activity not found' };
+    const scenario = this.data.scenarios.find((scn) => scn.id === scenarioId);
+    if (!scenario) return { ok: false, reason: 'Scenario not found' };
 
-    const option = activity.options.find((o) => o.id === optionId);
-    if (!option) return { ok: false, reason: 'Option not found' };
+    const variant = scenario.variants.find((v) => v.id === variantId);
+    if (!variant) return { ok: false, reason: 'Variant not found' };
 
-    if (!this.isActivityVisible(activity)) {
-      return { ok: false, reason: 'Activity hidden' };
+    if (!this.isScenarioVisible(scenario)) {
+      return { ok: false, reason: 'Scenario hidden' };
     }
 
-    if (!this.isOptionUnlocked(option)) {
-      return { ok: false, reason: 'Option locked' };
+    if (!this.isVariantUnlocked(variant)) {
+      return { ok: false, reason: 'Variant locked' };
     }
 
     // Check if we can auto-assign staff
-    const staffIds = this.autoAssign(option.requirements);
+    const staffIds = this.autoAssign(variant.requirements);
     if (!staffIds || staffIds.length === 0) {
       return { ok: false, reason: 'No crew available' };
     }
 
-    const reqCheck = this.checkRequirements(option.requirements, staffIds);
+    const reqCheck = this.checkRequirements(variant.requirements, staffIds);
     if (!reqCheck.ok) return reqCheck;
 
-    const inputCheck = this.checkInputs(option.inputs);
+    const inputCheck = this.checkInputs(variant.inputs);
     if (!inputCheck.ok) return inputCheck;
 
     return { ok: true };
   }
 
-  resolveOutcome(option, run, staff) {
-    const resolution = option.resolution;
+  resolveOutcome(variant, run, staff) {
+    const resolution = variant.resolution;
     if (!resolution) return { wasSuccess: true, resourcesGained: {}, botched: false };
 
     // Snapshot resources before resolution to calculate gains
     const beforeResources = { ...this.state.resources };
 
     // Base XP reward for completing a job (scaled by difficulty/duration)
-    const baseXp = option.xpRewards?.onComplete || 10;
+    const baseXp = variant.xpRewards?.onComplete || 10;
     let wasSuccessful = true;
     let botched = false;
 
@@ -877,14 +899,14 @@ export class Engine {
       if (outcome.jail) {
         wasSuccessful = false;
         botched = true;
-        const activity = this.data.activities.find((a) => a.id === run.activityId);
-        const activityName = activity?.name || "Unknown";
-        const optionName = option?.name || "Unknown";
+        const scenario = this.data.scenarios.find((scn) => scn.id === run.scenarioId);
+        const scenarioName = scenario?.name || "Unknown";
+        const variantName = variant?.name || "Unknown";
         const durationMs = outcome.jail.durationMs || 0;
         const durationText = this.formatDuration(durationMs);
         run.runsLeft = 0;
         run.snapshot.botched = true;
-        this.log(`Botched: ${activityName} / ${optionName}`, "warning");
+        this.log(`Botched: ${scenarioName} / ${variantName}`, "warning");
         staff.forEach((s) => {
           s.status = "unavailable";
           s.unavailableUntil = this.state.now + durationMs;
@@ -918,9 +940,9 @@ export class Engine {
     return { wasSuccess: wasSuccessful, resourcesGained, botched };
   }
 
-  applyModifiers(option, staff) {
-    const outcomes = JSON.parse(JSON.stringify(option.resolution.outcomes || []));
-    (option.modifiers || []).forEach((mod) => {
+  applyModifiers(variant, staff) {
+    const outcomes = JSON.parse(JSON.stringify(variant.resolution.outcomes || []));
+    (variant.modifiers || []).forEach((mod) => {
       if (mod.type === "staffStars") {
         const target = staff.find((s) => s.roleId === mod.roleId);
         if (!target) return;
@@ -995,11 +1017,11 @@ export class Engine {
     if (!effects) return;
     effects.forEach((effect) => {
       if (effect.type === "revealBranch") this.state.reveals.branches[effect.branchId] = true;
-      if (effect.type === "revealActivity") this.state.reveals.activities[effect.activityId] = true;
+      if (effect.type === "revealScenario") this.state.reveals.scenarios[effect.scenarioId] = true;
       if (effect.type === "revealResource") this.state.reveals.resources[effect.resourceId] = true;
       if (effect.type === "revealRole") this.state.reveals.roles[effect.roleId] = true;
       if (effect.type === "revealTab") this.state.reveals.tabs[effect.tabId] = true;
-      if (effect.type === "unlockActivity") this.state.reveals.activities[effect.activityId] = true;
+      if (effect.type === "unlockScenario") this.state.reveals.scenarios[effect.scenarioId] = true;
       if (effect.type === "setFlag") this.state.flags[effect.key] = effect.value;
       if (effect.type === "incFlagCounter") this.state.flags[effect.key] = (this.state.flags[effect.key] || 0) + 1;
       if (effect.type === "logMessage") this.log(effect.text, effect.kind || "info");
@@ -1077,10 +1099,10 @@ export class Engine {
     });
   }
 
-  isActivityVisible(activity) {
+  isScenarioVisible(scenario) {
     if (this.state.debugMode) return true;
-    const revealed = this.state.reveals.activities[activity.id];
-    const conds = activity.visibleIf || [];
+    const revealed = this.state.reveals.scenarios[scenario.id];
+    const conds = scenario.visibleIf || [];
 
     // If already revealed, always visible
     if (revealed) return true;
@@ -1092,15 +1114,15 @@ export class Engine {
     return this.checkConditions(conds);
   }
 
-  isActivityUnlocked(activity) {
+  isScenarioUnlocked(scenario) {
     if (this.state.debugMode) return true;
-    const conds = activity.unlockIf || [];
+    const conds = scenario.unlockIf || [];
     return conds.length === 0 || this.checkConditions(conds);
   }
 
-  isOptionUnlocked(option) {
+  isVariantUnlocked(variant) {
     if (this.state.debugMode) return true;
-    const conds = option.unlockIf || [];
+    const conds = variant.unlockIf || [];
     return conds.length === 0 || this.checkConditions(conds);
   }
 
@@ -1113,7 +1135,7 @@ export class Engine {
     if (cond.type === "flagIs") return this.state.flags[cond.key] === cond.value;
     if (cond.type === "resourceGte") return (this.state.resources[cond.resourceId] || 0) >= cond.value;
     if (cond.type === "roleRevealed") return !!this.state.reveals.roles[cond.roleId];
-    if (cond.type === "activityRevealed") return !!this.state.reveals.activities[cond.activityId];
+    if (cond.type === "scenarioRevealed") return !!this.state.reveals.scenarios[cond.scenarioId];
     if (cond.type === "allOf") return cond.conds.every((c) => this.evalCondition(c));
     if (cond.type === "anyOf") return cond.conds.some((c) => this.evalCondition(c));
     if (cond.type === "not") return !this.evalCondition(cond.cond);
@@ -1204,9 +1226,9 @@ export class Engine {
 
     // For non-redemption choices, track the unchosen perk(s)
     if (!pending.isRedemption) {
-      pending.options.forEach(opt => {
-        if (opt !== perkId) {
-          staff.unchosen.push(opt);
+      pending.options.forEach(optionPerkId => {
+        if (optionPerkId !== perkId) {
+          staff.unchosen.push(optionPerkId);
         }
       });
     } else {
