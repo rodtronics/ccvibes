@@ -319,6 +319,8 @@ export function getModal(modalId) {
   };
 
   const style = typeStyles[modal.type] || typeStyles.default;
+  const defaultLayout = modalId === 'intro' ? 'fullscreen' : 'centered';
+  const defaultOverlay = modalId === 'intro' ? 'blackout' : 'dim50';
 
   // Allow modal JSON to override style properties
   const borderStyleKey = modal.borderStyle || style.borderStyle;
@@ -326,6 +328,10 @@ export function getModal(modalId) {
   const backgroundColorKey = modal.backgroundColor || style.backgroundColor;
   const titleColorKey = modal.titleColor || style.titleColor;
   const bodyColorKey = modal.bodyColor || style.bodyColor;
+  const layout = modal.layout === 'fullscreen' ? 'fullscreen' : (modal.layout === 'centered' ? 'centered' : defaultLayout);
+  const overlay = modal.overlay === 'blackout' ? 'blackout' : (modal.overlay === 'dim50' ? 'dim50' : defaultOverlay);
+  const parsedWidth = Number.parseInt(modal.contentWidth, 10);
+  const contentWidth = Number.isFinite(parsedWidth) ? parsedWidth : 76;
 
   return {
     id: modalId,
@@ -339,6 +345,9 @@ export function getModal(modalId) {
     backgroundColor: Palette[backgroundColorKey] || Palette.BLACK,
     titleColor: Palette[titleColorKey] || Palette.NEON_CYAN,
     bodyColor: Palette[bodyColorKey] || Palette.LIGHT_GRAY,
+    layout,
+    overlay,
+    contentWidth,
   };
 }
 

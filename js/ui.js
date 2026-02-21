@@ -46,7 +46,6 @@ export class UI {
     this.renderTabBar();
 
     if (this.ui.tab === "jobs") this.renderJobsTab();
-    if (this.ui.tab === "active") this.renderActiveTab();
     if (this.ui.tab === "crew") this.renderCrewTab();
     if (this.ui.tab === "resources") this.renderResourcesTab();
     if (this.ui.tab === "stats") this.renderStatsTab();
@@ -58,7 +57,12 @@ export class UI {
       this.renderCrimeDetail();
     }
 
-    // Layer 4: Modal overlay (if active, highest priority)
+    // Layer 4: Run detail modal overlay
+    if (this.ui.runDetailModal && this.ui.runDetailModal.active) {
+      this.renderRunDetailModal();
+    }
+
+    // Layer 5: Modal overlay (if active, highest priority)
     if (this.ui.modal && this.ui.modal.active) {
       this.renderModal();
     }
@@ -112,7 +116,11 @@ export class UI {
     // Render left-aligned tabs
     let x = 2;
     leftTabs.forEach((tab) => {
-      const active = tab.id === this.ui.tab;
+      // JOBS and ACTIVE both show the unified view; highlight based on panel focus
+      let active;
+      if (tab.id === 'jobs') active = this.ui.tab === 'jobs' && this.ui.panelFocus === 'left';
+      else if (tab.id === 'active') active = this.ui.tab === 'jobs' && this.ui.panelFocus === 'right';
+      else active = tab.id === this.ui.tab;
       const width = this.renderTab(x, y, tab.label, tab.hotkey, active, Palette.NEON_CYAN, Palette.BLACK, Palette.DIM_GRAY);
       x += width + 3; // Add spacing between tabs
     });
@@ -143,466 +151,304 @@ export class UI {
     const branchFocused = this.ui.focus === "branch";
     this.renderBranchSelectionBar(branches, this.ui.branchIndex, branchFocused);
 
-    // Determine layout based on focus
-    const showingVariants = (this.ui.focus === "variant" || this.ui.focus === "runs") && scenario;
+    // Layout constants
+    const listTop = 6; // row 5 is the panel top border
+    const leftWidth = 62; // x=2 to x=63
+    const rightX = 67;
+    const rightWidth = 64; // x=67 to x=130
 
-    // Focus border colors: highlight the focused section's borders
-    const focus = this.ui.focus;
-    const runsListOnLeft = showingVariants && focus === "runs";
-    const leftFocused = focus === "scenario" || focus === "variant" || runsListOnLeft;
-    const rightFocused = focus === "runs" && !runsListOnLeft;
-    const leftBorderColor = leftFocused ? Palette.PANEL_SELECTED : Palette.DIM_GRAY;
+    const showingVariants = this.ui.focus === "variant" && scenario;
+    const leftActive = this.ui.panelFocus === "left";
+    const rightActive = this.ui.panelFocus === "right";
 
-    // Content area borders (start below branch bar at row 5)
-    // Left edge (from row 5 down)
-    this.buffer.drawVLine(0, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, leftBorderColor, Palette.BLACK);
-    // Bottom-left corner and left portion of bottom border
-    this.buffer.setCell(0, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomLeft, leftBorderColor, Palette.BLACK);
-    this.buffer.drawHLine(1, Layout.HEIGHT - 1, 64, BoxStyles.SINGLE.horizontal, leftBorderColor, Palette.BLACK);
-
-    if (rightFocused) {
-      // DOUBLE border box around the entire right panel
-      this.buffer.drawBox(65, 4, 67, Layout.HEIGHT - 4, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
-    } else {
-      // Subtle right-side borders when not focused
-      this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.drawHLine(66, Layout.HEIGHT - 1, 65, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomRight, Palette.DIM_GRAY, Palette.BLACK);
+    // Background color (branches can tint the background)
+    const bgColor = showingVariants && branch?.ui?.bgColor ? Palette[branch.ui.bgColor] : Palette.BLACK;
+    if (bgColor !== Palette.BLACK) {
+      this.buffer.fillRect(0, 5, Layout.WIDTH, Layout.HEIGHT - 5, " ", Palette.LIGHT_GRAY, bgColor);
+      this.renderBranchSelectionBar(branches, this.ui.branchIndex, false);
     }
 
-    if (!showingVariants) {
-      // SCENARIO LIST VIEW (50/50 split: left=scenarios/run detail, right=active runs for branch)
-      const listTop = 5;
-      const leftWidth = 62; // x=2 to x=64
-      const dividerX = 65;
-      const rightX = 67;
-      const rightWidth = 64; // x=67 to x=130
+    // Individual panel boxes
+    const leftBorderColor = leftActive ? Palette.PANEL_SELECTED : Palette.DIM_GRAY;
+    const rightBorderColor = rightActive ? Palette.PANEL_SELECTED : Palette.DIM_GRAY;
+    this.buffer.drawBox(0,  5, 65, Layout.HEIGHT - 5, BoxStyles.SINGLE, leftBorderColor,  bgColor);
+    this.buffer.drawBox(66, 5, 66, Layout.HEIGHT - 5, BoxStyles.SINGLE, rightBorderColor, bgColor);
 
-      // Get runs for this branch (needed for both left and right panels)
-      const branchRuns = this.engine.state.runs.filter((r) => {
-        const s = this.engine.data.scenarios.find((scn) => scn.id === r.scenarioId);
-        return s && s.branchId === branch?.id;
+    // Panel labels in top border row
+    const leftLabel = " JOBS ";
+    const leftLabelX = Math.floor((65 - leftLabel.length) / 2);
+    this.buffer.writeText(leftLabelX, 5, leftLabel, leftActive ? Palette.NEON_CYAN : Palette.DIM_GRAY, bgColor);
+    const rightLabel = " ACTIVE RUNS ";
+    const rightLabelX = 66 + Math.floor((66 - rightLabel.length) / 2);
+    this.buffer.writeText(rightLabelX, 5, rightLabel, rightActive ? Palette.NEON_CYAN : Palette.DIM_GRAY, bgColor);
+
+    // ── LEFT PANEL: Jobs browser ──
+    if (branchFocused) {
+      // BRANCH INFO MODE
+      if (branch) {
+        const branchColor = branch.ui?.color ? Palette[branch.ui.color] : Palette.NEON_CYAN;
+        this.buffer.writeText(2, listTop, branch.name.toUpperCase(), branchColor, bgColor);
+
+        const descLines = this.wrapText(branch.description || "", leftWidth - 2);
+        descLines.slice(0, 4).forEach((line, idx) => {
+          this.buffer.writeText(2, listTop + 2 + idx, line, Palette.LIGHT_GRAY, bgColor);
+        });
+
+        const statsY = listTop + 8;
+        this.buffer.drawHLine(2, statsY, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bgColor);
+        this.buffer.writeText(2, statsY + 1, "BRANCH STATISTICS", Palette.NEON_TEAL, bgColor);
+
+        const branchStats = this.getBranchStats(branch.id);
+        this.buffer.writeText(2, statsY + 3, `Jobs completed:`, Palette.MID_GRAY, bgColor);
+        this.buffer.writeText(20, statsY + 3, `${branchStats.completed}`, Palette.SUCCESS_GREEN, bgColor);
+        this.buffer.writeText(2, statsY + 4, `Jobs in progress:`, Palette.MID_GRAY, bgColor);
+        this.buffer.writeText(20, statsY + 4, `${branchStats.active}`, Palette.BRIGHT_YELLOW, bgColor);
+        this.buffer.writeText(2, statsY + 5, `Total earned:`, Palette.MID_GRAY, bgColor);
+        this.buffer.writeText(20, statsY + 5, `$${this.fmtNum(branchStats.earned)}`, Palette.SUCCESS_GREEN, bgColor);
+        if (branchStats.failed > 0) {
+          this.buffer.writeText(2, statsY + 6, `Jobs failed:`, Palette.MID_GRAY, bgColor);
+          this.buffer.writeText(20, statsY + 6, `${branchStats.failed}`, Palette.HEAT_RED, bgColor);
+        }
+
+        this.buffer.writeText(2, Layout.HEIGHT - 2, "[LEFT/RIGHT] Switch branch  [DOWN] Jobs", Palette.SUCCESS_GREEN, bgColor);
+      }
+    } else if (showingVariants) {
+      // VARIANTS VIEW
+      const breadcrumb = `SCENARIOS > ${scenario.name}`.toUpperCase();
+      this.buffer.writeText(2, listTop, breadcrumb.substring(0, leftWidth), Palette.NEON_CYAN, bgColor);
+      this.buffer.drawHLine(2, listTop + 1, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bgColor);
+
+      const scrollTop = listTop + 2;
+      const footerTop = Layout.HEIGHT - 6;
+      const scrollRows = footerTop - scrollTop;
+      const buttonsStr = "[Q]uick [D]etails";
+      const buttonsWidth = buttonsStr.length;
+
+      const variantHeights = variants.map((variant, i) => {
+        const validation = this.engine.canStartRun(scenario.id, variant.id);
+        return validation.ok ? 1 : 2;
       });
 
-      // Sort runs: active first, then completed
-      const sortedRuns = branchRuns.slice().sort(sortRunsActiveFirst);
+      if (this.ui.variantScroll === undefined) this.ui.variantScroll = 0;
+      const selectedIdx = this.ui.variantIndex;
 
-      // Get selected run (if any)
-      const selectedRunIndex = this.ui.selectedRun ?? 0;
-      const selectedRun = sortedRuns[selectedRunIndex];
-
-      if (rightFocused) {
-        // RUNS FOCUSED: Show run detail in left panel
-        const panelHeight = Layout.HEIGHT - listTop - 1;
-        this.renderRunDetailPanel(selectedRun?.runId, 2, listTop, leftWidth, panelHeight, Palette.BLACK);
-      } else if (branchFocused) {
-        // BRANCH SELECTION MODE: Show branch info instead of scenario list
-        if (branch) {
-          const branchColor = branch.ui?.color ? Palette[branch.ui.color] : Palette.NEON_CYAN;
-
-          // Branch title
-          this.buffer.writeText(2, listTop, branch.name.toUpperCase(), branchColor, Palette.BLACK);
-
-          // Branch description
-          const descLines = this.wrapText(branch.description || "", leftWidth - 2);
-          descLines.slice(0, 4).forEach((line, idx) => {
-            this.buffer.writeText(2, listTop + 2 + idx, line, Palette.LIGHT_GRAY, Palette.BLACK);
-          });
-
-          // Branch stats separator
-          const statsY = listTop + 8;
-          this.buffer.drawHLine(2, statsY, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
-          this.buffer.writeText(2, statsY + 1, "BRANCH STATISTICS", Palette.NEON_TEAL, Palette.BLACK);
-
-          // Calculate stats for this branch
-          const branchStats = this.getBranchStats(branch.id);
-
-          this.buffer.writeText(2, statsY + 3, `Jobs completed:`, Palette.MID_GRAY, Palette.BLACK);
-          this.buffer.writeText(20, statsY + 3, `${branchStats.completed}`, Palette.SUCCESS_GREEN, Palette.BLACK);
-
-          this.buffer.writeText(2, statsY + 4, `Jobs in progress:`, Palette.MID_GRAY, Palette.BLACK);
-          this.buffer.writeText(20, statsY + 4, `${branchStats.active}`, Palette.BRIGHT_YELLOW, Palette.BLACK);
-
-          this.buffer.writeText(2, statsY + 5, `Total earned:`, Palette.MID_GRAY, Palette.BLACK);
-          this.buffer.writeText(20, statsY + 5, `$${this.fmtNum(branchStats.earned)}`, Palette.SUCCESS_GREEN, Palette.BLACK);
-
-          if (branchStats.failed > 0) {
-            this.buffer.writeText(2, statsY + 6, `Jobs failed:`, Palette.MID_GRAY, Palette.BLACK);
-            this.buffer.writeText(20, statsY + 6, `${branchStats.failed}`, Palette.HEAT_RED, Palette.BLACK);
-          }
-
-          // Help text
-          this.buffer.writeText(2, Layout.HEIGHT - 2, "[LEFT/RIGHT] Switch branch  [DOWN] Jobs", Palette.SUCCESS_GREEN, Palette.BLACK);
-        }
-      } else {
-        // SCENARIO SELECTION MODE: Show scenario list
-        const listTitle = branch ? branch.name.toUpperCase() + " JOBS" : "JOBS";
-        const scenarioFocused = this.ui.focus === "scenario";
-        const titleColor = scenarioFocused ? Palette.WHITE : Palette.NEON_CYAN;
-        this.buffer.writeText(2, listTop, listTitle, titleColor, Palette.BLACK);
-
-        // Show numbered list of scenarios
-        scenarios.slice(0, 9).forEach((s, i) => {
-          const row = listTop + 2 + i;
-          const number = i + 1;
-          const selected = this.ui.scenarioIndex === i;
-          const fg = selected ? (scenarioFocused ? Palette.WHITE : Palette.NEON_CYAN) : Palette.NEON_TEAL;
-          const prefix = selected ? ">" : " ";
-
-          this.buffer.writeText(2, row, `${prefix}${number}.`, fg, Palette.BLACK);
-          const nameMax = leftWidth - 6; // Space for prefix + number
-          const truncatedName = s.name.substring(0, nameMax);
-          this.buffer.writeText(6, row, truncatedName, fg, Palette.BLACK);
-        });
-
-        // Show description of selected scenario (left half only)
-        if (scenario) {
-          const descY = listTop + 13;
-          this.buffer.drawHLine(2, descY, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
-          this.buffer.writeText(2, descY + 1, scenario.name.toUpperCase(), Palette.NEON_CYAN, Palette.BLACK);
-
-          const descLines = this.wrapText(scenario.description || "", leftWidth - 2);
-          descLines.slice(0, 3).forEach((line, idx) => {
-            this.buffer.writeText(2, descY + 2 + idx, line, Palette.MID_GRAY, Palette.BLACK);
-          });
-
-          this.buffer.writeText(2, Layout.HEIGHT - 2, "[ENTER/RIGHT] Variants", Palette.SUCCESS_GREEN, Palette.BLACK);
-        }
+      let rowsBefore = 0;
+      for (let i = 0; i < selectedIdx && i < variants.length; i++) {
+        rowsBefore += variantHeights[i];
       }
+      const selectedHeight = variantHeights[selectedIdx] || 1;
 
-      // Vertical divider (skip when rightFocused - DOUBLE box handles it)
-      if (!rightFocused && !runsListOnLeft) {
-        const dividerColor = leftFocused ? leftBorderColor : Palette.DIM_GRAY;
-        this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, BoxStyles.SINGLE.vertical, dividerColor, Palette.BLACK);
-        this.buffer.setCell(dividerX, Layout.HEIGHT - 1, BoxStyles.SINGLE.teeUp, dividerColor, Palette.BLACK);
+      if (rowsBefore < this.ui.variantScroll) {
+        this.ui.variantScroll = rowsBefore;
       }
-
-      // RIGHT HALF: Active runs for this branch
-      const branchContext = branch?.name || "?";
-      this.renderActiveRunsPanel(branchRuns, rightX, listTop, rightWidth, Palette.BLACK, branchContext);
-    } else {
-      // VARIANTS VIEW (50/50 split: left=variants/run detail, right=active runs for scenario)
-      const optionsTop = 5;
-      const leftWidth = 62; // x=2 to x=64
-      const dividerX = 65;
-      const rightX = 67;
-      const rightWidth = 64; // x=67 to x=130
-
-      // Apply branch background color if specified
-      const branchBgColor = branch?.ui?.bgColor ? Palette[branch.ui.bgColor] : Palette.BLACK;
-      this.buffer.fillRect(0, 5, Layout.WIDTH, Layout.HEIGHT - 5, " ", Palette.LIGHT_GRAY, branchBgColor);
-
-      // Redraw branch selection bar over the background (preserves visual)
-      this.renderBranchSelectionBar(branches, this.ui.branchIndex, false);
-
-      // Redraw panel borders after branch fill
-      this.buffer.drawVLine(0, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, leftBorderColor, branchBgColor);
-      this.buffer.setCell(0, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomLeft, leftBorderColor, branchBgColor);
-      this.buffer.drawHLine(1, Layout.HEIGHT - 1, 64, BoxStyles.SINGLE.horizontal, leftBorderColor, branchBgColor);
-
-      if (runsListOnLeft) {
-        this.buffer.drawBox(0, 4, 66, Layout.HEIGHT - 4, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, branchBgColor);
-      } else if (rightFocused) {
-        this.buffer.drawBox(65, 4, 67, Layout.HEIGHT - 4, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, branchBgColor);
-      } else {
-        this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, branchBgColor);
-        this.buffer.drawHLine(66, Layout.HEIGHT - 1, 65, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, branchBgColor);
-        this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomRight, Palette.DIM_GRAY, branchBgColor);
+      if (rowsBefore + selectedHeight > this.ui.variantScroll + scrollRows) {
+        this.ui.variantScroll = rowsBefore + selectedHeight - scrollRows;
       }
+      this.ui.variantScroll = Math.max(0, this.ui.variantScroll);
 
-      // Vertical divider (skip when rightFocused - DOUBLE box handles it)
-      if (!rightFocused && !runsListOnLeft) {
-        const dividerColor = leftFocused ? leftBorderColor : Palette.DIM_GRAY;
-        this.buffer.drawVLine(dividerX, optionsTop, Layout.HEIGHT - 2, BoxStyles.SINGLE.vertical, dividerColor, branchBgColor);
-        this.buffer.setCell(dividerX, Layout.HEIGHT - 1, BoxStyles.SINGLE.teeUp, dividerColor, branchBgColor);
-      }
+      let currentRow = 0;
+      for (let i = 0; i < variants.length; i++) {
+        const variant = variants[i];
+        const h = variantHeights[i];
 
-      // Get runs for this scenario (needed for both panels)
-      const scenarioRuns = this.engine.state.runs.filter((r) => r.scenarioId === scenario.id);
-      const scenarioContext = `${branch?.name || "?"} > ${scenario?.name || "?"}`;
-
-      if (runsListOnLeft) {
-        this.renderRunBrowser(scenarioRuns, {
-          listX: 2,
-          listY: optionsTop,
-          listWidth: leftWidth,
-          detailX: rightX,
-          detailY: optionsTop,
-          detailWidth: rightWidth,
-          bgColor: branchBgColor,
-          contextPath: scenarioContext,
-          detailHeader: "RUN DETAILS",
-          detailHint: "[LEFT] BACK TO VARIANTS",
-        });
-      } else {
-        // LEFT HALF: Streamlined variants view
-        // Zone 1: Header (rows 5-6)
-        const breadcrumb = `SCENARIOS > ${scenario.name}`.toUpperCase();
-        this.buffer.writeText(2, optionsTop, breadcrumb.substring(0, leftWidth), Palette.NEON_CYAN, branchBgColor);
-        this.buffer.drawHLine(2, optionsTop + 1, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, branchBgColor);
-
-        // Zone 2: Scrollable variants (rows 7-18, 12 rows available)
-        const scrollTop = optionsTop + 2;
-        const footerTop = Layout.HEIGHT - 6;
-        const scrollRows = footerTop - scrollTop;
-        const buttonsStr = "[Q]uick [D]etails";
-        const buttonsWidth = buttonsStr.length;
-
-        // Pre-calculate variant heights and total
-        const variantHeights = variants.map((variant, i) => {
-          const validation = this.engine.canStartRun(scenario.id, variant.id);
-          return validation.ok ? 1 : 2;
-        });
-
-        // Auto-scroll to keep selected variant visible
-        if (this.ui.variantScroll === undefined) this.ui.variantScroll = 0;
-        const selectedIdx = this.ui.variantIndex;
-
-        // Calculate row position of selected variant
-        let rowsBefore = 0;
-        for (let i = 0; i < selectedIdx && i < variants.length; i++) {
-          rowsBefore += variantHeights[i];
-        }
-        const selectedHeight = variantHeights[selectedIdx] || 1;
-
-        // Adjust scroll so selected variant is visible
-        if (rowsBefore < this.ui.variantScroll) {
-          this.ui.variantScroll = rowsBefore;
-        }
-        if (rowsBefore + selectedHeight > this.ui.variantScroll + scrollRows) {
-          this.ui.variantScroll = rowsBefore + selectedHeight - scrollRows;
-        }
-        this.ui.variantScroll = Math.max(0, this.ui.variantScroll);
-
-        // Render visible variants
-        let currentRow = 0;
-        for (let i = 0; i < variants.length; i++) {
-          const variant = variants[i];
-          const h = variantHeights[i];
-
-          // Skip if entirely above scroll viewport
-          if (currentRow + h <= this.ui.variantScroll) {
-            currentRow += h;
-            continue;
-          }
-          // Stop if below scroll viewport
-          if (currentRow >= this.ui.variantScroll + scrollRows) break;
-
-          const drawY = scrollTop + (currentRow - this.ui.variantScroll);
-          if (drawY >= footerTop) break;
-
-          const selected = selectedIdx === i;
-          const validation = this.engine.canStartRun(scenario.id, variant.id);
-          const fg = selected ? (validation.ok ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE) : Palette.NEON_TEAL;
-
-          // Row 1: Number + name + buttons
-          const number = i + 1;
-          const nameMax = leftWidth - buttonsWidth - 5;
-          this.buffer.writeText(2, drawY, `${number}.`, fg, branchBgColor);
-          this.buffer.writeText(5, drawY, variant.name.substring(0, nameMax), fg, branchBgColor);
-
-          // Buttons (right-aligned)
-          if (selected) {
-            const qColor = validation.ok ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
-            this.buffer.writeText(2 + leftWidth - buttonsWidth, drawY, "[Q]", qColor, branchBgColor);
-            this.buffer.writeText(2 + leftWidth - buttonsWidth + 3, drawY, "uick ", Palette.DIM_GRAY, branchBgColor);
-            this.buffer.writeText(2 + leftWidth - buttonsWidth + 8, drawY, "[D]", Palette.NEON_CYAN, branchBgColor);
-            this.buffer.writeText(2 + leftWidth - buttonsWidth + 11, drawY, "etails", Palette.DIM_GRAY, branchBgColor);
-          }
-
-          // Row 2: Validation error (if unavailable)
-          if (!validation.ok && drawY + 1 < footerTop) {
-            this.buffer.writeText(5, drawY + 1, `! ${validation.reason}`.substring(0, leftWidth - 5), Palette.HEAT_ORANGE, branchBgColor);
-          }
-
+        if (currentRow + h <= this.ui.variantScroll) {
           currentRow += h;
+          continue;
+        }
+        if (currentRow >= this.ui.variantScroll + scrollRows) break;
+
+        const drawY = scrollTop + (currentRow - this.ui.variantScroll);
+        if (drawY >= footerTop) break;
+
+        const selected = selectedIdx === i && leftActive;
+        const validation = this.engine.canStartRun(scenario.id, variant.id);
+        const fg = selected ? (validation.ok ? Palette.SUCCESS_GREEN : Palette.HEAT_ORANGE) : Palette.NEON_TEAL;
+
+        const number = i + 1;
+        const nameMax = leftWidth - buttonsWidth - 5;
+        this.buffer.writeText(2, drawY, `${number}.`, fg, bgColor);
+        this.buffer.writeText(5, drawY, variant.name.substring(0, nameMax), fg, bgColor);
+
+        if (selected) {
+          const qColor = validation.ok ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY;
+          this.buffer.writeText(2 + leftWidth - buttonsWidth, drawY, "[Q]", qColor, bgColor);
+          this.buffer.writeText(2 + leftWidth - buttonsWidth + 3, drawY, "uick ", Palette.DIM_GRAY, bgColor);
+          this.buffer.writeText(2 + leftWidth - buttonsWidth + 8, drawY, "[D]", Palette.NEON_CYAN, bgColor);
+          this.buffer.writeText(2 + leftWidth - buttonsWidth + 11, drawY, "etails", Palette.DIM_GRAY, bgColor);
         }
 
-        // Zone 3: Footer (selected variant description + controls)
-        this.buffer.drawHLine(2, footerTop, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, branchBgColor);
-
-        const selectedVariant = variants[selectedIdx];
-        if (selectedVariant) {
-          this.buffer.writeText(2, footerTop + 1, selectedVariant.name.toUpperCase(), Palette.NEON_CYAN, branchBgColor);
-
-          const desc = selectedVariant.description || "";
-          if (desc) {
-            const descLines = this.wrapText(desc, leftWidth - 2);
-            descLines.slice(0, 3).forEach((line, idx) => {
-              this.buffer.writeText(2, footerTop + 2 + idx, line, Palette.MID_GRAY, branchBgColor);
-            });
-          }
+        if (!validation.ok && drawY + 1 < footerTop) {
+          this.buffer.writeText(5, drawY + 1, `! ${validation.reason}`.substring(0, leftWidth - 5), Palette.HEAT_ORANGE, bgColor);
         }
 
-        this.buffer.writeText(2, Layout.HEIGHT - 2, "[RIGHT] Runs  [LEFT/ESC] Scenarios", Palette.SUCCESS_GREEN, branchBgColor);
+        currentRow += h;
       }
 
-      // RIGHT HALF: Active runs for this scenario
-      if (!runsListOnLeft) {
-        this.renderActiveRunsPanel(scenarioRuns, rightX, optionsTop, rightWidth, branchBgColor, scenarioContext);
+      this.buffer.drawHLine(2, footerTop, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bgColor);
+
+      const selectedVariant = variants[selectedIdx];
+      if (selectedVariant) {
+        this.buffer.writeText(2, footerTop + 1, selectedVariant.name.toUpperCase(), Palette.NEON_CYAN, bgColor);
+
+        const desc = selectedVariant.description || "";
+        if (desc) {
+          const descLines = this.wrapText(desc, leftWidth - 2);
+          descLines.slice(0, 3).forEach((line, idx) => {
+            this.buffer.writeText(2, footerTop + 2 + idx, line, Palette.MID_GRAY, bgColor);
+          });
+        }
       }
+
+      this.buffer.writeText(2, Layout.HEIGHT - 2, "[RIGHT] Runs  [LEFT/ESC] Scenarios", Palette.SUCCESS_GREEN, bgColor);
+    } else {
+      // SCENARIO LIST VIEW
+      const listTitle = branch ? branch.name.toUpperCase() + " JOBS" : "JOBS";
+      const scenarioFocused = this.ui.focus === "scenario" && leftActive;
+      const titleColor = scenarioFocused ? Palette.WHITE : Palette.NEON_CYAN;
+      this.buffer.writeText(2, listTop, listTitle, titleColor, bgColor);
+
+      scenarios.slice(0, 9).forEach((s, i) => {
+        const row = listTop + 2 + i;
+        const number = i + 1;
+        const selected = this.ui.scenarioIndex === i;
+        const fg = selected ? (scenarioFocused ? Palette.WHITE : Palette.NEON_CYAN) : Palette.NEON_TEAL;
+        const prefix = selected ? ">" : " ";
+
+        this.buffer.writeText(2, row, `${prefix}${number}.`, fg, bgColor);
+        const nameMax = leftWidth - 6;
+        this.buffer.writeText(6, row, s.name.substring(0, nameMax), fg, bgColor);
+      });
+
+      if (scenario) {
+        const descY = listTop + 13;
+        this.buffer.drawHLine(2, descY, leftWidth, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bgColor);
+        this.buffer.writeText(2, descY + 1, scenario.name.toUpperCase(), Palette.NEON_CYAN, bgColor);
+
+        const descLines = this.wrapText(scenario.description || "", leftWidth - 2);
+        descLines.slice(0, 3).forEach((line, idx) => {
+          this.buffer.writeText(2, descY + 2 + idx, line, Palette.MID_GRAY, bgColor);
+        });
+
+        this.buffer.writeText(2, Layout.HEIGHT - 2, "[ENTER/RIGHT] Variants", Palette.SUCCESS_GREEN, bgColor);
+      }
+    }
+
+    // ── RIGHT PANEL: Active runs (filtered or all) ──
+    const filteredRuns = this.getFilteredRuns();
+    const filterLabel = this.ui.runsFilterMode === 'all' ? 'ALL'
+      : (scenario && (this.ui.focus === 'variant' || this.ui.focus === 'scenario'))
+        ? `${branch?.name || "?"} > ${scenario?.name || "?"}`
+        : (branch?.name || "ALL");
+    this.renderActiveRunsPanel(filteredRuns, rightX, listTop, rightWidth, bgColor, filterLabel);
+
+    // Filter mode indicator on right panel footer
+    const filterHint = this.ui.runsFilterMode === 'all' ? '[F] SHOWING ALL' : '[F] MATCHING';
+    this.buffer.writeText(rightX, Layout.HEIGHT - 2, filterHint, Palette.DIM_GRAY, bgColor);
+    if (rightActive) {
+      this.buffer.writeText(rightX + filterHint.length + 2, Layout.HEIGHT - 2, "[ENTER] Detail", Palette.SUCCESS_GREEN, bgColor);
     }
   }
 
-  // Render compact 3-line run card for variants view right column
-  renderCompactRunCard(run, x, y, maxWidth, bgColor = Palette.BLACK, selected = false, indexLabel = "") {
-    const scenario = this.engine.data.scenarios.find((s) => s.id === run.scenarioId);
-    const variant = scenario?.variants.find((v) => v.id === run.variantId);
-
-    // Line 1: Variant name + repeat status
-    const label = indexLabel ? `${indexLabel} ` : "";
-    let suffix = "";
-    if (run.runsLeft === -1) {
-      suffix = " INF";
-    } else if (run.runsLeft > 0) {
-      suffix = ` +${run.runsLeft}`;
-    }
-    const nameMax = Math.max(0, maxWidth - label.length - suffix.length);
-    const trimmedName = (variant?.name || "?").substring(0, nameMax);
-    const line1 = `${label}${trimmedName}${suffix}`.substring(0, maxWidth);
-    this.buffer.writeText(x, y, line1, Palette.NEON_TEAL, bgColor);
-
-    // Line 2: Time remaining (compact)
-    const remaining = Math.max(0, run.endsAt - this.engine.state.now);
-    const timeText = this.formatMs(remaining);
-    this.buffer.writeText(x, y + 1, timeText, Palette.MID_GRAY, bgColor);
-
-    // Line 3: Smooth gradient progress bar + buttons
-    const barWidth = maxWidth - 8;
-    const pct = (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt);
-    // Gradient from yellow/green to cyan, with dim gray as the empty color
-    this.buffer.drawSmoothProgressBar(
-      x,
-      y + 2,
-      barWidth,
-      pct,
-      Palette.BRIGHT_YELLOW, // Start color (left side of gradient)
-      Palette.NEON_CYAN, // End color (right side of gradient)
-      Palette.DIM_GRAY, // Empty color (unfilled blocks)
-      bgColor,
-    );
-
-    // Stop buttons - only show when the run is selected
-    if (selected) {
-      this.buffer.writeText(x + barWidth + 1, y + 2, "[X]", Palette.HEAT_RED, bgColor);
-      if (run.runsLeft !== 0) {
-        this.buffer.writeText(x + barWidth + 4, y + 2, "[Z]", Palette.ELECTRIC_ORANGE, bgColor);
-      }
-    }
-  }
-
-  // Render ultra-compact 2-line run card for 50/50 split layout
+  // Render 2-line run card: bg-color bar with inline text on line 1, results on line 2
   renderCompactRunCard3Line(run, x, y, maxWidth, bgColor = Palette.BLACK, selected = false) {
     const scenario = this.engine.data.scenarios.find((s) => s.id === run.scenarioId);
     const variant = scenario?.variants.find((v) => v.id === run.variantId);
     const isCompleted = run.status === "completed";
+    const results = run.results || [];
 
-    // Line 1: Variant name (left) + time remaining or DONE (right-aligned)
-    let timeText;
-    if (isCompleted) {
-      timeText = "DONE";
-    } else {
-      const remaining = Math.max(0, run.endsAt - this.engine.state.now);
-      timeText = this.formatMs(remaining);
-    }
+    // Aggregate results for line 2
+    const successCount = results.filter((r) => r.wasSuccess).length;
+    const failCount = results.filter((r) => r.botched).length;
+    const totalCash = results.reduce((sum, r) => sum + (r.resourcesGained?.cash || 0), 0);
 
-    const nameWidth = maxWidth - timeText.length - 1;
-    const trimmedName = (variant?.name || "?").substring(0, nameWidth);
-
-    const nameFg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
-    const timeFg = isCompleted ? Palette.SUCCESS_GREEN : selected ? Palette.WHITE : Palette.MID_GRAY;
-    this.buffer.writeText(x, y, trimmedName, nameFg, bgColor);
-    this.buffer.writeText(x + maxWidth - timeText.length, y, timeText, timeFg, bgColor);
-
-    // Line 2: Progress bar + repeat indicator + staff initials
+    // Repeat suffix
     let suffix = "";
     if (isCompleted) {
-      // Show completed count for multi-runs
-      const results = run.results || [];
-      if (results.length > 1) {
-        suffix = ` x${results.length}`;
-      }
+      if (results.length > 1) suffix = ` x${results.length}`;
     } else {
-      if (run.runsLeft === -1) {
-        suffix = " INF";
-      } else if (run.runsLeft > 0) {
-        suffix = ` +${run.runsLeft}`;
-      }
+      if (run.runsLeft === -1) suffix = " INF";
+      else if (run.runsLeft > 0) suffix = ` +${run.runsLeft}`;
     }
 
-    // Get staff initials
-    const staffInitials = run.assignedStaffIds
-      .slice(0, 2) // Max 2 staff shown
-      .map((id) => {
-        const staff = this.engine.state.crew.staff.find((s) => s.id === id);
-        return staff ? staff.name[0].toUpperCase() : "?";
-      })
-      .join("");
-    const staffStr = staffInitials ? ` [${staffInitials}]` : "";
+    // Time string
+    const timeStr = isCompleted ? "DONE" : this.formatMs(Math.max(0, run.endsAt - this.engine.state.now));
 
-    const barWidth = maxWidth - suffix.length - staffStr.length - 1;
+    // Line 1 bar text: " NAME.........  TIME +N "
+    const rightPart = ` ${timeStr}${suffix} `;
+    const leftWidth = Math.max(2, maxWidth - rightPart.length);
+    const nameStr = ` ${(variant?.name || "?").substring(0, leftWidth - 1)}`;
+    const barText = nameStr.padEnd(leftWidth) + rightPart;
 
+    // Fill progress and colors
+    const pct = isCompleted
+      ? 1.0
+      : Math.min(1, Math.max(0, (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt)));
+    const fillBg = selected
+      ? (isCompleted ? Palette.RUN_DONE_SEL  : Palette.RUN_FILL_SEL)
+      : (isCompleted ? Palette.RUN_DONE      : Palette.RUN_FILL);
+    const emptyBg = selected ? Palette.RUN_EMPTY_SEL : Palette.RUN_EMPTY;
+    const textColor = selected ? Palette.WHITE : Palette.TEXT_SUBDUE;
+
+    // Line 1: background-color bar with all info inline
+    this.buffer.drawTextBar(x, y, maxWidth, pct, barText, textColor, fillBg, emptyBg);
+    if (selected) {
+      this.buffer.writeText(x, y, '>', Palette.HEAT_RED, pct > 0 ? fillBg : emptyBg);
+    }
     if (isCompleted) {
-      // Full bar for completed runs
-      this.buffer.drawSmoothProgressBar(x, y + 1, barWidth, 1.0, Palette.SUCCESS_GREEN, Palette.SUCCESS_GREEN, Palette.DIM_GRAY, bgColor);
+      this.buffer.writeText(x + leftWidth + 1, y, 'DONE', Palette.NEON_CYAN, fillBg);
+    }
+
+    // Staff names for line 2 right side — three-tier abbreviation if too long
+    const staffMembers = run.assignedStaffIds
+      .map((id) => this.engine.state.crew.staff.find((s) => s.id === id))
+      .filter(Boolean);
+    const maxStaffWidth = Math.floor(maxWidth * 0.45);
+    const fullNames = staffMembers.map((s) => s.name).join(", ");
+    let staffStr = "";
+    if (!staffMembers.length) {
+      staffStr = "";
+    } else if (fullNames.length <= maxStaffWidth) {
+      // Tier 1: full names
+      staffStr = fullNames;
     } else {
-      const pct = (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt);
-      this.buffer.drawSmoothProgressBar(x, y + 1, barWidth, pct, Palette.BRIGHT_YELLOW, Palette.NEON_CYAN, Palette.DIM_GRAY, bgColor);
+      // Tier 2: first initial + last name  e.g. "S. Marchetti, D. Roy"
+      const abbreviated = staffMembers.map((s) => {
+        const parts = s.name.trim().split(/\s+/);
+        return parts.length > 1 ? `${parts[0][0]}. ${parts.slice(1).join(" ")}` : s.name;
+      }).join(", ");
+      if (abbreviated.length <= maxStaffWidth) {
+        staffStr = abbreviated;
+      } else {
+        // Tier 3: two initials only  e.g. "SM, DR"
+        staffStr = staffMembers.map((s) => {
+          const parts = s.name.trim().split(/\s+/);
+          return parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : s.name[0];
+        }).join(", ");
+      }
     }
 
-    // Suffix (repeat count or completion count)
-    if (suffix) {
-      this.buffer.writeText(x + barWidth, y + 1, suffix, selected ? Palette.WHITE : Palette.DIM_GRAY, bgColor);
-    }
-
-    // Staff initials
-    if (staffStr) {
-      this.buffer.writeText(x + barWidth + suffix.length, y + 1, staffStr, selected ? Palette.MID_GRAY : Palette.DIM_GRAY, bgColor);
-    }
-
-    // Line 3: Results summary
-    const results = run.results || [];
+    // Results text for line 2 left side — blank until there's something to show
+    let resultsStr = "";
     if (isCompleted || results.length > 0) {
-      // Aggregate results
-      const successCount = results.filter((r) => r.wasSuccess).length;
-      const failCount = results.filter((r) => r.botched).length;
-      const totalCash = results.reduce((sum, r) => sum + (r.resourcesGained?.cash || 0), 0);
-
-      let line3 = "";
-      if (successCount > 0) {
-        line3 += "+" + successCount;
-      }
-      if (failCount > 0) {
-        line3 += (line3 ? " " : "") + "x" + failCount;
-      }
+      if (successCount > 0) resultsStr += "+" + successCount;
+      if (failCount > 0) resultsStr += (resultsStr ? " " : "") + "x" + failCount;
       if (totalCash !== 0) {
         const cashStr = totalCash >= 0 ? `$${this.fmtNum(totalCash)}` : `-$${this.fmtNum(Math.abs(totalCash))}`;
-        line3 += (line3 ? "  " : "") + cashStr;
+        resultsStr += (resultsStr ? "  " : "") + cashStr;
       }
-      if (failCount > 0 && results.some((r) => r.botched)) {
-        line3 += "  JAILED";
-      }
+      if (failCount > 0 && results.some((r) => r.botched)) resultsStr += "  JAILED";
+      if (!resultsStr && isCompleted) resultsStr = "Done";
+      // No fallback for in-progress with no results — leave blank
+    }
+    // No "In progress..." fallback — the bar itself communicates status
 
-      if (!line3 && isCompleted) {
-        line3 = "+ Done";
-      } else if (!line3 && !isCompleted) {
-        // In progress with results
-        line3 = `Run ${run.currentRun || 1}...`;
-      }
-
-      const line3Fg = failCount > 0 ? Palette.HEAT_ORANGE : Palette.MID_GRAY;
-      this.buffer.writeText(x, y + 2, line3.substring(0, maxWidth), line3Fg, bgColor);
-    } else {
-      // No results yet, show "Run 1 of N" or just in progress
-      let line3;
-      if (run.totalRuns === 1) {
-        line3 = "In progress...";
-      } else if (run.totalRuns === -1) {
-        line3 = `Run ${run.currentRun || 1} (INF)...`;
-      } else {
-        line3 = `Run ${run.currentRun || 1} of ${run.totalRuns}...`;
-      }
-      this.buffer.writeText(x, y + 2, line3.substring(0, maxWidth), Palette.DIM_GRAY, bgColor);
+    // Line 2: clear, then results left + staff right
+    this.buffer.writeText(x, y + 1, " ".repeat(maxWidth), Palette.DIM_GRAY, bgColor);
+    const resultsMax = maxWidth - staffStr.length - (staffStr ? 1 : 0);
+    const line2Fg = failCount > 0 ? Palette.HEAT_ORANGE : Palette.MID_GRAY;
+    this.buffer.writeText(x, y + 1, resultsStr.substring(0, resultsMax), line2Fg, bgColor);
+    if (staffStr) {
+      this.buffer.writeText(x + maxWidth - staffStr.length, y + 1, staffStr, Palette.DIM_GRAY, bgColor);
     }
   }
 
@@ -612,9 +458,8 @@ export class UI {
     // Sort runs: active first, then completed
     const sortedRuns = runs.slice().sort(sortRunsActiveFirst);
 
-    // When focused, push content down to sit inside the DOUBLE border
-    const focusedOnRuns = this.ui.focus === "runs";
-    let runsStartY = focusedOnRuns ? startY + 1 : startY;
+    const focusedOnRuns = this.ui.panelFocus === "right";
+    let runsStartY = startY;
 
     // Draw context header if provided
     if (contextPath) {
@@ -626,7 +471,7 @@ export class UI {
 
     // Panel dimensions (adjusted for header if present)
     const panelHeight = Layout.HEIGHT - runsStartY - 1;
-    const runCardHeight = 3; // Now 3 lines per run card
+    const runCardHeight = 2; // 2 lines per run card (bar + results)
     const maxVisibleRuns = Math.floor(panelHeight / runCardHeight);
 
     // Scroll handling
@@ -634,14 +479,14 @@ export class UI {
     selectedRun = Math.max(0, Math.min(selectedRun, sortedRuns.length - 1));
     this.ui.selectedRun = selectedRun;
 
-    let scrollOffset = this.clampScrollOffset("activePanel", sortedRuns.length, maxVisibleRuns);
+    let scrollOffset = this.clampScrollOffset("runsPanel", sortedRuns.length, maxVisibleRuns);
     if (focusedOnRuns && sortedRuns.length > 0) {
       // Auto-scroll to keep selected run visible
       if (selectedRun < scrollOffset) scrollOffset = selectedRun;
       if (selectedRun >= scrollOffset + maxVisibleRuns) {
         scrollOffset = selectedRun - maxVisibleRuns + 1;
       }
-      this.ui.scroll.activePanel = scrollOffset;
+      this.ui.scroll.runsPanel = scrollOffset;
     }
 
     // Empty state
@@ -660,11 +505,6 @@ export class UI {
       // Alternating backgrounds
       const rowBg = runIndex % 2 === 0 ? Palette.BLACK : Palette.DARK_GRAY;
 
-      // Selection indicator
-      if (isSelected) {
-        this.buffer.writeText(startX - 1, cardY, ">", Palette.SUCCESS_GREEN, bgColor);
-      }
-
       this.renderCompactRunCard3Line(run, startX, cardY, width, rowBg, isSelected);
     });
 
@@ -672,51 +512,6 @@ export class UI {
     if (sortedRuns.length > maxVisibleRuns) {
       this.renderScrollBar(startX + width, runsStartY, panelHeight, sortedRuns.length, scrollOffset, Palette.DIM_GRAY, bgColor, maxVisibleRuns);
     }
-  }
-
-  getSelectedRunFromRuns(runs) {
-    const sortedRuns = runs.slice().sort(sortRunsActiveFirst);
-    if (sortedRuns.length === 0) {
-      this.ui.selectedRun = 0;
-      return null;
-    }
-
-    let selectedRun = this.ui.selectedRun ?? 0;
-    selectedRun = Math.max(0, Math.min(selectedRun, sortedRuns.length - 1));
-    this.ui.selectedRun = selectedRun;
-    return sortedRuns[selectedRun];
-  }
-
-  renderRunBrowser(
-    runs,
-    {
-      listX,
-      listY,
-      listWidth,
-      detailX,
-      detailY,
-      detailWidth,
-      bgColor = Palette.BLACK,
-      contextPath = null,
-      detailHeader = null,
-      detailHint = null,
-    },
-  ) {
-    this.renderActiveRunsPanel(runs, listX, listY, listWidth, bgColor, contextPath);
-
-    let detailStartY = detailY;
-    if (detailHeader) {
-      this.buffer.writeText(detailX, detailStartY, detailHeader.substring(0, detailWidth), Palette.DIM_GRAY, bgColor);
-      detailStartY += 1;
-    }
-    if (detailHint) {
-      this.buffer.writeText(detailX, detailStartY, detailHint.substring(0, detailWidth), Palette.DIM_GRAY, bgColor);
-      detailStartY += 1;
-    }
-
-    const selectedRun = this.getSelectedRunFromRuns(runs);
-    const detailHeight = Layout.HEIGHT - detailStartY - 1;
-    this.renderRunDetailPanel(selectedRun?.runId, detailX, detailStartY, detailWidth, detailHeight, bgColor);
   }
 
   // Render run detail in a panel (inline, not overlay)
@@ -767,9 +562,10 @@ export class UI {
     if (!isCompleted) {
       const remaining = Math.max(0, run.endsAt - this.engine.state.now);
       const pct = Math.min(1, Math.max(0, (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt)));
-      const barWidth = Math.min(width - 10, 20);
-      this.buffer.drawSmoothProgressBar(x, currentY, barWidth, pct, Palette.BRIGHT_YELLOW, Palette.NEON_CYAN, Palette.DIM_GRAY, bgColor);
-      this.buffer.writeText(x + barWidth + 1, currentY, this.formatMs(remaining), Palette.WHITE, bgColor);
+      const barWidth = Math.min(width - 2, 40);
+      const timeStr = this.formatMs(remaining);
+      const barText = ` ${timeStr}`.padEnd(barWidth);
+      this.buffer.drawTextBar(x, currentY, barWidth, pct, barText, Palette.WHITE, Palette.RUN_FILL, Palette.RUN_EMPTY);
       currentY += 2;
     }
 
@@ -879,112 +675,7 @@ export class UI {
     }
   }
 
-  renderActiveTab() {
-    // 50/50 split
-    const listTop = 5;
-    const leftWidth = 62; // x=2 to x=64
-    const dividerX = 65;
-    const rightX = 67;
-    const rightWidth = 64; // x=67 to x=130
 
-    // Initialize filter state if missing
-    if (this.ui.activeFilter === undefined) this.ui.activeFilter = 0;
-
-    // Filter definitions
-    const filters = [
-      { id: "all", name: "All runs", filter: () => this.engine.state.runs },
-      { id: "active", name: "Active only", filter: () => this.engine.state.runs.filter((r) => r.status !== "completed") },
-      {
-        id: "ending_soon",
-        name: "Ending soon",
-        filter: () =>
-          this.engine.state.runs.filter((r) => r.status !== "completed").sort((a, b) => a.endsAt - this.engine.state.now - (b.endsAt - this.engine.state.now)),
-      },
-      {
-        id: "by_branch",
-        name: "By branch",
-        filter: () => {
-          const branchIndex = this.ui.activeBranchFilter ?? 0;
-          const branches = this.getVisibleBranches();
-          const branch = branches[branchIndex];
-          return this.engine.state.runs.filter((r) => {
-            const s = this.engine.data.scenarios.find((scn) => scn.id === r.scenarioId);
-            return s && s.branchId === branch?.id;
-          });
-        },
-      },
-      { id: "completed", name: "Completed", filter: () => this.engine.state.runs.filter((r) => r.status === "completed") },
-    ];
-
-    const currentFilter = filters[this.ui.activeFilter];
-    const filteredRuns = currentFilter.filter();
-
-    let activeContext = currentFilter.name;
-    if (currentFilter.id === "by_branch") {
-      const branchIndex = this.ui.activeBranchFilter ?? 0;
-      const branches = this.getVisibleBranches();
-      const branch = branches[branchIndex];
-      activeContext = branch?.name || "?";
-    }
-
-    const runsFocused = this.ui.focus === "runs";
-    if (runsFocused) {
-      this.buffer.drawBox(0, 4, 66, Layout.HEIGHT - 4, BoxStyles.DOUBLE, Palette.ACTIVE_BORDER, Palette.BLACK);
-      this.buffer.drawVLine(Layout.WIDTH - 1, 5, Layout.HEIGHT - 5, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.drawHLine(66, Layout.HEIGHT - 1, 65, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.setCell(Layout.WIDTH - 1, Layout.HEIGHT - 1, BoxStyles.SINGLE.bottomRight, Palette.DIM_GRAY, Palette.BLACK);
-
-      this.renderRunBrowser(filteredRuns, {
-        listX: 2,
-        listY: listTop,
-        listWidth: leftWidth,
-        detailX: rightX,
-        detailY: listTop,
-        detailWidth: rightWidth,
-        bgColor: Palette.BLACK,
-        contextPath: activeContext,
-        detailHeader: "RUN DETAILS",
-        detailHint: "[LEFT] BACK TO FILTERS",
-      });
-      return;
-    }
-
-    this.buffer.drawVLine(dividerX, listTop, Layout.HEIGHT - 2, BoxStyles.SINGLE.vertical, Palette.DIM_GRAY, Palette.BLACK);
-
-    // LEFT HALF: Filter list
-    this.buffer.writeText(2, listTop - 2, "ACTIVE OPERATIONS", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(2, listTop, "FILTERS:", Palette.NEON_CYAN, Palette.BLACK);
-
-    filters.forEach((f, i) => {
-      const row = listTop + 2 + i;
-      const selected = this.ui.activeFilter === i;
-      const prefix = selected ? ">" : " ";
-      const fg = selected ? Palette.NEON_CYAN : Palette.NEON_TEAL;
-
-      let label = `${i + 1}. ${f.name}`;
-      if (f.id === "by_branch") {
-        const branchIndex = this.ui.activeBranchFilter ?? 0;
-        const branches = this.getVisibleBranches();
-        const branch = branches[branchIndex];
-        label += `: ${branch?.name || "?"}`;
-      }
-
-      this.buffer.writeText(2, row, prefix, selected ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
-      this.buffer.writeText(4, row, label.substring(0, leftWidth - 4), fg, Palette.BLACK);
-    });
-
-    if (this.ui.activeFilter === 3) {
-      this.buffer.writeText(4, listTop + 8, "[B] Cycle branches", Palette.DIM_GRAY, Palette.BLACK);
-    }
-
-    if (this.ui.confirmStopAll) {
-      this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] CONFIRM STOP ALL", Palette.HEAT_RED, Palette.BLACK);
-    } else {
-      this.buffer.writeText(2, Layout.HEIGHT - 2, "[X] Clear all  [RIGHT] Runs", Palette.DIM_GRAY, Palette.BLACK);
-    }
-
-    this.renderActiveRunsPanel(filteredRuns, rightX, listTop, rightWidth, Palette.BLACK, activeContext);
-  }
   renderCrewTab() {
     const top = 4;
     const crewCount = this.engine.state.crew.staff.length;
@@ -1687,51 +1378,40 @@ export class UI {
       this.buffer.writeText(Layout.WIDTH - 18, skipTutRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 6. Authentic boot toggle
-    const authBootRow = top + 7;
-    const authBootSelected = selectedSetting === 5;
-    const authBootOn = !!this.ui.settings.authenticBoot;
-    this.buffer.writeText(3, authBootRow, authBootSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, authBootRow, "6. Authentic boot", authBootSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
-    this.buffer.writeText(valueCol, authBootRow, authBootOn ? "ENABLED" : "DISABLED", authBootOn ? Palette.SUCCESS_GREEN : Palette.DIM_GRAY, Palette.BLACK);
-    if (authBootSelected) {
-      this.buffer.writeText(Layout.WIDTH - 18, authBootRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
-    }
-
-    // 7. Exit to DOS
-    const dosRow = top + 8;
-    const dosSelected = selectedSetting === 6;
+    // 6. Exit to DOS
+    const dosRow = top + 7;
+    const dosSelected = selectedSetting === 5;
     this.buffer.writeText(3, dosRow, dosSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, dosRow, "7. Exit to DOS", dosSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(4, dosRow, "6. Exit to DOS", dosSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
     if (dosSelected) {
       this.buffer.writeText(Layout.WIDTH - 22, dosRow, "<ENTER> DROP TO CLI", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 8. About
-    const aboutRow = top + 9;
-    const aboutSelected = selectedSetting === 7;
+    // 7. About
+    const aboutRow = top + 8;
+    const aboutSelected = selectedSetting === 6;
     this.buffer.writeText(3, aboutRow, aboutSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, aboutRow, "8. About", aboutSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(4, aboutRow, "7. About", aboutSelected ? Palette.NEON_CYAN : Palette.NEON_TEAL, Palette.BLACK);
     if (aboutSelected) {
       this.buffer.writeText(Layout.WIDTH - 20, aboutRow, "<ENTER> VIEW INFO", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 9. Debug mode
-    const debugRow = top + 11;
-    const debugSelected = selectedSetting === 8;
+    // 8. Debug mode
+    const debugRow = top + 9;
+    const debugSelected = selectedSetting === 7;
     const debugOn = !!this.engine.state.debugMode;
     this.buffer.writeText(3, debugRow, debugSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, debugRow, "9. Debug - unlock all", debugSelected ? Palette.BRIGHT_YELLOW : Palette.NEON_TEAL, Palette.BLACK);
+    this.buffer.writeText(4, debugRow, "8. Debug - unlock all", debugSelected ? Palette.BRIGHT_YELLOW : Palette.NEON_TEAL, Palette.BLACK);
     this.buffer.writeText(valueCol + 4, debugRow, debugOn ? "ON" : "OFF", debugOn ? Palette.BRIGHT_YELLOW : Palette.DIM_GRAY, Palette.BLACK);
     if (debugSelected) {
       this.buffer.writeText(Layout.WIDTH - 18, debugRow, "<ENTER> TOGGLE", Palette.SUCCESS_GREEN, Palette.BLACK);
     }
 
-    // 0. Reset progress
-    const resetRow = top + 12;
-    const resetSelected = selectedSetting === 9;
+    // 9. Reset progress
+    const resetRow = top + 10;
+    const resetSelected = selectedSetting === 8;
     this.buffer.writeText(3, resetRow, resetSelected ? ">" : " ", Palette.SUCCESS_GREEN, Palette.BLACK);
-    this.buffer.writeText(4, resetRow, "0. Reset progress", resetSelected ? Palette.HEAT_RED : Palette.HEAT_ORANGE, Palette.BLACK);
+    this.buffer.writeText(4, resetRow, "9. Reset progress", resetSelected ? Palette.HEAT_RED : Palette.HEAT_ORANGE, Palette.BLACK);
     if (resetSelected) {
       if (this.ui.confirmReset) {
         this.buffer.writeText(Layout.WIDTH - 28, resetRow, "<ENTER> CONFIRM RESET", Palette.HEAT_RED, Palette.BLACK);
@@ -1745,7 +1425,7 @@ export class UI {
     }
 
     // Help text
-    this.buffer.writeText(4, top + 15, "Arrows to move | 0-9 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
+    this.buffer.writeText(4, top + 13, "Arrows to move | 1-9 select | Enter toggles", Palette.DIM_GRAY, Palette.BLACK);
   }
 
   renderFontSubMenu() {
@@ -1967,6 +1647,29 @@ export class UI {
     return (scenario.variants || []).filter((variant) => this.engine.checkConditions(variant.visibleIf || [])).filter((variant) => this.engine.isVariantUnlocked(variant));
   }
 
+  // Get runs filtered by left panel context or all runs
+  getFilteredRuns() {
+    if (this.ui.runsFilterMode === 'all') return this.engine.state.runs.slice();
+
+    const branches = this.getVisibleBranches();
+    const branch = branches[this.ui.branchIndex];
+    const scenarios = this.getVisibleScenarios(branch?.id);
+    const scenario = scenarios[this.ui.scenarioIndex];
+
+    // Scenario-level filter when deep enough
+    if (scenario && (this.ui.focus === 'variant' || this.ui.focus === 'scenario')) {
+      return this.engine.state.runs.filter(r => r.scenarioId === scenario.id);
+    }
+    // Branch-level filter
+    if (branch) {
+      return this.engine.state.runs.filter(r => {
+        const s = this.engine.data.scenarios.find(scn => scn.id === r.scenarioId);
+        return s && s.branchId === branch.id;
+      });
+    }
+    return this.engine.state.runs.slice();
+  }
+
   getBranchStats(branchId) {
     const branchScenarios = this.engine.data.scenarios.filter((s) => s.branchId === branchId);
     const branchScenarioIds = new Set(branchScenarios.map((s) => s.id));
@@ -2135,7 +1838,7 @@ export class UI {
       }
     } else {
       // List view - show compact run cards
-      const cardHeight = 4; // 3 lines per card + 1 blank
+      const cardHeight = 3; // 2 lines per card + 1 blank
       const maxVisible = Math.floor(contentH / cardHeight);
 
       // Scroll the list if selected item is out of view
@@ -2390,7 +2093,180 @@ export class UI {
     this.buffer.writeText(Layout.WIDTH - 14, Layout.HEIGHT - 2, "[ESC]Cancel", Palette.DIM_GRAY, bgColor);
   }
 
-  // Render fullscreen modal overlay
+  // Render run detail modal (dynamic, updates every frame)
+  renderRunDetailModal() {
+    const modal = this.ui.runDetailModal;
+    if (!modal || !modal.active) return;
+
+    const run = this.engine.state.runs.find(r => r.runId === modal.runId);
+    if (!run) {
+      modal.active = false;
+      return;
+    }
+
+    const scenario = this.engine.data.scenarios.find(s => s.id === run.scenarioId);
+    const variant = scenario?.variants.find(v => v.id === run.variantId);
+    if (!scenario || !variant) {
+      modal.active = false;
+      return;
+    }
+
+    // Dim background
+    this.applyDimOverlay(0.5);
+
+    // Modal dimensions
+    const boxW = 80;
+    const boxH = Layout.HEIGHT - 6;
+    const boxX = Math.floor((Layout.WIDTH - boxW) / 2);
+    const boxY = Math.floor((Layout.HEIGHT - boxH) / 2);
+    const innerX = boxX + 2;
+    const innerW = boxW - 4;
+    const bg = Palette.BLACK;
+
+    // Draw border
+    this.buffer.fillRect(boxX, boxY, boxW, boxH, ' ', Palette.LIGHT_GRAY, bg);
+    this.buffer.drawBox(boxX, boxY, boxW, boxH, BoxStyles.DOUBLE, Palette.NEON_CYAN, bg);
+
+    const isCompleted = run.status === 'completed';
+    const results = run.results || [];
+    let cy = boxY + 1; // current y
+
+    // Title: variant name
+    this.buffer.writeText(innerX, cy, variant.name.toUpperCase().substring(0, innerW), Palette.NEON_CYAN, bg);
+    cy++;
+
+    // Scenario name
+    this.buffer.writeText(innerX, cy, scenario.name.substring(0, innerW), Palette.MID_GRAY, bg);
+    cy++;
+
+    // Separator
+    this.buffer.drawHLine(innerX, cy, innerW, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bg);
+    cy++;
+
+    // Status
+    const statusText = isCompleted ? 'COMPLETED' : 'IN PROGRESS';
+    const statusColor = isCompleted ? Palette.SUCCESS_GREEN : Palette.BRIGHT_YELLOW;
+    this.buffer.writeText(innerX, cy, `Status: ${statusText}`, statusColor, bg);
+    cy++;
+
+    // Crew
+    const staffNames = run.assignedStaffIds
+      .map(id => this.engine.state.crew.staff.find(s => s.id === id)?.name || '?')
+      .join(', ');
+    this.buffer.writeText(innerX, cy, `Crew: ${staffNames}`.substring(0, innerW), Palette.LIGHT_GRAY, bg);
+    cy++;
+
+    // Progress bar (if active)
+    if (!isCompleted) {
+      const remaining = Math.max(0, run.endsAt - this.engine.state.now);
+      const pct = Math.min(1, Math.max(0, (this.engine.state.now - run.startedAt) / (run.endsAt - run.startedAt)));
+      const timeStr = this.formatMs(remaining);
+      const barWidth = Math.min(innerW, 40);
+      const barText = ` ${timeStr}`.padEnd(barWidth);
+      this.buffer.drawTextBar(innerX, cy, barWidth, pct, barText, Palette.WHITE, Palette.RUN_FILL, Palette.RUN_EMPTY);
+      if (isCompleted) {
+        this.buffer.writeText(innerX + barWidth - 5, cy, 'DONE', Palette.NEON_CYAN, Palette.RUN_DONE);
+      }
+      cy++;
+    }
+
+    // Separator
+    this.buffer.drawHLine(innerX, cy, innerW, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bg);
+    cy++;
+
+    // Requirements section
+    const reqs = variant.requirements;
+    if (reqs?.staff?.length) {
+      const roleNames = reqs.staff.map(s => `${s.roleId}${s.count > 1 ? ` x${s.count}` : ''}`).join(', ');
+      this.buffer.writeText(innerX, cy, `Requires: ${roleNames}`.substring(0, innerW), Palette.MID_GRAY, bg);
+      cy++;
+    }
+
+    // Duration
+    const durationStr = this.formatMs(variant.durationMs || 5000);
+    this.buffer.writeText(innerX, cy, `Duration: ${durationStr}`, Palette.MID_GRAY, bg);
+
+    // Repeat info (right side of same line)
+    if (run.totalRuns !== 1) {
+      const repeatStr = run.totalRuns === -1 ? 'INF' : `${results.length}/${run.totalRuns}`;
+      this.buffer.writeText(innerX + 30, cy, `Runs: ${repeatStr}`, Palette.MID_GRAY, bg);
+    }
+    cy++;
+
+    // Outcome probabilities (for weighted outcomes)
+    const resolution = variant.resolution;
+    if (resolution?.type === 'weighted_outcomes' && resolution.outcomes) {
+      this.buffer.writeText(innerX, cy, 'Outcomes:', Palette.NEON_TEAL, bg);
+      cy++;
+
+      const totalWeight = resolution.outcomes.reduce((sum, o) => sum + Math.max(0, o.weight), 0);
+      resolution.outcomes.slice(0, 4).forEach(outcome => {
+        const pctStr = totalWeight > 0 ? `${Math.round((outcome.weight / totalWeight) * 100)}%` : '?%';
+        const label = `  ${pctStr.padStart(4)} ${outcome.name || outcome.id}`;
+        this.buffer.writeText(innerX, cy, label.substring(0, innerW), Palette.LIGHT_GRAY, bg);
+        cy++;
+      });
+    } else if (resolution?.type === 'deterministic') {
+      this.buffer.writeText(innerX, cy, 'Outcome: Guaranteed', Palette.NEON_TEAL, bg);
+      cy++;
+    }
+
+    // Separator
+    this.buffer.drawHLine(innerX, cy, innerW, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bg);
+    cy++;
+
+    // Results section (scrollable)
+    const resultsHeaderY = cy;
+    const totalRunsLabel = isCompleted ? `RESULTS (${results.length})` : `RESULTS (${results.length}/${run.totalRuns === -1 ? 'INF' : run.totalRuns})`;
+    this.buffer.writeText(innerX, cy, totalRunsLabel, Palette.NEON_TEAL, bg);
+    cy++;
+
+    // Calculate available space for results
+    const footerY = boxY + boxH - 3; // 2 lines for totals + controls
+    const resultsSpace = footerY - cy;
+    const scrollOffset = Math.max(0, Math.min(modal.scroll, Math.max(0, results.length - resultsSpace)));
+
+    const visibleResults = results.slice(scrollOffset, scrollOffset + resultsSpace);
+    visibleResults.forEach((result, idx) => {
+      if (cy >= footerY) return;
+      const num = scrollOffset + idx + 1;
+      const icon = result.botched ? 'x' : '+';
+      const iconColor = result.botched ? Palette.HEAT_RED : Palette.SUCCESS_GREEN;
+      const gains = result.resourcesGained || {};
+      const gainParts = [];
+      if (gains.cash) gainParts.push(`$${this.fmtNum(gains.cash)}`);
+      Object.entries(gains).forEach(([k, v]) => {
+        if (k !== 'cash' && v) gainParts.push(`${k}:${v > 0 ? '+' : ''}${v}`);
+      });
+      const line = `#${String(num).padStart(3)} ${icon} ${gainParts.join('  ')}`;
+      this.buffer.writeText(innerX, cy, line.substring(0, innerW), iconColor, bg);
+      cy++;
+    });
+
+    // Scroll indicator
+    if (results.length > resultsSpace) {
+      const hint = `[UP/DN] Scroll (${scrollOffset + 1}-${Math.min(scrollOffset + resultsSpace, results.length)} of ${results.length})`;
+      this.buffer.writeText(innerX + innerW - hint.length, resultsHeaderY, hint, Palette.DIM_GRAY, bg);
+    }
+
+    // Totals row
+    const totalsY = boxY + boxH - 3;
+    this.buffer.drawHLine(innerX, totalsY, innerW, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, bg);
+    const successCount = results.filter(r => !r.botched).length;
+    const failCount = results.filter(r => r.botched).length;
+    const totalCash = results.reduce((sum, r) => sum + (r.resourcesGained?.cash || 0), 0);
+    const totalsStr = `+${successCount} x${failCount}${totalCash ? `  $${this.fmtNum(totalCash)}` : ''}`;
+    this.buffer.writeText(innerX, totalsY + 1, totalsStr, Palette.LIGHT_GRAY, bg);
+
+    // Controls footer
+    const controlsY = boxY + boxH - 1;
+    const controls = isCompleted
+      ? '[ESC] Close  [X] Clear  [Z] Clear all'
+      : '[ESC] Close  [Y] Stop  [R] Cancel repeat';
+    this.buffer.writeText(innerX, controlsY, controls, Palette.DIM_GRAY, bg);
+  }
+
+  // Render modal overlay (fullscreen or centered window)
   renderModal() {
     const modal = this.ui.modal;
     if (!modal || !modal.active) return;
@@ -2399,68 +2275,140 @@ export class UI {
     const savedUppercase = this.buffer.forceUppercase;
     this.buffer.forceUppercase = false;
 
-    const {
-      title,
-      content,
-      borderStyle,
-      borderColor,
-      backgroundColor,
-      titleColor,
-      bodyColor,
-      countdownActive,
-      countdownRemainingMs
-    } = modal;
+    try {
+      const {
+        title,
+        content,
+        borderStyle,
+        borderColor,
+        backgroundColor,
+        titleColor,
+        bodyColor,
+        countdownActive,
+        countdownRemainingMs,
+        layout,
+        overlay,
+        contentWidth,
+      } = modal;
 
-    // Fill entire screen with solid background first
-    this.buffer.fill(" ", bodyColor || Palette.LIGHT_GRAY, backgroundColor);
+      const layoutMode = layout === "fullscreen" ? "fullscreen" : "centered";
+      const overlayMode = overlay === "blackout" ? "blackout" : "dim50";
+      const panelBg = backgroundColor || Palette.BLACK;
+      const panelFg = bodyColor || Palette.LIGHT_GRAY;
+      const textWidth = Math.max(24, Math.min(contentWidth || 76, Layout.WIDTH - 4));
+      const textX = Math.floor((Layout.WIDTH - textWidth) / 2);
+      const hasTitle = !!(title && title.trim() !== "");
+      const parsedLines = parseModalContent(content, textWidth, panelBg, panelFg);
 
-    // Draw fullscreen box with border
-    this.buffer.drawBox(0, 0, Layout.WIDTH, Layout.HEIGHT, borderStyle, borderColor, backgroundColor);
+      const boxW = layoutMode === "fullscreen" ? Layout.WIDTH : Math.min(Layout.WIDTH - 4, textWidth + 4);
+      let boxH = Layout.HEIGHT;
+      if (layoutMode === "centered") {
+        const chromeRows = hasTitle ? 4 : 2;
+        const minCenteredBoxH = hasTitle ? 10 : 8;
+        const maxCenteredBoxH = Math.max(minCenteredBoxH, Layout.HEIGHT - 4);
+        const maxBodyRows = Math.max(3, maxCenteredBoxH - chromeRows);
+        const desiredBodyRows = Math.max(3, Math.min(parsedLines.length || 1, maxBodyRows));
+        boxH = Math.max(minCenteredBoxH, desiredBodyRows + chromeRows);
+      }
+      const boxX = layoutMode === "fullscreen" ? 0 : Math.floor((Layout.WIDTH - boxW) / 2);
+      const boxY = layoutMode === "fullscreen" ? 0 : Math.floor((Layout.HEIGHT - boxH) / 2);
 
-    let contentStartY = 1;
+      if (layoutMode === "fullscreen" || overlayMode === "blackout") {
+        this.buffer.fill(" ", panelFg, Palette.BLACK);
+      } else {
+        this.applyDimOverlay(0.5);
+      }
 
-    // Render title if present
-    if (title && title.trim() !== "") {
-      const titleText = title.trim();
-      const titleX = Math.floor((Layout.WIDTH - titleText.length) / 2); // Center title
-      this.buffer.writeText(titleX, contentStartY, titleText, titleColor || Palette.NEON_CYAN, backgroundColor);
-      contentStartY += 2; // Skip a line after title
-    }
+      this.buffer.fillRect(
+        boxX + 1,
+        boxY + 1,
+        Math.max(0, boxW - 2),
+        Math.max(0, boxH - 2),
+        " ",
+        panelFg,
+        panelBg
+      );
+      this.buffer.drawBox(boxX, boxY, boxW, boxH, borderStyle, borderColor, panelBg);
 
-    // Parse content into formatted lines with body color as default
-    const contentWidth = Layout.WIDTH - 4; // Leave 2 chars padding on each side
-    const parsedLines = parseModalContent(content, contentWidth, backgroundColor, bodyColor || Palette.LIGHT_GRAY);
+      let contentStartY = boxY + 1;
 
-    // Calculate content area dimensions
-    const contentHeight = Layout.HEIGHT - contentStartY - 1; // Remaining space after title and bottom border
-    const scrollOffset = modal.scroll || 0;
+      if (hasTitle) {
+        const titleText = title.trim();
+        const centeredTitleX = textX + Math.floor((textWidth - titleText.length) / 2);
+        const minTitleX = boxX + 2;
+        const maxTitleX = boxX + boxW - titleText.length - 2;
+        const titleX = Math.max(minTitleX, Math.min(maxTitleX, centeredTitleX));
+        this.buffer.writeText(titleX, contentStartY, titleText, titleColor || Palette.NEON_CYAN, panelBg);
+        contentStartY += 2;
+      }
 
-    // Draw content area (scrollable)
-    const visibleLines = parsedLines.slice(scrollOffset, scrollOffset + contentHeight);
+      const contentBottomY = boxY + boxH - 2;
+      const contentHeight = Math.max(1, contentBottomY - contentStartY + 1);
+      const scrollOffset = Math.max(0, modal.scroll || 0);
+      const visibleLines = parsedLines.slice(scrollOffset, scrollOffset + contentHeight);
 
-    visibleLines.forEach((line, idx) => {
-      const y = contentStartY + idx;
-      let x = 2; // Left padding
-
-      // Render each segment in the line
-      line.segments.forEach((segment) => {
-        this.buffer.writeText(x, y, segment.text, segment.fg, segment.bg);
-        x += segment.text.length;
+      visibleLines.forEach((line, idx) => {
+        const y = contentStartY + idx;
+        if (y > contentBottomY) return;
+        let x = textX;
+        line.segments.forEach((segment) => {
+          this.buffer.writeText(x, y, segment.text, segment.fg, segment.bg);
+          x += segment.text.length;
+        });
       });
-    });
 
-    if (countdownActive && countdownRemainingMs > 0) {
-      const secondsLeft = Math.max(1, Math.ceil(countdownRemainingMs / 1000));
-      const countdownText = `CAN CLOSE IN ${secondsLeft}s`;
-      const countdownX = Math.max(2, Layout.WIDTH - countdownText.length - 2);
-      this.buffer.writeText(countdownX, Layout.HEIGHT - 2, countdownText, Palette.BRIGHT_YELLOW, backgroundColor);
+      if (countdownActive && countdownRemainingMs > 0) {
+        const secondsLeft = Math.max(1, Math.ceil(countdownRemainingMs / 1000));
+        const countdownText = `CAN CLOSE IN ${secondsLeft}s`;
+        const countdownX = Math.max(boxX + 2, boxX + boxW - countdownText.length - 2);
+        this.buffer.writeText(countdownX, contentBottomY, countdownText, Palette.BRIGHT_YELLOW, panelBg);
+      }
+
+      if (parsedLines.length > contentHeight) {
+        this.renderScrollBar(
+          boxX + boxW - 2,
+          contentStartY,
+          contentHeight,
+          parsedLines.length,
+          scrollOffset,
+          borderColor,
+          panelBg,
+          contentHeight
+        );
+      }
+    } finally {
+      this.buffer.forceUppercase = savedUppercase;
     }
+  }
 
-    // Draw scrollbar if content exceeds visible area
-    if (parsedLines.length > contentHeight) {
-      this.renderScrollBar(Layout.WIDTH - 2, contentStartY, contentHeight, parsedLines.length, scrollOffset, borderColor, backgroundColor, contentHeight);
+  applyDimOverlay(factor = 0.5) {
+    const clamped = Math.max(0, Math.min(1, factor));
+    for (let y = 0; y < Layout.HEIGHT; y++) {
+      for (let x = 0; x < Layout.WIDTH; x++) {
+        const cell = this.buffer.cells[y][x];
+        if (!cell) continue;
+        cell.fg = this.dimHexColor(cell.fg, clamped);
+        cell.bg = this.dimHexColor(cell.bg, clamped);
+        cell.dirty = true;
+      }
     }
+  }
 
-    this.buffer.forceUppercase = savedUppercase;
+  dimHexColor(color, factor) {
+    if (typeof color !== "string") return color;
+    const hex = color.trim();
+    const match = /^#([0-9a-fA-F]{6})$/.exec(hex);
+    if (!match) return color;
+
+    const value = match[1];
+    const r = parseInt(value.slice(0, 2), 16);
+    const g = parseInt(value.slice(2, 4), 16);
+    const b = parseInt(value.slice(4, 6), 16);
+    const scale = 1 - factor;
+    const toHex = (n) => n.toString(16).padStart(2, "0");
+    const nr = Math.max(0, Math.min(255, Math.round(r * scale)));
+    const ng = Math.max(0, Math.min(255, Math.round(g * scale)));
+    const nb = Math.max(0, Math.min(255, Math.round(b * scale)));
+    return `#${toHex(nr)}${toHex(ng)}${toHex(nb)}`;
   }
 }

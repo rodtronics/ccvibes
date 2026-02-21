@@ -228,6 +228,28 @@ function renderEditor(m) {
     { value: 'HEAVY', label: 'Heavy' }
   ];
 
+  const layoutOptions = [
+    { value: '', label: '(default)' },
+    { value: 'centered', label: 'Centered' },
+    { value: 'fullscreen', label: 'Fullscreen' }
+  ];
+
+  const overlayOptions = [
+    { value: '', label: '(default)' },
+    { value: 'dim50', label: 'Dim 50%' },
+    { value: 'blackout', label: 'Blackout' }
+  ];
+
+  const effectiveLayout = (m.layout === 'centered' || m.layout === 'fullscreen')
+    ? m.layout
+    : (m.id === 'intro' ? 'fullscreen' : 'centered');
+  const effectiveOverlay = (m.overlay === 'dim50' || m.overlay === 'blackout')
+    ? m.overlay
+    : (m.id === 'intro' ? 'blackout' : 'dim50');
+  const effectiveContentWidth = Number.isFinite(Number.parseInt(m.contentWidth, 10))
+    ? Number.parseInt(m.contentWidth, 10)
+    : 76;
+
   return `
     <!-- Top row: metadata fields -->
     <div class="panel" style="flex-shrink:0;padding:12px">
@@ -261,7 +283,7 @@ function renderEditor(m) {
       <!-- Style overrides row -->
       <details style="margin-top:10px">
         <summary class="muted" style="cursor:pointer;font-size:0.8rem;user-select:none">Style Overrides</summary>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
           <div>
             <label style="font-size:0.75rem">Border Style</label>
             <select style="padding:4px;font-size:0.8rem" onchange="_modals.updateModal('borderStyle', this.value); _modals.refreshPreview()">
@@ -291,6 +313,34 @@ function renderEditor(m) {
             <select style="padding:4px;font-size:0.8rem" onchange="_modals.updateModal('bodyColor', this.value); _modals.refreshPreview()">
               ${paletteOptions.map(o => `<option value="${o.value}" ${(m.bodyColor || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
             </select>
+          </div>
+          <div>
+            <label style="font-size:0.75rem">Layout</label>
+            <select style="padding:4px;font-size:0.8rem" onchange="_modals.updateModal('layout', this.value); _modals.refreshPreview()">
+              ${layoutOptions.map(o => `<option value="${o.value}" ${(m.layout || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+            </select>
+            <div class="hint" style="font-size:0.68rem;margin-top:2px">Effective: ${safe(effectiveLayout)}</div>
+          </div>
+          <div>
+            <label style="font-size:0.75rem">Overlay</label>
+            <select style="padding:4px;font-size:0.8rem" onchange="_modals.updateModal('overlay', this.value); _modals.refreshPreview()">
+              ${overlayOptions.map(o => `<option value="${o.value}" ${(m.overlay || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+            </select>
+            <div class="hint" style="font-size:0.68rem;margin-top:2px">Effective: ${safe(effectiveOverlay)}</div>
+          </div>
+          <div>
+            <label style="font-size:0.75rem">Content Width</label>
+            <input
+              type="number"
+              min="24"
+              max="300"
+              step="1"
+              value="${safe(m.contentWidth ?? '')}"
+              placeholder="76"
+              style="padding:4px;font-size:0.8rem"
+              onchange="_modals.updateModal('contentWidth', this.value.trim() === '' ? '' : (parseInt(this.value, 10) || 76)); _modals.refreshPreview()"
+            >
+            <div class="hint" style="font-size:0.68rem;margin-top:2px">Effective: ${safe(effectiveContentWidth)}</div>
           </div>
         </div>
       </details>
@@ -411,7 +461,10 @@ function addModal(type = 'lore') {
     body: 'Modal body text goes here.\n\nUse {{neon_cyan}}color tags{{/}} for formatting.\nUse **bold** for emphasis.\nUse ~~dim~~ for subtle text.',
     type: nextType,
     showOnce: false,
-    countdown: false
+    countdown: false,
+    layout: 'centered',
+    overlay: 'dim50',
+    contentWidth: 76
   };
   store.modals.push(modal);
   store.modalMap.set(newId, modal);

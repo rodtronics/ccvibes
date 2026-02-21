@@ -39,16 +39,20 @@ if (bloomLayer) {
 
 // UI state (navigation, selections, options)
 const ui = {
-  tab: 'jobs', // jobs, active, crew, resources, stats, options
-  focus: 'scenario', // scenario | variant | runs | crimeDetail
+  tab: 'jobs', // jobs, crew, resources, stats, log, options
+  focus: 'scenario', // branch | scenario | variant
+  panelFocus: 'left', // 'left' (jobs browser) | 'right' (active runs)
+  runsFilterMode: 'matching', // 'matching' (auto-filter by left panel) | 'all'
   branchIndex: 0,
   scenarioIndex: 0,
   variantIndex: 0,
+  selectedRun: 0,
   logOffset: 0,
   settings: loadSettings(),
   scroll: {
     crew: 0, // vertical scroll offset for crew roster
     resources: 0, // vertical scroll offset for resources list
+    runsPanel: 0, // active runs panel scroll offset
   },
   crewSelection: {
     selectedIndex: 0,      // Currently highlighted crew member index
@@ -70,6 +74,9 @@ const ui = {
     borderStyle: null,
     borderColor: null,
     backgroundColor: null,
+    layout: 'centered',
+    overlay: 'dim50',
+    contentWidth: 76,
     scroll: 0,
     countdownActive: false,
     countdownDurationMs: 0,
@@ -86,10 +93,10 @@ const ui = {
     selectedSlotIndex: 0, // Which crew slot is selected (for multi-crew crimes)
     crewSlots: [], // Array of { variants: [], selectedIndex: 0 } for each slot
   },
-  runDetail: {
+  runDetailModal: {
     active: false,
     runId: null,
-    scroll: 0,  // Scroll offset for viewing many sub-run results
+    scroll: 0,
   },
   awayScreen: {
     active: false,
@@ -114,6 +121,7 @@ let loopStarted = false;
 const bootInput = {
   active: false,
   delQueued: false,
+  biosArmed: false,
 };
 
 function isDeleteKey(event) {
@@ -269,12 +277,17 @@ function renderFrame(allowBloom = true) {
 function enterDosPrompt() {
   bootInput.active = false;
   bootInput.delQueued = false;
+  bootInput.biosArmed = false;
   stopLoop();
   // Hide bloom during DOS
   if (bloomLayer) bloomLayer.style.display = 'none';
   const dos = new DosPrompt(buffer, {
     engine,
     onRender: () => renderFrame(false),
+    onSystemPowerOff: () => {
+      sessionStorage.setItem('ccv_force_slow_boot', '1');
+      sessionStorage.setItem('ccv_force_dos_boot', '1');
+    },
     onSystemReboot: () => { performRestart({ forceSlowBoot: true, forceDosBoot: true }); },
   });
   dos.start();
@@ -286,23 +299,32 @@ function enterDosPrompt() {
 async function main() {
   bootInput.active = true;
   bootInput.delQueued = false;
+  bootInput.biosArmed = false;
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const authentic = ui.settings.authenticBoot || urlParams.has('ab');
-  const forceBootPrompt = sessionStorage.getItem('ccv_force_boot_prompt');
-  sessionStorage.removeItem('ccv_force_boot_prompt');
+  const url = new URL(window.location.href);
+  const oneShotAuthenticBoot = url.searchParams.has('ab');
+  if (oneShotAuthenticBoot) {
+    // Consume ?ab so the override applies only to this boot cycle.
+    url.searchParams.delete('ab');
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(null, '', nextUrl);
+  }
+
+  const authentic = !!ui.settings.authenticBoot;
   const forceSlowBoot = sessionStorage.getItem('ccv_force_slow_boot');
   sessionStorage.removeItem('ccv_force_slow_boot');
   const forceDosBoot = sessionStorage.getItem('ccv_force_dos_boot');
   sessionStorage.removeItem('ccv_force_dos_boot');
 
   const firstBoot = !localStorage.getItem('ccv_has_booted');
-  const slowBoot = authentic || firstBoot || !!forceSlowBoot;
-  const shouldShowDelPrompt = authentic || !!forceBootPrompt;
-  const shouldBootToDos = authentic || !!forceDosBoot;
+  const slowBoot = authentic || firstBoot || !!forceSlowBoot || oneShotAuthenticBoot;
+  const shouldBootToDos = authentic || !!forceDosBoot || oneShotAuthenticBoot;
+  // BIOS entry is intentionally hidden behind DOS shutdown/reboot flow, authentic boot mode, or one-shot ?ab.
+  bootInput.biosArmed = authentic || !!forceSlowBoot || !!forceDosBoot || oneShotAuthenticBoot;
   const delay = (ms) => new Promise(r => setTimeout(r, ms));
   // Squared random biases toward short pauses with occasional longer ones
   const bootDelay = () => delay(50 + Math.random() * Math.random() * 800);
+  const shouldEnterBios = () => bootInput.biosArmed && bootInput.delQueued;
 
   // Apply saved zoom for boot screen (font stays as ibm-bios from HTML)
   const container = document.getElementById('game');
@@ -315,10 +337,18 @@ async function main() {
   const boot = new BootScreen(buffer);
   boot.drawHeader(slowBoot);
   renderFrame(false);
+  if (shouldEnterBios()) {
+    enterBiosSetup();
+    return;
+  }
 
   // Animate RAM counting on slow boot
   if (slowBoot) {
     await boot.countRAM(() => renderFrame(false));
+    if (shouldEnterBios()) {
+      enterBiosSetup();
+      return;
+    }
   }
 
   // Load engine data with per-file progress (+ artificial delays on slow boot)
@@ -327,33 +357,41 @@ async function main() {
     renderFrame(false);
     if (slowBoot) await bootDelay();
   });
+  if (shouldEnterBios()) {
+    enterBiosSetup();
+    return;
+  }
 
   // Load modal definitions
   await loadModalData();
   boot.addProgress('MODALS.DAT');
   renderFrame(false);
   if (slowBoot) await bootDelay();
+  if (shouldEnterBios()) {
+    enterBiosSetup();
+    return;
+  }
 
   // Initialize crew name generation
   await initCrewSystem();
   boot.addProgress('CREW SUBSYSTEM');
   renderFrame(false);
   if (slowBoot) await bootDelay();
+  if (shouldEnterBios()) {
+    enterBiosSetup();
+    return;
+  }
 
   // Boot complete
   boot.drawComplete();
-  boot.drawSetupPrompt();
+  if (bootInput.biosArmed) {
+    boot.drawSetupPrompt();
+  }
   renderFrame(false);
 
   // Mark first boot as seen
   localStorage.setItem('ccv_has_booted', '1');
-
-  // Give DEL a BIOS-entry window on every boot.
-  // Authentic/rebooted boots keep the longer prompt window.
-  const delWindowMs = shouldShowDelPrompt ? 1000 : 350;
-  const delPressed = await waitForDelKey(delWindowMs);
-
-  if (delPressed) {
+  if (shouldEnterBios()) {
     enterBiosSetup();
     return;
   }
@@ -365,9 +403,12 @@ async function main() {
   } else {
     bootInput.active = false;
     bootInput.delQueued = false;
+    bootInput.biosArmed = false;
     // Straight to game
     applyFont(ui.settings);
     saveSettings(ui.settings);
+    // Rebuild grid once web fonts confirm loaded (fixes 1ch on hard refresh)
+    document.fonts.ready.then(() => { renderer.buildGrid(); render(); });
     buffer.clear();
     render();
     enqueueStartupModals();
@@ -383,6 +424,7 @@ function exitDosPrompt() {
   modalQueue.refreshForActiveSlot?.();
   applyFont(ui.settings);
   saveSettings(ui.settings);
+  document.fonts.ready.then(() => { renderer.buildGrid(); render(); });
   buffer.clear();
   render();
   enqueueStartupModals();
@@ -390,23 +432,11 @@ function exitDosPrompt() {
   startLoop();
 }
 
-// Wait for DEL key press with timeout
-function waitForDelKey(timeoutMs) {
-  return new Promise((resolve) => {
-    if (bootInput.delQueued) {
-      resolve(true);
-      return;
-    }
-    setTimeout(() => {
-      resolve(bootInput.delQueued);
-    }, timeoutMs);
-  });
-}
-
 // Enter BIOS setup screen
 function enterBiosSetup() {
   bootInput.active = false;
   bootInput.delQueued = false;
+  bootInput.biosArmed = false;
   stopLoop();
   // Hide bloom during BIOS
   if (bloomLayer) bloomLayer.style.display = 'none';
@@ -436,6 +466,7 @@ function exitBiosSetup(shouldSave, settings) {
   } else {
     // Go straight to game
     applyFont(ui.settings);
+    document.fonts.ready.then(() => { renderer.buildGrid(); render(); });
     buffer.clear();
     render();
     enqueueStartupModals();
@@ -449,8 +480,6 @@ async function performRestart(options = {}) {
   const forceSlowBoot = !!options.forceSlowBoot;
   const forceDosBoot = !!options.forceDosBoot;
 
-  // Set one-time flag to force DEL prompt on next boot
-  sessionStorage.setItem('ccv_force_boot_prompt', '1');
   if (forceSlowBoot) sessionStorage.setItem('ccv_force_slow_boot', '1');
   if (forceDosBoot) sessionStorage.setItem('ccv_force_dos_boot', '1');
 
@@ -463,7 +492,7 @@ async function performRestart(options = {}) {
   ui.modal.active = false;
   ui.crimeDetail.active = false;
 
-  // Re-run main() - this will show boot screen with DEL window
+  // Re-run main() with one-time boot flags
   await main();
 }
 
@@ -486,7 +515,7 @@ function handleInput(e) {
 
   // During boot screen, ignore all game input except DEL for BIOS queue.
   if (bootInput.active) {
-    if (isDeleteKey(e)) {
+    if (bootInput.biosArmed && isDeleteKey(e)) {
       bootInput.delQueued = true;
     }
     // Keep browser refresh available while blocking game input.
@@ -521,25 +550,33 @@ function handleInput(e) {
     return;
   }
 
+  // Run detail modal takes priority over tab input
+  if (ui.runDetailModal.active) {
+    handleRunDetailModalInput(e);
+    return;
+  }
 
-  // Tab switching (J, A, C, O) - C is conditional on not being in runs panel
+  // Tab switching (J, A, C, R, S, L, O)
+  // J focuses left panel (jobs browser), A focuses right panel (active runs)
   if (e.key === 'j' || e.key === 'J') {
     ui.tab = 'jobs';
-    ui.focus = 'scenario';  // Reset to branch/scenario list
+    ui.panelFocus = 'left';
+    ui.focus = 'scenario';
     ui.variantIndex = 0;
-    closeCrimeDetail(); // Close crime detail if open
-    // ui.branchIndex already persists, so last branch is remembered
-  }
-  if (e.key === 'a' || e.key === 'A') {
-    ui.tab = 'active';
     closeCrimeDetail();
   }
-  // C switches to crew tab, unless focus is on runs panel (C = clear there)
-  if ((e.key === 'c' || e.key === 'C') && ui.focus !== 'runs') {
+  if (e.key === 'a' || e.key === 'A') {
+    ui.tab = 'jobs';
+    ui.panelFocus = 'right';
+    closeCrimeDetail();
+  }
+  // C switches to crew tab, unless right panel focused (C = clear there)
+  if ((e.key === 'c' || e.key === 'C') && ui.panelFocus !== 'right') {
     ui.tab = 'crew';
     closeCrimeDetail();
   }
-  if (e.key === 'r' || e.key === 'R') {
+  // R switches to resources tab, unless right panel focused (R = cancel repeat there)
+  if ((e.key === 'r' || e.key === 'R') && !(ui.tab === 'jobs' && ui.panelFocus === 'right')) {
     ui.tab = 'resources';
     closeCrimeDetail();
   }
@@ -558,7 +595,6 @@ function handleInput(e) {
 
   // Tab-specific input
   if (ui.tab === 'jobs') handleJobsInput(e);
-  if (ui.tab === 'active') handleActiveInput(e);
   if (ui.tab === 'crew') handleCrewInput(e);
   if (ui.tab === 'resources') handleResourcesInput(e);
   if (ui.tab === 'stats') handleStatsInput(e);
@@ -577,23 +613,83 @@ function handleJobsInput(e) {
   }
 
   const key = (e.key || '').toLowerCase();
+
+  // ── RIGHT PANEL (active runs) ──
+  if (ui.panelFocus === 'right') {
+    const filteredRuns = uiLayer.getFilteredRuns().sort(sortRunsActiveFirst);
+
+    // LEFT or ESC switches back to left panel
+    if (e.key === 'ArrowLeft' || e.key === 'Escape' || e.key === 'Backspace') {
+      ui.panelFocus = 'left';
+      return;
+    }
+
+    // F toggles filter mode
+    if (key === 'f') {
+      ui.runsFilterMode = ui.runsFilterMode === 'matching' ? 'all' : 'matching';
+      ui.selectedRun = 0;
+      return;
+    }
+
+    if (filteredRuns.length === 0) {
+      ui.selectedRun = 0;
+      return;
+    }
+
+    ui.selectedRun = Math.max(0, Math.min(ui.selectedRun, filteredRuns.length - 1));
+    const selectedRun = filteredRuns[ui.selectedRun];
+    const isCompleted = selectedRun?.status === 'completed';
+
+    // UP/DOWN navigate runs
+    if (e.key === 'ArrowUp') ui.selectedRun = Math.max(0, ui.selectedRun - 1);
+    if (e.key === 'ArrowDown') ui.selectedRun = Math.min(filteredRuns.length - 1, ui.selectedRun + 1);
+
+    // ENTER opens run detail modal
+    if (e.key === 'Enter' && selectedRun) {
+      ui.runDetailModal.active = true;
+      ui.runDetailModal.runId = selectedRun.runId;
+      ui.runDetailModal.scroll = 0;
+    }
+
+    // X clears selected completed run
+    if (key === 'x' && selectedRun && isCompleted) {
+      engine.clearCompletedRun(selectedRun.runId);
+      if (ui.selectedRun >= filteredRuns.length - 1) {
+        ui.selectedRun = Math.max(0, filteredRuns.length - 2);
+      }
+    }
+
+    // Z clears ALL completed runs
+    if (key === 'z') engine.clearAllCompletedRuns();
+
+    // Y stops active run
+    if (key === 'y' && selectedRun && !isCompleted) engine.stopRun(selectedRun.runId);
+
+    // R cancels future runs
+    if (key === 'r' && selectedRun && !isCompleted && selectedRun.runsLeft !== 0) {
+      engine.stopRepeat(selectedRun.runId);
+    }
+
+    return;
+  }
+
+  // ── LEFT PANEL (jobs browser) ──
   const branches = uiLayer.getVisibleBranches();
   const branch = branches[ui.branchIndex] || branches[0];
   const scenarios = uiLayer.getVisibleScenarios(branch?.id);
   const scenario = scenarios[ui.scenarioIndex];
   const variants = scenario ? uiLayer.getVisibleVariants(scenario) : [];
+
   // Number keys for selection
   if (e.key >= '1' && e.key <= '9') {
     const num = parseInt(e.key);
     if (ui.focus === 'scenario') {
-      // Select scenario by number and auto-drill into it
       if (num - 1 < scenarios.length) {
         ui.scenarioIndex = num - 1;
         ui.focus = 'variant';
         ui.variantIndex = 0;
       }
     } else if (ui.focus === 'variant') {
-      // Select variant by number (don't start it)
       if (num - 1 < variants.length) {
         ui.variantIndex = num - 1;
       }
@@ -610,9 +706,12 @@ function handleJobsInput(e) {
     }
   }
 
-  // Arrow key navigation
+  // F toggles filter mode (works from either panel)
+  if (key === 'f') {
+    ui.runsFilterMode = ui.runsFilterMode === 'matching' ? 'all' : 'matching';
+  }
+
   if (ui.focus === 'branch') {
-    // BRANCH TAB FOCUS - left/right to switch branches, down to enter scenario list
     if (e.key === 'ArrowLeft') {
       ui.branchIndex = Math.max(0, ui.branchIndex - 1);
       ui.scenarioIndex = 0;
@@ -629,7 +728,6 @@ function handleJobsInput(e) {
   } else if (ui.focus === 'scenario') {
     if (e.key === 'ArrowUp') {
       if (ui.scenarioIndex === 0) {
-        // At top of list — move focus to branch tabs
         ui.focus = 'branch';
       } else {
         ui.scenarioIndex = Math.max(0, ui.scenarioIndex - 1);
@@ -637,7 +735,6 @@ function handleJobsInput(e) {
     }
     if (e.key === 'ArrowDown') ui.scenarioIndex = Math.min(Math.max(0, scenarios.length - 1), ui.scenarioIndex + 1);
 
-    // Right to enter variants for selected scenario
     if (e.key === 'ArrowRight' && scenario) {
       ui.focus = 'variant';
       ui.variantIndex = Math.max(0, Math.min(ui.variantIndex, Math.max(0, variants.length - 1)));
@@ -648,7 +745,6 @@ function handleJobsInput(e) {
       ui.variantIndex = 0;
     }
 
-    // Q for quick start from scenario level (uses first available variant)
     if (key === 'q' && scenario && variants.length > 0) {
       startSelectedRun(scenario, variants[0]);
     }
@@ -658,20 +754,14 @@ function handleJobsInput(e) {
       ui.variantIndex = 0;
     }
 
-    if (e.key === 'ArrowUp') {
-      ui.variantIndex = Math.max(0, ui.variantIndex - 1);
-    }
+    if (e.key === 'ArrowUp') ui.variantIndex = Math.max(0, ui.variantIndex - 1);
     if (e.key === 'ArrowDown') ui.variantIndex = Math.min(Math.max(0, variants.length - 1), ui.variantIndex + 1);
 
-    // D opens crime detail window (details screen)
     if (key === 'd') {
       const selectedVariant = variants[ui.variantIndex];
-      if (selectedVariant) {
-        openCrimeDetail(scenario, selectedVariant);
-      }
+      if (selectedVariant) openCrimeDetail(scenario, selectedVariant);
     }
 
-    // Q for quick start
     if (key === 'q') {
       const selectedVariant = variants[ui.variantIndex];
       if (selectedVariant) {
@@ -681,91 +771,10 @@ function handleJobsInput(e) {
       }
     }
 
-    // RIGHT arrow switches to runs column
-    if (e.key === 'ArrowRight' && scenario) {
-      const scenarioRuns = engine.state.runs.filter(r => r.scenarioId === scenario.id);
-      ui.focus = 'runs';
-      const current = ui.selectedRun ?? 0;
-      ui.selectedRun = scenarioRuns.length > 0
-        ? Math.max(0, Math.min(scenarioRuns.length - 1, current))
-        : 0;
-    }
-  } else if (ui.focus === 'runs') {
-    // RUNS PANEL FOCUS - navigate and manage runs
-    // Determine which runs to show based on context
-    let contextRuns;
-    if (scenario) {
-      // In variants view: show scenario-filtered runs
-      contextRuns = engine.state.runs.filter(r => r.scenarioId === scenario.id);
-    } else {
-      // In scenario list view: show branch-filtered runs
-      const branch = branches[ui.branchIndex] || branches[0];
-      contextRuns = engine.state.runs.filter(r => {
-        const s = engine.data.scenarios.find(scn => scn.id === r.scenarioId);
-        return s && s.branchId === branch?.id;
-      });
-    }
-
-    // Sort: active first, then completed (matches renderActiveRunsPanel sorting)
-    contextRuns.sort(sortRunsActiveFirst);
-
-    if (contextRuns.length === 0) {
+    // RIGHT arrow switches to runs panel
+    if (e.key === 'ArrowRight') {
+      ui.panelFocus = 'right';
       ui.selectedRun = 0;
-      if (e.key === 'ArrowLeft' || e.key === 'Escape') {
-        ui.focus = scenario ? 'variant' : 'scenario';
-      }
-      return;
-    }
-
-    if (ui.selectedRun === undefined) ui.selectedRun = 0;
-    ui.selectedRun = Math.min(ui.selectedRun, contextRuns.length - 1);
-
-    const selectedRun = contextRuns[ui.selectedRun];
-    const isCompleted = selectedRun?.status === 'completed';
-
-    // LEFT arrow or ESCAPE switches back to left panel
-    if (e.key === 'ArrowLeft' || e.key === 'Escape') {
-      ui.focus = scenario ? 'variant' : 'scenario';
-    }
-
-    // UP/DOWN navigate runs
-    if (e.key === 'ArrowUp') {
-      ui.selectedRun = Math.max(0, ui.selectedRun - 1);
-    }
-    if (e.key === 'ArrowDown') {
-      ui.selectedRun = Math.min(contextRuns.length - 1, ui.selectedRun + 1);
-    }
-
-    // X key clears selected completed run
-    if ((e.key === 'x' || e.key === 'X') && selectedRun && isCompleted) {
-      engine.clearCompletedRun(selectedRun.runId);
-      // Adjust selection if needed
-      if (ui.selectedRun >= contextRuns.length - 1) {
-        ui.selectedRun = Math.max(0, contextRuns.length - 2);
-      }
-    }
-
-    // Z key clears ALL completed runs
-    if ((e.key === 'z' || e.key === 'Z')) {
-      engine.clearAllCompletedRuns();
-    }
-
-    // Y key stops active run (forfeits progress unless results exist)
-    if ((e.key === 'y' || e.key === 'Y') && selectedRun && !isCompleted) {
-      engine.stopRun(selectedRun.runId);
-    }
-
-    // R key cancels future runs (current iteration completes, then done)
-    if ((e.key === 'r' || e.key === 'R') && selectedRun && !isCompleted && selectedRun.runsLeft !== 0) {
-      engine.stopRepeat(selectedRun.runId);
-    }
-
-    // Page Up/Down for scrolling run detail results
-    if (e.key === 'PageDown') {
-      ui.runDetailScroll = (ui.runDetailScroll || 0) + 5;
-    }
-    if (e.key === 'PageUp') {
-      ui.runDetailScroll = Math.max(0, (ui.runDetailScroll || 0) - 5);
     }
   }
 }
@@ -796,6 +805,62 @@ function openCrimeDetail(scenario, variant) {
       selectedIndex: 0
     };
   });
+}
+
+// Handle run detail modal input
+function handleRunDetailModalInput(e) {
+  const modal = ui.runDetailModal;
+  const key = (e.key || '').toLowerCase();
+
+  if (e.key === 'Escape' || e.key === 'Backspace') {
+    modal.active = false;
+    render();
+    return;
+  }
+
+  const run = engine.state.runs.find(r => r.runId === modal.runId);
+  if (!run) {
+    modal.active = false;
+    render();
+    return;
+  }
+
+  const isCompleted = run.status === 'completed';
+
+  // Scroll results
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+    modal.scroll = Math.min(modal.scroll + (e.key === 'PageDown' ? 5 : 1), Math.max(0, (run.results || []).length - 5));
+  }
+  if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+    modal.scroll = Math.max(0, modal.scroll - (e.key === 'PageUp' ? 5 : 1));
+  }
+
+  // X clears completed run
+  if (key === 'x' && isCompleted) {
+    engine.clearCompletedRun(run.runId);
+    modal.active = false;
+  }
+
+  // Z clears all completed runs
+  if (key === 'z') {
+    engine.clearAllCompletedRuns();
+    // Close modal if this run was cleared
+    if (!engine.state.runs.find(r => r.runId === modal.runId)) {
+      modal.active = false;
+    }
+  }
+
+  // Y stops active run
+  if (key === 'y' && !isCompleted) {
+    engine.stopRun(run.runId);
+  }
+
+  // R cancels future runs
+  if (key === 'r' && !isCompleted && run.runsLeft !== 0) {
+    engine.stopRepeat(run.runId);
+  }
+
+  render();
 }
 
 // Close crime detail window
@@ -922,162 +987,7 @@ function startRunFromDetail(scenario, variant, repeatMode) {
   }
 }
 
-function handleActiveInput(e) {
-  const key = e.key.toLowerCase();
 
-  // Initialize filter state if missing
-  if (ui.activeFilter === undefined) ui.activeFilter = 0;
-  if (ui.activeBranchFilter === undefined) ui.activeBranchFilter = 0;
-
-  const filterCount = 5; // all, active only, ending soon, by branch, completed
-
-  // Get filtered runs based on current filter
-  function getFilteredRuns() {
-    switch (ui.activeFilter) {
-      case 0: return engine.state.runs;  // all
-      case 1: return engine.state.runs.filter(r => r.status !== 'completed');  // active only
-      case 2: return engine.state.runs.filter(r => r.status !== 'completed')  // ending soon
-        .sort((a, b) => (a.endsAt - engine.state.now) - (b.endsAt - engine.state.now));
-      case 3: {  // by branch
-        const branches = uiLayer.getVisibleBranches();
-        const branch = branches[ui.activeBranchFilter || 0];
-        return engine.state.runs.filter(r => {
-          const s = engine.data.scenarios.find(scn => scn.id === r.scenarioId);
-          return s && s.branchId === branch?.id;
-        });
-      }
-      case 4: return engine.state.runs.filter(r => r.status === 'completed');  // completed
-      default: return engine.state.runs;
-    }
-  }
-
-  // Handle focus switching between filter list and runs panel
-  if (ui.focus === 'runs') {
-    const filteredRuns = getFilteredRuns();
-
-    // Sort: active first, then completed
-    filteredRuns.sort(sortRunsActiveFirst);
-
-    if (filteredRuns.length === 0) {
-      ui.selectedRun = 0;
-      if (e.key === 'ArrowLeft' || e.key === 'Escape') {
-        ui.focus = 'filter';
-      }
-      return;
-    }
-
-    if (ui.selectedRun === undefined) ui.selectedRun = 0;
-    ui.selectedRun = Math.min(ui.selectedRun, filteredRuns.length - 1);
-
-    const selectedRun = filteredRuns[ui.selectedRun];
-    const isCompleted = selectedRun?.status === 'completed';
-
-    // In runs panel
-    if (e.key === 'ArrowLeft' || e.key === 'Escape') {
-      ui.focus = 'filter';
-      return;
-    }
-
-    // Arrow Up/Down to navigate runs
-    if (e.key === 'ArrowUp') {
-      ui.selectedRun = Math.max(0, ui.selectedRun - 1);
-      return;
-    }
-    if (e.key === 'ArrowDown') {
-      ui.selectedRun = Math.min(filteredRuns.length - 1, ui.selectedRun + 1);
-      return;
-    }
-
-    // X clears selected completed run
-    if (key === 'x' && selectedRun && isCompleted) {
-      engine.clearCompletedRun(selectedRun.runId);
-      if (ui.selectedRun >= filteredRuns.length - 1) {
-        ui.selectedRun = Math.max(0, filteredRuns.length - 2);
-      }
-      return;
-    }
-
-    // Z clears ALL completed runs
-    if (key === 'z') {
-      engine.clearAllCompletedRuns();
-      return;
-    }
-
-    // Y stops active run (forfeits progress unless results exist)
-    if (key === 'y' && selectedRun && !isCompleted) {
-      engine.stopRun(selectedRun.runId);
-      return;
-    }
-
-    // R cancels future runs (current iteration completes, then done)
-    if (key === 'r' && selectedRun && !isCompleted && selectedRun.runsLeft !== 0) {
-      engine.stopRepeat(selectedRun.runId);
-      return;
-    }
-
-    // Page Up/Down for scrolling run detail results
-    if (e.key === 'PageDown') {
-      ui.runDetailScroll = (ui.runDetailScroll || 0) + 5;
-      return;
-    }
-    if (e.key === 'PageUp') {
-      ui.runDetailScroll = Math.max(0, (ui.runDetailScroll || 0) - 5);
-      return;
-    }
-  } else {
-    // In filter list (default focus)
-    ui.focus = 'filter'; // Ensure focus state is set
-
-    // Arrow Up/Down to navigate filters
-    if (e.key === 'ArrowUp') {
-      ui.activeFilter = Math.max(0, ui.activeFilter - 1);
-      ui.confirmStopAll = false;
-      return;
-    }
-    if (e.key === 'ArrowDown') {
-      ui.activeFilter = Math.min(filterCount - 1, ui.activeFilter + 1);
-      ui.confirmStopAll = false;
-      return;
-    }
-
-    // Number keys 1-5 to select filter
-    if (key >= '1' && key <= '5') {
-      ui.activeFilter = parseInt(key) - 1;
-      ui.confirmStopAll = false;
-      return;
-    }
-
-    // B to cycle branches when "By branch" filter is selected
-    if (key === 'b' && ui.activeFilter === 3) {  // Now index 3 after adding "Active only"
-      const branches = uiLayer.getVisibleBranches();
-      ui.activeBranchFilter = ((ui.activeBranchFilter || 0) + 1) % branches.length;
-      return;
-    }
-
-    // Right arrow to enter runs panel
-    if (e.key === 'ArrowRight') {
-      ui.focus = 'runs';
-      ui.selectedRun = 0;
-      return;
-    }
-
-    // X to stop all ACTIVE runs (with confirmation) - in filter list only
-    if (key === 'x') {
-      if (ui.confirmStopAll) {
-        engine.stopAllRuns();
-        ui.confirmStopAll = false;
-      } else {
-        ui.confirmStopAll = true;
-      }
-      return;
-    }
-
-    // Any other key clears stop-all confirmation
-    ui.confirmStopAll = false;
-  }
-
-  if (e.key === 'Escape' || e.key === 'Backspace') ui.tab = 'jobs';
-}
 
 function handleResourcesInput(e) {
   // Get visible resources list (same logic as renderResourcesTab)
@@ -1376,33 +1286,35 @@ function handleOptionsInput(e) {
 
   // Initialize selectedSetting if not set
   if (ui.selectedSetting === undefined) ui.selectedSetting = 0;
+  ui.selectedSetting = Math.max(0, Math.min(8, ui.selectedSetting));
 
   // Clear confirmation state when navigating away from reset option
   if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
     ui.confirmReset = false;
   }
 
-  // Arrow navigation for settings list (10 options: 0-9)
+  // Arrow navigation for settings list (9 options: 0-8)
   if (e.key === 'ArrowUp') {
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
-    ui.selectedSetting = Math.min(9, ui.selectedSetting + 1);
+    ui.selectedSetting = Math.min(8, ui.selectedSetting + 1);
   }
 
-  // Number key selection (1-9 and 0)
+  // Number key selection (1-9, with 0 aliasing reset)
   if (e.key >= '1' && e.key <= '9') {
     const newSetting = parseInt(e.key) - 1;
+    if (newSetting > 8) return;
     if (newSetting !== ui.selectedSetting) ui.confirmReset = false;
     ui.selectedSetting = newSetting;
   }
   if (e.key === '0') {
-    if (ui.selectedSetting !== 9) ui.confirmReset = false;
-    ui.selectedSetting = 9;
+    if (ui.selectedSetting !== 8) ui.confirmReset = false;
+    ui.selectedSetting = 8;
   }
 
   // Enter/space to toggle or cycle
-  // Options: 0=Font, 1=Bloom, 2=Funny names, 3=Show intro, 4=Skip tutorials, 5=Authentic boot, 6=Exit to DOS, 7=About, 8=Debug, 9=Reset
+  // Options: 0=Font, 1=Bloom, 2=Funny names, 3=Show intro, 4=Skip tutorials, 5=Exit to DOS, 6=About, 7=Debug, 8=Reset
   if (e.key === 'Enter' || e.key === ' ') {
     if (ui.selectedSetting === 0) {
       ui.inFontSubMenu = true;
@@ -1421,17 +1333,14 @@ function handleOptionsInput(e) {
       ui.settings.skipTutorials = !ui.settings.skipTutorials;
       saveSettings(ui.settings);
     } else if (ui.selectedSetting === 5) {
-      ui.settings.authenticBoot = !ui.settings.authenticBoot;
-      saveSettings(ui.settings);
-    } else if (ui.selectedSetting === 6) {
       // Exit to DOS - switch to BIOS font, clear screen, drop to CLI
       applyFont({ ...ui.settings, font: 'ibm-bios' });
       enterDosPrompt();
-    } else if (ui.selectedSetting === 7) {
+    } else if (ui.selectedSetting === 6) {
       showModal('about');
-    } else if (ui.selectedSetting === 8) {
+    } else if (ui.selectedSetting === 7) {
       engine.state.debugMode = !engine.state.debugMode;
-    } else if (ui.selectedSetting === 9) {
+    } else if (ui.selectedSetting === 8) {
       // Reset progress with confirmation
       if (ui.confirmReset) {
         engine.resetProgress();
@@ -1525,16 +1434,30 @@ function handleModalInput(e) {
   const modal = getModal(ui.modal.id);
   if (!modal) return;
 
+  const layoutMode = modal.layout === 'fullscreen' ? 'fullscreen' : 'centered';
+  const textWidth = Math.max(24, Math.min(modal.contentWidth || 76, Layout.WIDTH - 4));
   const hasTitle = !!(modal.title && modal.title.trim() !== '');
-  const contentStartY = hasTitle ? 3 : 1;
-  const contentWidth = Layout.WIDTH - 4;
-  const contentHeight = Layout.HEIGHT - contentStartY - 1;
   const parsedLines = parseModalContent(
     modal.content || '',
-    contentWidth,
+    textWidth,
     modal.backgroundColor,
     modal.bodyColor || undefined
   );
+
+  let boxH = Layout.HEIGHT;
+  if (layoutMode === 'centered') {
+    const chromeRows = hasTitle ? 4 : 2;
+    const minCenteredBoxH = hasTitle ? 10 : 8;
+    const maxCenteredBoxH = Math.max(minCenteredBoxH, Layout.HEIGHT - 4);
+    const maxBodyRows = Math.max(3, maxCenteredBoxH - chromeRows);
+    const desiredBodyRows = Math.max(3, Math.min(parsedLines.length || 1, maxBodyRows));
+    boxH = Math.max(minCenteredBoxH, desiredBodyRows + chromeRows);
+  }
+
+  const boxY = layoutMode === 'fullscreen' ? 0 : Math.floor((Layout.HEIGHT - boxH) / 2);
+  const contentStartY = boxY + (hasTitle ? 3 : 1);
+  const contentBottomY = boxY + boxH - 2;
+  const contentHeight = Math.max(1, contentBottomY - contentStartY + 1);
   const maxScroll = Math.max(0, parsedLines.length - contentHeight);
   ui.modal.scroll = Math.min(ui.modal.scroll, maxScroll);
 
@@ -1585,6 +1508,9 @@ function showModal(modalId) {
   ui.modal.borderStyle = modal.borderStyle;
   ui.modal.borderColor = modal.borderColor;
   ui.modal.backgroundColor = modal.backgroundColor;
+  ui.modal.layout = modal.layout;
+  ui.modal.overlay = modal.overlay;
+  ui.modal.contentWidth = modal.contentWidth;
   ui.modal.titleColor = modal.titleColor;
   ui.modal.bodyColor = modal.bodyColor;
   ui.modal.scroll = 0;
@@ -1607,6 +1533,9 @@ function dismissModal() {
   ui.modal.borderStyle = null;
   ui.modal.borderColor = null;
   ui.modal.backgroundColor = null;
+  ui.modal.layout = 'centered';
+  ui.modal.overlay = 'dim50';
+  ui.modal.contentWidth = 76;
   ui.modal.scroll = 0;
   ui.modal.countdownActive = false;
   ui.modal.countdownDurationMs = 0;

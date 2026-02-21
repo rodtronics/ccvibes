@@ -2,6 +2,60 @@
 // Color interpolation and gradient definitions for TUI rendering
 
 /**
+ * Filmic colour exposure adjustment.
+ *
+ * Works in linear light (not sRGB), so exposure changes are perceptually
+ * smooth. Reinhard tone mapping is applied per-channel after the exposure
+ * shift — this is what produces the filmic highlight rolloff: when one
+ * channel is near saturation the others keep lifting, so colours trend
+ * toward white rather than toward a harder, more saturated version.
+ *
+ * @param {string} hex   - Input hex colour, e.g. '#cc2200'
+ * @param {number} stops - Exposure stops. Positive = brighter, negative = darker.
+ *                         Useful range is roughly -3 to +3.
+ * @returns {string} Adjusted hex colour.
+ */
+export function filmicAdjust(hex, stops) {
+  const ri = parseInt(hex.slice(1, 3), 16);
+  const gi = parseInt(hex.slice(3, 5), 16);
+  const bi = parseInt(hex.slice(5, 7), 16);
+
+  // sRGB → linear (gamma 2.2)
+  let r = Math.pow(ri / 255, 2.2);
+  let g = Math.pow(gi / 255, 2.2);
+  let b = Math.pow(bi / 255, 2.2);
+
+  // Exposure in linear space
+  const exposure = Math.pow(2, stops);
+  r *= exposure;
+  g *= exposure;
+  b *= exposure;
+
+  // Reinhard per-channel: saturating channels compress while others keep
+  // rising, naturally desaturating highlights toward white
+  r = r / (1 + r);
+  g = g / (1 + g);
+  b = b / (1 + b);
+
+  // linear → sRGB
+  r = Math.pow(r, 1 / 2.2);
+  g = Math.pow(g, 1 / 2.2);
+  b = Math.pow(b, 1 / 2.2);
+
+  const toHex = (n) => {
+    const h = Math.round(Math.min(255, Math.max(0, n * 255))).toString(16);
+    return h.length === 1 ? '0' + h : h;
+  };
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/** Convenience: brighten a colour by `stops` stops (filmic). */
+export const filmicBrighten = (hex, stops = 1) => filmicAdjust(hex, stops);
+
+/** Convenience: darken a colour by `stops` stops (filmic). */
+export const filmicDarken = (hex, stops = 1) => filmicAdjust(hex, -stops);
+
+/**
  * Interpolate between two hex colors
  * @param {string} color1 - Hex color (e.g., '#00ffff')
  * @param {string} color2 - Hex color (e.g., '#7bff9f')

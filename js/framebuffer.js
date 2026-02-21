@@ -3,7 +3,7 @@
 // Based on 05_rendering_engine.md
 
 import { Palette, BoxStyles } from './palette.js';
-import { getGradientColors, interpolateColor } from './gradients.js';
+import { getGradientColors } from './gradients.js';
 
 export class FrameBuffer {
   constructor(width, height) {
@@ -185,65 +185,20 @@ export class FrameBuffer {
     }
   }
 
-  // Progress bar drawing
-  drawProgressBar(x, y, width, percent, fg, bg) {
-    if (width < 2) return;
-
-    const clampedPercent = Math.max(0, Math.min(1, percent));
-    const innerWidth = width - 2; // Account for [ and ]
-    const filledWidth = Math.floor(innerWidth * clampedPercent);
-
-    // Draw brackets
-    this.setCell(x, y, '[', fg, bg);
-    this.setCell(x + width - 1, y, ']', fg, bg);
-
-    // Draw filled portion
-    for (let i = 0; i < filledWidth; i++) {
-      this.setCell(x + 1 + i, y, '#', fg, bg);
-    }
-
-    // Draw empty portion
-    for (let i = filledWidth; i < innerWidth; i++) {
-      this.setCell(x + 1 + i, y, '-', fg, bg);
-    }
-  }
-
-  // Smooth gradient progress bar with sub-character interpolation
-  // - The leading character interpolates from emptyColor to its target gradient color
-  // - Filled portion has a gradient across it (startColor -> endColor)
-  // - Uses solid blocks (█) for a clean look
-  // - Marks cells with progressBar flag for CSS negative letter-spacing
-  drawSmoothProgressBar(x, y, width, percent, startColor, endColor, emptyColor, bg) {
+  // Background-color progress bar with inline text
+  // Filled portion uses fillBg as background; empty portion uses emptyBg.
+  // text is written on top (fg = textColor) left-padded by 1 char, truncated to width.
+  drawTextBar(x, y, width, percent, text, textColor, fillBg, emptyBg) {
     if (width < 1) return;
 
     const clampedPercent = Math.max(0, Math.min(1, percent));
-
-    // Calculate how many characters are filled (including partial)
-    const filledChars = clampedPercent * width;  // e.g., 3.7 for 37% of 10-char bar
-    const fullChars = Math.floor(filledChars);   // 3 fully filled
-    const partialPct = filledChars - fullChars;  // 0.7 = 70% through char #4
+    const filledWidth = Math.round(clampedPercent * width);
+    const str = String(text || '').substring(0, width);
 
     for (let i = 0; i < width; i++) {
-      // Calculate what color this position should be in the gradient
-      const gradientPct = width > 1 ? i / (width - 1) : 0;
-      const targetColor = interpolateColor(startColor, endColor, gradientPct);
-
-      if (i < fullChars) {
-        // Fully filled - use gradient color at this position
-        this.setCell(x + i, y, '█', targetColor, bg);
-      } else if (i === fullChars && partialPct > 0) {
-        // Partial fill - interpolate between empty and target gradient color
-        const color = interpolateColor(emptyColor, targetColor, partialPct);
-        this.setCell(x + i, y, '█', color, bg);
-      } else {
-        // Empty
-        this.setCell(x + i, y, '█', emptyColor, bg);
-      }
-
-      // Mark this cell as part of progress bar for CSS targeting
-      if (this.inBounds(x + i, y)) {
-        this.cells[y][x + i].progressBar = true;
-      }
+      const bg = i < filledWidth ? fillBg : emptyBg;
+      const ch = i < str.length ? str[i] : ' ';
+      this.setCell(x + i, y, ch, textColor, bg);
     }
   }
 

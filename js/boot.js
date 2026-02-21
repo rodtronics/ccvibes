@@ -59,8 +59,10 @@ export class BootScreen {
     const b = this.buffer;
     b.clear();
 
-    // Retro colour stripes on right side (draw first so text sits on top)
-    this.drawStripes();
+    // Retro colour stripes only on slow/authentic-style boots.
+    if (slowBoot) {
+      this.drawStripes();
+    }
 
     // BIOS banner
     b.writeText(1, 0, 'CCVI BIOS v6.0', HEADER_COLOR);
@@ -211,8 +213,8 @@ const DOS_HELP_SUMMARY = [
   { command: 'DEL', summary: 'Deletes a save slot file.' },
   { command: 'NAME', summary: 'Lists or edits save slot player names.' },
   { command: 'SAVE / STATUS', summary: 'Shows active slot status details.' },
-  { command: 'AUTHBOOT', summary: 'Toggles authentic boot behavior.' },
   { command: 'SHUTDOWN', summary: 'Power off shell, or reboot with -R.' },
+  { command: 'RESTART', summary: 'Alias for SHUTDOWN -R.' },
   { command: 'CLS', summary: 'Clears the DOS screen.' },
   { command: 'VER', summary: 'Displays DOS version info.' },
   { command: 'CONTACT', summary: 'Shows developer contact information.' },
@@ -296,15 +298,16 @@ const DOS_HELP_DETAILS = {
     'STATUS',
     'Shows active slot and authentic boot state.',
   ],
-  authboot: [
-    'AUTHBOOT',
-    'Shows or changes authentic boot mode.',
-  ],
   shutdown: [
     'SHUTDOWN',
-    'SHUTDOWN powers off the shell session.',
-    'Use SHUTDOWN -R to reboot into boot screen and DOS.',
-    'Press DEL during reboot to enter BIOS SETUP.',
+    'SHUTDOWN powers off the shell (next boot forced to slow DOS mode once).',
+    'Use SHUTDOWN -R to reboot immediately with the same next-boot behavior.',
+    'Press DEL during that boot to enter BIOS SETUP.',
+  ],
+  restart: [
+    'RESTART',
+    'Alias for SHUTDOWN -R.',
+    'Performs an immediate reboot into one-time slow DOS boot mode.',
   ],
   cls: [
     'CLS',
@@ -338,6 +341,7 @@ const HELP_ALIAS_MAP = {
   slot: 'save',
   delete: 'del',
   rm: 'del',
+  reboot: 'restart',
 };
 
 const BIOS_FONT_CATEGORIES = {
@@ -353,6 +357,7 @@ export class DosPrompt {
     this.buffer = buffer;
     this.engine = options.engine || null;
     this.onRender = typeof options.onRender === 'function' ? options.onRender : null;
+    this.onSystemPowerOff = typeof options.onSystemPowerOff === 'function' ? options.onSystemPowerOff : null;
     this.onSystemReboot = typeof options.onSystemReboot === 'function' ? options.onSystemReboot : null;
     this.inputBuffer = '';
     this.currentY = 0;
@@ -462,7 +467,7 @@ export class DosPrompt {
     const shutdownCommand = this.parseShutdownCommand(rawCmd);
     if (shutdownCommand) {
       if (shutdownCommand.invalid) {
-        this.outputLines([{ text: 'Usage: SHUTDOWN [-R]', color: ERROR_COLOR }]);
+        this.outputLines([{ text: 'Usage: SHUTDOWN [-R] | RESTART', color: ERROR_COLOR }]);
         return null;
       }
       this.beginShutdown(shutdownCommand.reboot);
@@ -505,7 +510,10 @@ export class DosPrompt {
     }
 
     if (base === 'authboot') {
-      return this.handleAuthBoot(parts[1]);
+      return [
+        { text: 'AUTHBOOT moved to BIOS setup.', color: LABEL_COLOR },
+        { text: 'From DOS, run SHUTDOWN (or SHUTDOWN -R), then press DEL during boot.', color: DOT_COLOR },
+      ];
     }
 
     if (base === 'cls') {
@@ -566,6 +574,12 @@ export class DosPrompt {
     const cmd = String(command || '').trim();
     const parts = cmd.split(/\s+/);
     const base = (parts[0] || '').toLowerCase();
+
+    if (base === 'restart' || base === 'reboot') {
+      if (parts.length === 1) return { reboot: true, invalid: false };
+      return { reboot: false, invalid: true };
+    }
+
     if (base !== 'shutdown') return null;
 
     if (parts.length === 1) return { reboot: false, invalid: false };
@@ -606,6 +620,9 @@ export class DosPrompt {
         return;
       }
 
+      if (typeof this.onSystemPowerOff === 'function') {
+        this.onSystemPowerOff();
+      }
       this.writeLine('It is now safe to turn off your computer.', LABEL_COLOR);
       if (this.onRender) this.onRender();
     }, 1500);
@@ -672,7 +689,7 @@ export class DosPrompt {
       { text: `${getSlotFileName(activeSlot)}: ${saveExists ? 'present' : 'missing'}`, color: saveExists ? OK_COLOR : ERROR_COLOR },
       { text: `Seen modals cache: ${seenModalsExists ? 'present' : 'missing'}`, color: seenModalsExists ? LABEL_COLOR : DOT_COLOR },
       { text: `Authentic boot: ${authenticBoot ? 'ON' : 'OFF'}`, color: authenticBoot ? OK_COLOR : LABEL_COLOR },
-      { text: 'Tip: AUTHBOOT ON|OFF|TOGGLE to change startup mode', color: DOT_COLOR },
+      { text: 'Tip: SHUTDOWN or SHUTDOWN -R, then press DEL on the next boot for BIOS', color: DOT_COLOR },
     ];
   }
 
@@ -1343,33 +1360,6 @@ export class DosPrompt {
     } catch {
       // Ignore failures; caller still gets DOS feedback.
     }
-  }
-
-  handleAuthBoot(arg) {
-    const settings = this.readSettings();
-    const current = !!settings.authenticBoot;
-
-    if (!arg) {
-      return [
-        { text: `Authentic boot is currently ${current ? 'ON' : 'OFF'}`, color: current ? OK_COLOR : LABEL_COLOR },
-        { text: 'Usage: AUTHBOOT ON | OFF | TOGGLE', color: DOT_COLOR },
-      ];
-    }
-
-    let next = current;
-    if (arg === 'on' || arg === '1' || arg === 'true') {
-      next = true;
-    } else if (arg === 'off' || arg === '0' || arg === 'false') {
-      next = false;
-    } else if (arg === 'toggle') {
-      next = !current;
-    } else {
-      return [{ text: 'Invalid value. Use ON, OFF, or TOGGLE.', color: ERROR_COLOR }];
-    }
-
-    settings.authenticBoot = next;
-    this.writeSettings(settings);
-    return [{ text: `Authentic boot ${next ? 'ENABLED' : 'DISABLED'} (next launch).`, color: next ? OK_COLOR : LABEL_COLOR }];
   }
 
   readSettings() {
