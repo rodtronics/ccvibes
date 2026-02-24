@@ -1952,7 +1952,7 @@ export class UI {
     // Build selected staff from crew slots
     const selectedStaff = [];
     for (const slot of detail.crewSlots) {
-      const staff = slot.options[slot.selectedIndex];
+      const staff = slot.variants[slot.selectedIndex];
       if (staff) {
         for (let i = 0; i < slot.count; i++) {
           selectedStaff.push(staff);
@@ -2036,7 +2036,7 @@ export class UI {
         rightY += 1;
 
         // Selected crew member
-        const staff = slot.options[slot.selectedIndex];
+        const staff = slot.variants[slot.selectedIndex];
         if (staff) {
           const stars = this.engine.getStars(staff);
           const crewText = stars > 0 ? `${staff.name} (${stars}*)` : staff.name;
@@ -2047,8 +2047,8 @@ export class UI {
         rightY += 1;
 
         // Show navigation hint for selected slot
-        if (selected && slot.options.length > 1) {
-          this.buffer.writeText(rightCol.x + 2, rightY, `[LEFT/RIGHT] ${slot.selectedIndex + 1}/${slot.options.length}`, Palette.DIM_GRAY, bgColor);
+        if (selected && slot.variants.length > 1) {
+          this.buffer.writeText(rightCol.x + 2, rightY, `[LEFT/RIGHT] ${slot.selectedIndex + 1}/${slot.variants.length}`, Palette.DIM_GRAY, bgColor);
           rightY += 1;
         }
       });
