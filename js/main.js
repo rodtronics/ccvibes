@@ -19,7 +19,8 @@ import {
   GRID_HEIGHTS,
   MIN_ZOOM,
   MAX_ZOOM,
-  ZOOM_STEP
+  ZOOM_STEP,
+  FPS_TO_MS
 } from './settings.js';
 
 // Modal queue (created early so it can be passed to engine)
@@ -82,6 +83,10 @@ const ui = {
     countdownDurationMs: 0,
     countdownEndsAt: 0,
     countdownRemainingMs: 0,
+    overlayDimFrom: 0.5,
+    overlayDimTo: 0,
+    overlayDimDurationMs: 0,
+    overlayDimStartedAt: 0,
   },
   crimeDetail: {
     active: false,
@@ -104,16 +109,47 @@ const ui = {
     detailMode: false,
     scroll: 0,
   },
+  tabBarFocus: false,
+  tabBarIndex: 0,
 };
+
+// Tab bar navigation order
+const TAB_ORDER = [
+  { id: 'jobs',      tab: 'jobs', panelFocus: 'left' },
+  { id: 'active',    tab: 'jobs', panelFocus: 'right' },
+  { id: 'crew',      tab: 'crew' },
+  { id: 'resources', tab: 'resources' },
+  { id: 'stats',     tab: 'stats' },
+  { id: 'log',       tab: 'log' },
+  { id: 'options',   tab: 'options' },
+];
+
+function enterTabFromBar() {
+  const entry = TAB_ORDER[ui.tabBarIndex];
+  ui.tab = entry.tab;
+  if (entry.panelFocus) ui.panelFocus = entry.panelFocus;
+  if (entry.tab === 'jobs' && entry.panelFocus === 'left') ui.focus = 'scenario';
+  ui.tabBarFocus = false;
+}
+
+function focusTabBar() {
+  ui.tabBarFocus = true;
+  // Sync tabBarIndex to current tab
+  const idx = TAB_ORDER.findIndex(t =>
+    t.tab === ui.tab && (!t.panelFocus || t.panelFocus === ui.panelFocus)
+  );
+  if (idx >= 0) ui.tabBarIndex = idx;
+}
 
 // Create UI layer
 const uiLayer = new UI(buffer, engine, ui);
 
-import { FPS_TO_MS } from './settings.js';
-
 const LOOP_MS_IDLE = 250;
 const LOOP_MS_HIDDEN = 1000;
 const MODAL_COUNTDOWN_MS = 3000;
+const MODAL_DIM_FROM = 0.5;
+const MODAL_DIM_TO = 0;
+const MODAL_DIM_FADE_MS = 5000;
 const STARTUP_MODAL_IDS = ['onboardingIntroductionModal', 'legallyBound'];
 
 let loopTimeoutId = null;
@@ -151,11 +187,23 @@ function hasActiveRuns() {
 
 function getLoopDelay() {
   if (document.hidden) return LOOP_MS_HIDDEN;
+
+  let baseDelay = LOOP_MS_IDLE;
   if (hasActiveRuns()) {
     const fps = ui.settings.fps || 60;
-    return FPS_TO_MS[fps] || 16; // Default to 60fps (16ms) if invalid
+    baseDelay = FPS_TO_MS[fps] || 16; // Default to 60fps (16ms) if invalid
   }
-  return LOOP_MS_IDLE;
+
+  // Smooth modal overlay dim fades even when the game would otherwise idle.
+  if (ui.modal.active && ui.modal.overlay === 'dim50') {
+    const startedAt = ui.modal.overlayDimStartedAt || 0;
+    const durationMs = ui.modal.overlayDimDurationMs || 0;
+    if (durationMs > 0 && startedAt > 0 && Date.now() - startedAt < durationMs) {
+      return Math.min(baseDelay, 33);
+    }
+  }
+
+  return baseDelay;
 }
 
 function startLoop() {
@@ -556,6 +604,21 @@ function handleInput(e) {
     return;
   }
 
+  // Tab bar navigation (when focused)
+  if (ui.tabBarFocus) {
+    if (e.key === 'ArrowLeft') {
+      ui.tabBarIndex = Math.max(0, ui.tabBarIndex - 1);
+    } else if (e.key === 'ArrowRight') {
+      ui.tabBarIndex = Math.min(TAB_ORDER.length - 1, ui.tabBarIndex + 1);
+    } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
+      enterTabFromBar();
+    } else if (e.key === 'Escape') {
+      ui.tabBarFocus = false;
+    }
+    render();
+    return;
+  }
+
   // Tab switching (J, A, C, R, S, L, O)
   // J focuses left panel (jobs browser), A focuses right panel (active runs)
   if (e.key === 'j' || e.key === 'J') {
@@ -563,33 +626,40 @@ function handleInput(e) {
     ui.panelFocus = 'left';
     ui.focus = 'scenario';
     ui.variantIndex = 0;
+    ui.tabBarFocus = false;
     closeCrimeDetail();
   }
   if (e.key === 'a' || e.key === 'A') {
     ui.tab = 'jobs';
     ui.panelFocus = 'right';
+    ui.tabBarFocus = false;
     closeCrimeDetail();
   }
   // C switches to crew tab, unless right panel focused (C = clear there)
   if ((e.key === 'c' || e.key === 'C') && ui.panelFocus !== 'right') {
     ui.tab = 'crew';
+    ui.tabBarFocus = false;
     closeCrimeDetail();
   }
   // R switches to resources tab, unless right panel focused (R = cancel repeat there)
   if ((e.key === 'r' || e.key === 'R') && !(ui.tab === 'jobs' && ui.panelFocus === 'right')) {
     ui.tab = 'resources';
+    ui.tabBarFocus = false;
     closeCrimeDetail();
   }
   if (e.key === 's' || e.key === 'S') {
     ui.tab = 'stats';
+    ui.tabBarFocus = false;
     closeCrimeDetail();
   }
   if (e.key === 'l' || e.key === 'L') {
     ui.tab = 'log';
+    ui.tabBarFocus = false;
     closeCrimeDetail();
   }
   if (e.key === 'o' || e.key === 'O') {
     ui.tab = 'options';
+    ui.tabBarFocus = false;
     closeCrimeDetail();
   }
 
@@ -619,7 +689,7 @@ function handleJobsInput(e) {
     const filteredRuns = uiLayer.getFilteredRuns().sort(sortRunsActiveFirst);
 
     // LEFT or ESC switches back to left panel
-    if (e.key === 'ArrowLeft' || e.key === 'Escape' || e.key === 'Backspace') {
+    if (e.key === 'Escape' || e.key === 'Backspace') {
       ui.panelFocus = 'left';
       return;
     }
@@ -633,6 +703,7 @@ function handleJobsInput(e) {
 
     if (filteredRuns.length === 0) {
       ui.selectedRun = 0;
+      if (e.key === 'ArrowUp') { focusTabBar(); return; }
       return;
     }
 
@@ -641,7 +712,10 @@ function handleJobsInput(e) {
     const isCompleted = selectedRun?.status === 'completed';
 
     // UP/DOWN navigate runs
-    if (e.key === 'ArrowUp') ui.selectedRun = Math.max(0, ui.selectedRun - 1);
+    if (e.key === 'ArrowUp') {
+      if (ui.selectedRun === 0) { focusTabBar(); return; }
+      ui.selectedRun = Math.max(0, ui.selectedRun - 1);
+    }
     if (e.key === 'ArrowDown') ui.selectedRun = Math.min(filteredRuns.length - 1, ui.selectedRun + 1);
 
     // ENTER opens run detail modal
@@ -712,6 +786,10 @@ function handleJobsInput(e) {
   }
 
   if (ui.focus === 'branch') {
+    if (e.key === 'ArrowUp') {
+      focusTabBar();
+      return;
+    }
     if (e.key === 'ArrowLeft') {
       ui.branchIndex = Math.max(0, ui.branchIndex - 1);
       ui.scenarioIndex = 0;
@@ -771,11 +849,6 @@ function handleJobsInput(e) {
       }
     }
 
-    // RIGHT arrow switches to runs panel
-    if (e.key === 'ArrowRight') {
-      ui.panelFocus = 'right';
-      ui.selectedRun = 0;
-    }
   }
 }
 
@@ -1017,6 +1090,7 @@ function handleResourcesInput(e) {
 
   // Arrow up/down moves selection one at a time
   if (e.key === 'ArrowUp') {
+    if (ui.resourceSelection.selectedIndex === 0) { focusTabBar(); return; }
     ui.resourceSelection.selectedIndex = Math.max(0, ui.resourceSelection.selectedIndex - 1);
     updateResourcesScroll(ui.resourceSelection.selectedIndex, visibleRows, totalResources);
   }
@@ -1083,6 +1157,7 @@ function handleStatsInput(e) {
 
   // Arrow Up/Down: Navigate stat selection
   if (e.key === 'ArrowUp') {
+    if (ui.statsSelection.selectedStat === 0) { focusTabBar(); return; }
     ui.statsSelection.selectedStat = Math.max(0, ui.statsSelection.selectedStat - 1);
   }
   if (e.key === 'ArrowDown') {
@@ -1120,7 +1195,10 @@ function handleLogInput(e) {
   };
 
   if (e.key === 'ArrowDown') setLogScroll((ui.scroll?.log || 0) + 1);
-  if (e.key === 'ArrowUp') setLogScroll((ui.scroll?.log || 0) - 1);
+  if (e.key === 'ArrowUp') {
+    if ((ui.scroll?.log || 0) === 0) { focusTabBar(); return; }
+    setLogScroll((ui.scroll?.log || 0) - 1);
+  }
   if (e.key === 'PageDown') setLogScroll((ui.scroll?.log || 0) + pageStep);
   if (e.key === 'PageUp') setLogScroll((ui.scroll?.log || 0) - pageStep);
   if (e.key === 'End') setLogScroll(maxOffset);
@@ -1172,6 +1250,7 @@ function handleCrewInput(e) {
 
   // Arrow up/down moves selection one at a time
   if (e.key === 'ArrowUp') {
+    if (ui.crewSelection.selectedIndex === 0) { focusTabBar(); return; }
     ui.crewSelection.selectedIndex = Math.max(0, ui.crewSelection.selectedIndex - 1);
     updateCrewScroll(ui.crewSelection.selectedIndex, visibleRows, totalCrew);
   }
@@ -1295,6 +1374,7 @@ function handleOptionsInput(e) {
 
   // Arrow navigation for settings list (9 options: 0-8)
   if (e.key === 'ArrowUp') {
+    if (ui.selectedSetting === 0) { focusTabBar(); return; }
     ui.selectedSetting = Math.max(0, ui.selectedSetting - 1);
   }
   if (e.key === 'ArrowDown') {
@@ -1455,9 +1535,22 @@ function handleModalInput(e) {
   }
 
   const boxY = layoutMode === 'fullscreen' ? 0 : Math.floor((Layout.HEIGHT - boxH) / 2);
-  const contentStartY = boxY + (hasTitle ? 3 : 1);
+  let contentStartY = boxY + (hasTitle ? 3 : 1);
   const contentBottomY = boxY + boxH - 2;
-  const contentHeight = Math.max(1, contentBottomY - contentStartY + 1);
+  let contentHeight = Math.max(1, contentBottomY - contentStartY + 1);
+
+  // Keep scroll math aligned with UI.renderModal(), which vertically centers
+  // fullscreen modal content when it fits (eg: the intro screen).
+  if (
+    layoutMode === 'fullscreen' &&
+    (ui.modal.scroll || 0) === 0 &&
+    parsedLines.length > 0 &&
+    parsedLines.length < contentHeight
+  ) {
+    const padTop = Math.floor((contentHeight - parsedLines.length) / 2);
+    contentStartY += padTop;
+    contentHeight = Math.max(1, contentBottomY - contentStartY + 1);
+  }
   const maxScroll = Math.max(0, parsedLines.length - contentHeight);
   ui.modal.scroll = Math.min(ui.modal.scroll, maxScroll);
 
@@ -1480,6 +1573,8 @@ function handleModalInput(e) {
     dismissModal();
     e.preventDefault();
   }
+
+  render();
 }
 
 // Show a modal
@@ -1510,6 +1605,16 @@ function showModal(modalId) {
   ui.modal.backgroundColor = modal.backgroundColor;
   ui.modal.layout = modal.layout;
   ui.modal.overlay = modal.overlay;
+  ui.modal.overlayDimStartedAt = Date.now();
+  if (ui.modal.overlay === 'dim50') {
+    ui.modal.overlayDimFrom = MODAL_DIM_FROM;
+    ui.modal.overlayDimTo = MODAL_DIM_TO;
+    ui.modal.overlayDimDurationMs = MODAL_DIM_FADE_MS;
+  } else {
+    ui.modal.overlayDimFrom = 0;
+    ui.modal.overlayDimTo = 0;
+    ui.modal.overlayDimDurationMs = 0;
+  }
   ui.modal.contentWidth = modal.contentWidth;
   ui.modal.titleColor = modal.titleColor;
   ui.modal.bodyColor = modal.bodyColor;
@@ -1541,6 +1646,10 @@ function dismissModal() {
   ui.modal.countdownDurationMs = 0;
   ui.modal.countdownEndsAt = 0;
   ui.modal.countdownRemainingMs = 0;
+  ui.modal.overlayDimFrom = MODAL_DIM_FROM;
+  ui.modal.overlayDimTo = MODAL_DIM_TO;
+  ui.modal.overlayDimDurationMs = 0;
+  ui.modal.overlayDimStartedAt = 0;
 
   // Mark as seen
   if (modalId) {
@@ -1565,18 +1674,7 @@ function dismissModal() {
 function startSelectedRun(scenario, variant) {
   if (!scenario || !variant) return;
 
-  // Calculate runsLeft based on repeat mode
-  const mode = ui.repeatMode || 'single';
-  let runsLeft = 0; // default: single run
-
-  if (variant.repeatable) {
-    if (mode === 'infinite') {
-      runsLeft = -1; // infinite repeats
-    } else if (mode === 'multi') {
-      const count = ui.repeatCount || 2;
-      runsLeft = count - 1; // N more runs after this one
-    }
-  }
+  let runsLeft = 0; // single run
 
   const result = engine.startRun(scenario.id, variant.id, null, runsLeft);
   if (!result.ok) {

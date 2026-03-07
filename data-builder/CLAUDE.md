@@ -65,7 +65,7 @@ All workbench JavaScript files have been refactored to use new terminology: `sce
 ### js/tabs/ - Editor Tabs
 | File | Purpose |
 |------|---------|
-| `workshop.js` (~89KB) | Main scenario/variant editor. The largest and most complex editor - handles scenarios, variants, resolutions, requirements, effects, outcomes. |
+| `workshop.js` (~89KB) | Main scenario/variant editor. Handles scenarios, variants, resolutions, requirements, effects, outcomes. Variant cards use collapsible sub-sections (Identity/Timing/Gates/Requirements/Resolution) — state in `collapsedSubSections` Map. "Compare" button opens a fixed reference panel showing read-only variants from another scenario. |
 | `world.js` (~36KB) | World editor - branches, roles, perks. |
 | `economy.js` (~13KB) | Economy editor - resources, balance tuning. |
 | `map.js` (~11KB) | Visual progression map editor. |

@@ -6,9 +6,6 @@ export const ACTIVE_SAVE_SLOT_KEY = 'ccv_active_save_slot';
 const GAME_STATE_PREFIX = 'ccv_game_state_';
 const SEEN_MODALS_PREFIX = 'ccv_seen_modals_';
 
-const LEGACY_GAME_STATE_KEY = 'ccv_game_state';
-const LEGACY_SEEN_MODALS_KEY = 'ccv_seen_modals';
-
 const SLOT_INPUT_REGEX = /^(?:sav|save|cc_save)?0*([1-8])(?:\.sav)?$/i;
 const SLOT_ZERO_ALIAS_REGEX = /^[0-7]$/;
 
@@ -28,10 +25,6 @@ export function normalizeSlotId(input) {
   const slotNumber = Number(match[1]);
   if (Number.isNaN(slotNumber) || slotNumber < 1 || slotNumber > SLOT_COUNT) return null;
   return `sav${slotNumber}`;
-}
-
-export function isValidSlotId(slotId) {
-  return normalizeSlotId(slotId) !== null;
 }
 
 export function getSlotNumber(slotId) {
@@ -133,18 +126,6 @@ export function ensureSaveSlotStorage() {
   if (!setActiveSaveSlot(activeSlot)) {
     activeSlot = SLOT_IDS[0];
     setActiveSaveSlot(activeSlot);
-  }
-
-  const legacyState = localStorage.getItem(LEGACY_GAME_STATE_KEY);
-  const slotOneKey = getGameStateKey(SLOT_IDS[0]);
-  if (legacyState && slotOneKey && !localStorage.getItem(slotOneKey)) {
-    localStorage.setItem(slotOneKey, legacyState);
-  }
-
-  const legacySeenModals = localStorage.getItem(LEGACY_SEEN_MODALS_KEY);
-  const slotOneSeenKey = getSeenModalsKey(SLOT_IDS[0]);
-  if (legacySeenModals && slotOneSeenKey && !localStorage.getItem(slotOneSeenKey)) {
-    localStorage.setItem(slotOneSeenKey, legacySeenModals);
   }
 
   return activeSlot;

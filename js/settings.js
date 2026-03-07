@@ -5,7 +5,6 @@ const BLOOM_OVERLAY_ID = 'bloom-overlay';
 
 // Settings constants
 export const FONTS = ['fira', 'vga-9x8', 'vga-8x16', 'jetbrains-mono', 'ibm-bios', 'commodore-64', 'scp', 'courier-prime', 'vt323', 'share-tech-mono', 'nova-mono', 'doto', 'workbench'];
-const FONT_CLASSES = [...FONTS];
 export const FONT_CATEGORIES = {
   modern: ['fira', 'jetbrains-mono', 'scp'],
   retro: ['vga-9x8', 'vga-8x16', 'ibm-bios', 'commodore-64'],
@@ -14,7 +13,7 @@ export const FONT_CATEGORIES = {
 
 export const MIN_ZOOM = 100; // %
 export const MAX_ZOOM = 300; // %
-export const ZOOM_STEP = 50; // %
+export const ZOOM_STEP = 10; // %
 
 export const GRID_HEIGHTS = [43, 55];
 export const FPS_OPTIONS = [1, 2, 5, 10, 20, 30, 60, 120, 240];
@@ -45,12 +44,10 @@ export function getFontCategory(fontId) {
 export function loadSettings() {
   const defaults = {
     font: 'fira',
-    gradients: false,    // Always off (removed from options)
-    hotkeyGlow: false,   // Always off (removed from options)
     bloom: false,
     funnyNames: false,
     allCaps: true,       // Always on (removed from options)
-    zoom: 150, // Font size zoom percentage (100, 150, 200, 250, etc.)
+    zoom: 100, // Font size zoom percentage (100, 150, 200, 250, etc.)
     showIntro: true,     // Show intro modal on launch
     skipTutorials: false, // Skip tutorial and story modals
     authenticBoot: false, // Slow boot with DOS CLI prompt every time
@@ -63,8 +60,6 @@ export function loadSettings() {
     if (raw) {
       const parsed = JSON.parse(raw);
       // Migrate old font settings
-      if (parsed.font === 'vga') parsed.font = 'vga-9x8';
-      if (parsed.fontScale && !parsed.zoom) parsed.zoom = Math.round(parsed.fontScale * 100);
       if (parsed.zoom && parsed.zoom < MIN_ZOOM) parsed.zoom = MIN_ZOOM;
 
       // Validate FPS
@@ -117,7 +112,7 @@ export function applyFont(settings) {
   const zoom = clamp(settings.zoom || MIN_ZOOM, MIN_ZOOM, MAX_ZOOM);
   settings.zoom = zoom;
   targets.forEach((target) => {
-    FONT_CLASSES.forEach(font => target.classList.remove(`font-${font}`));
+    FONTS.forEach(font => target.classList.remove(`font-${font}`));
     target.classList.add(`font-${nextFont}`);
     target.style.fontSize = `${zoom}%`;
   });

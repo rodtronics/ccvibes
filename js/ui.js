@@ -5,7 +5,8 @@
 import { Palette, BoxStyles } from "./palette.js";
 import { parseModalContent } from "./modal.js";
 import { sortRunsActiveFirst } from "./engine.js";
-import { loadSettings } from "./settings.js";
+import { loadSettings, getFontCategory } from "./settings.js";
+import { filmicAdjust } from "./gradients.js";
 
 // Read grid height from saved settings at module load time (before anything uses Layout)
 const _h = loadSettings().gridHeight || 43;
@@ -99,19 +100,21 @@ export class UI {
 
   renderTabBar() {
     const leftTabs = [
-      { id: "jobs", label: "JOBS", hotkey: "j" },
-      { id: "active", label: "ACTIVE", hotkey: "a" },
-      { id: "crew", label: "CREW", hotkey: "c" },
-      { id: "resources", label: "RESOURCES", hotkey: "r" },
-      { id: "stats", label: "STATS", hotkey: "s" },
+      { id: "jobs", label: "JOBS", hotkey: "j", barIndex: 0 },
+      { id: "active", label: "ACTIVE", hotkey: "a", barIndex: 1 },
+      { id: "crew", label: "CREW", hotkey: "c", barIndex: 2 },
+      { id: "resources", label: "RESOURCES", hotkey: "r", barIndex: 3 },
+      { id: "stats", label: "STATS", hotkey: "s", barIndex: 4 },
     ];
 
     const rightTabs = [
-      { id: "log", label: "LOG", hotkey: "l" },
-      { id: "options", label: "OPTIONS", hotkey: "o" },
+      { id: "log", label: "LOG", hotkey: "l", barIndex: 5 },
+      { id: "options", label: "OPTIONS", hotkey: "o", barIndex: 6 },
     ];
 
     const y = 1;
+    const barFocused = this.ui.tabBarFocus;
+    const barIdx = this.ui.tabBarIndex;
 
     // Render left-aligned tabs
     let x = 2;
@@ -121,8 +124,12 @@ export class UI {
       if (tab.id === 'jobs') active = this.ui.tab === 'jobs' && this.ui.panelFocus === 'left';
       else if (tab.id === 'active') active = this.ui.tab === 'jobs' && this.ui.panelFocus === 'right';
       else active = tab.id === this.ui.tab;
-      const width = this.renderTab(x, y, tab.label, tab.hotkey, active, Palette.NEON_CYAN, Palette.BLACK, Palette.DIM_GRAY);
-      x += width + 3; // Add spacing between tabs
+      const focused = barFocused && barIdx === tab.barIndex;
+      const fg = focused ? Palette.BLACK : (active ? Palette.NEON_CYAN : Palette.DIM_GRAY);
+      const bg = focused ? Palette.NEON_CYAN : (active ? Palette.BLACK : null);
+      const hk = focused ? Palette.BLACK : Palette.NEON_CYAN;
+      const width = this.renderTab(x, y, tab.label, tab.hotkey, true, fg, bg, fg, hk);
+      x += width + 3;
     });
 
     // Render right-aligned tabs (calculate position from right edge)
@@ -130,14 +137,15 @@ export class UI {
     x = Layout.WIDTH - 2;
     rightTabsReversed.forEach((tab) => {
       const active = tab.id === this.ui.tab;
-      // Calculate tab width first
-      const tabWidth = tab.label.length + 3; // [X] format
+      const focused = barFocused && barIdx === tab.barIndex;
+      const fg = focused ? Palette.BLACK : (active ? Palette.NEON_CYAN : Palette.DIM_GRAY);
+      const bg = focused ? Palette.NEON_CYAN : (active ? Palette.BLACK : null);
+      const hk = focused ? Palette.BLACK : Palette.NEON_CYAN;
+      const tabWidth = tab.label.length + 3;
       x -= tabWidth;
-      this.renderTab(x, y, tab.label, tab.hotkey, active, Palette.NEON_CYAN, Palette.BLACK, Palette.DIM_GRAY);
-      x -= 3; // Add spacing
+      this.renderTab(x, y, tab.label, tab.hotkey, true, fg, bg, fg, hk);
+      x -= 3;
     });
-
-    // No navigation hint text (keep the bar clean)
   }
 
   renderJobsTab() {
@@ -346,6 +354,8 @@ export class UI {
     this.buffer.writeText(rightX, Layout.HEIGHT - 2, filterHint, Palette.DIM_GRAY, bgColor);
     if (rightActive) {
       this.buffer.writeText(rightX + filterHint.length + 2, Layout.HEIGHT - 2, "[ENTER] Detail", Palette.SUCCESS_GREEN, bgColor);
+      const clearHint = "[X] Clear  [Z] Clear all";
+      this.buffer.writeText(rightX + rightWidth - clearHint.length, Layout.HEIGHT - 2, clearHint, Palette.DIM_GRAY, bgColor);
     }
   }
 
@@ -1154,7 +1164,7 @@ export class UI {
     const graphY = 13; // Graph starts here
     const graphHeight = 10;
     const graphWidth = 64; // Width for 64 data points
-    const graphX = 8; // X position for graph data area
+    const graphX = 16; // X position for graph data area (room for Y-axis labels)
 
     // Draw horizontal separator
     this.buffer.drawHLine(2, graphY - 1, Layout.WIDTH - 4, BoxStyles.SINGLE.horizontal, Palette.DIM_GRAY, Palette.BLACK);
@@ -1455,9 +1465,7 @@ export class UI {
 
     // Determine category
     const fontId = this.ui.settings.font;
-    const isRetro = ["vga-9x8", "vga-8x16", "ibm-bios", "commodore-64"].includes(fontId);
-    const isOther = ["courier-prime", "vt323", "share-tech-mono", "nova-mono", "doto", "workbench"].includes(fontId);
-    const categoryLabel = isRetro ? "RETRO" : isOther ? "OTHER" : "MODERN";
+    const categoryLabel = getFontCategory(fontId).toUpperCase();
 
     // 1. Generation
     const catRow = top + 2;
@@ -1507,7 +1515,7 @@ export class UI {
   }
 
   // Tab rendering helper - renders tab with colored hotkey letter
-  renderTab(x, y, label, hotkey, isActive, activeFg, activeBg, inactiveFg) {
+  renderTab(x, y, label, hotkey, isActive, activeFg, activeBg, inactiveFg, hotkeyColor) {
     const safeLabel = label || "";
     const lowerLabel = safeLabel.toLowerCase();
     const normalizedHotkey = (hotkey || "").toString().trim().toLowerCase();
@@ -1515,9 +1523,10 @@ export class UI {
 
     const fg = isActive ? activeFg : inactiveFg;
     const bg = isActive ? activeBg : null;
+    const hkColor = hotkeyColor || Palette.NEON_CYAN;
 
     for (let i = 0; i < safeLabel.length; i++) {
-      const charColor = (hotkeyIndex === i && hotkeyIndex >= 0) ? Palette.NEON_CYAN : fg;
+      const charColor = (hotkeyIndex === i && hotkeyIndex >= 0) ? hkColor : fg;
       this.buffer.writeText(x + i, y, safeLabel[i], charColor, bg);
     }
 
@@ -1704,23 +1713,6 @@ export class UI {
       failed: failCount,
       earned: totalEarned,
     };
-  }
-
-  describeRequirements(req) {
-    const staffReqs = req?.staff || [];
-    if (staffReqs.length === 0) return "none";
-    return staffReqs.map((s) => `${s.count} ${s.roleId}${s.starsMin ? ` ${s.starsMin}+*` : ""}`).join(", ");
-  }
-
-  summarizeResolution(resolution) {
-    if (!resolution) return "unknown";
-    if (resolution.type === "deterministic") return "fixed result";
-    if (resolution.type === "ranged_outputs") return "ranged output";
-    if (resolution.type === "weighted_outcomes") {
-      const topOutcome = resolution.outcomes?.[0];
-      return topOutcome ? `weighted: ${topOutcome.id}` : "weighted";
-    }
-    return "unknown";
   }
 
   formatMs(ms) {
@@ -2164,9 +2156,6 @@ export class UI {
       const barWidth = Math.min(innerW, 40);
       const barText = ` ${timeStr}`.padEnd(barWidth);
       this.buffer.drawTextBar(innerX, cy, barWidth, pct, barText, Palette.WHITE, Palette.RUN_FILL, Palette.RUN_EMPTY);
-      if (isCompleted) {
-        this.buffer.writeText(innerX + barWidth - 5, cy, 'DONE', Palette.NEON_CYAN, Palette.RUN_DONE);
-      }
       cy++;
     }
 
@@ -2316,7 +2305,21 @@ export class UI {
       if (layoutMode === "fullscreen" || overlayMode === "blackout") {
         this.buffer.fill(" ", panelFg, Palette.BLACK);
       } else {
-        this.applyDimOverlay(0.5);
+        const dimFrom = typeof modal.overlayDimFrom === "number" ? modal.overlayDimFrom : 0.5;
+        const dimTo = typeof modal.overlayDimTo === "number" ? modal.overlayDimTo : dimFrom;
+        const dimDurationMs = typeof modal.overlayDimDurationMs === "number" ? modal.overlayDimDurationMs : 0;
+        const dimStartedAt = modal.overlayDimStartedAt || 0;
+
+        let dimFactor = dimFrom;
+        if (dimDurationMs > 0 && dimStartedAt > 0) {
+          const elapsed = Math.max(0, Date.now() - dimStartedAt);
+          const t = Math.min(1, elapsed / dimDurationMs);
+          dimFactor = dimFrom + (dimTo - dimFrom) * t;
+        }
+
+        if (dimFactor > 0) {
+          this.applyDimOverlay(dimFactor);
+        }
       }
 
       this.buffer.fillRect(
@@ -2343,7 +2346,19 @@ export class UI {
       }
 
       const contentBottomY = boxY + boxH - 2;
-      const contentHeight = Math.max(1, contentBottomY - contentStartY + 1);
+      let contentHeight = Math.max(1, contentBottomY - contentStartY + 1);
+
+      // Fullscreen modals (eg: intro screen) look better when the content block is centered vertically.
+      if (
+        layoutMode === "fullscreen" &&
+        (modal.scroll || 0) === 0 &&
+        parsedLines.length > 0 &&
+        parsedLines.length < contentHeight
+      ) {
+        const padTop = Math.floor((contentHeight - parsedLines.length) / 2);
+        contentStartY += padTop;
+        contentHeight = Math.max(1, contentBottomY - contentStartY + 1);
+      }
       const scrollOffset = Math.max(0, modal.scroll || 0);
       const visibleLines = parsedLines.slice(scrollOffset, scrollOffset + contentHeight);
 
@@ -2383,32 +2398,33 @@ export class UI {
 
   applyDimOverlay(factor = 0.5) {
     const clamped = Math.max(0, Math.min(1, factor));
+    if (clamped <= 0) return;
+
+    // Map factor to exposure stops so factor=0.5 -> -1 stop (half brightness).
+    const scale = Math.max(0.0001, 1 - clamped);
+    const stops = Math.log2(scale);
+    const cache = new Map();
     for (let y = 0; y < Layout.HEIGHT; y++) {
       for (let x = 0; x < Layout.WIDTH; x++) {
         const cell = this.buffer.cells[y][x];
         if (!cell) continue;
-        cell.fg = this.dimHexColor(cell.fg, clamped);
-        cell.bg = this.dimHexColor(cell.bg, clamped);
+        cell.fg = this.dimHexColor(cell.fg, stops, cache);
+        cell.bg = this.dimHexColor(cell.bg, stops, cache);
         cell.dirty = true;
       }
     }
   }
 
-  dimHexColor(color, factor) {
+  dimHexColor(color, stops, cache) {
     if (typeof color !== "string") return color;
-    const hex = color.trim();
-    const match = /^#([0-9a-fA-F]{6})$/.exec(hex);
-    if (!match) return color;
+    const hex = color.trim().toLowerCase();
+    if (!/^#([0-9a-f]{6})$/.test(hex)) return color;
 
-    const value = match[1];
-    const r = parseInt(value.slice(0, 2), 16);
-    const g = parseInt(value.slice(2, 4), 16);
-    const b = parseInt(value.slice(4, 6), 16);
-    const scale = 1 - factor;
-    const toHex = (n) => n.toString(16).padStart(2, "0");
-    const nr = Math.max(0, Math.min(255, Math.round(r * scale)));
-    const ng = Math.max(0, Math.min(255, Math.round(g * scale)));
-    const nb = Math.max(0, Math.min(255, Math.round(b * scale)));
-    return `#${toHex(nr)}${toHex(ng)}${toHex(nb)}`;
+    const cached = cache?.get(hex);
+    if (cached) return cached;
+
+    const adjusted = filmicAdjust(hex, stops);
+    cache?.set(hex, adjusted);
+    return adjusted;
   }
 }

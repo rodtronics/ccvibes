@@ -3,7 +3,6 @@
 // Based on 05_rendering_engine.md
 
 import { Palette, BoxStyles } from './palette.js';
-import { getGradientColors } from './gradients.js';
 
 export class FrameBuffer {
   constructor(width, height) {
@@ -97,47 +96,11 @@ export class FrameBuffer {
     }
   }
 
-  writeTextCentered(y, text, fg, bg) {
-    if (!text) return;
-    const str = this.normalizeText(String(text));
-    const x = Math.floor((this.width - str.length) / 2);
-    this.writeText(x, y, str, fg, bg);
-  }
-
   writeTextRight(x, y, text, fg, bg) {
     if (!text) return;
     const str = this.normalizeText(String(text));
     const startX = x - str.length + 1;
     this.writeText(startX, y, str, fg, bg);
-  }
-
-  // Gradient text operations
-  drawGradientText(x, y, text, gradientName, bg, align = 'left') {
-    if (!text) return;
-    const str = this.normalizeText(String(text));
-
-    // Get interpolated colors for each character
-    const colors = getGradientColors(gradientName, str.length);
-    if (colors.length === 0) {
-      // Fallback to regular text if gradient doesn't exist
-      this.writeText(x, y, str, Palette.LIGHT_GRAY, bg);
-      return;
-    }
-
-    // Calculate starting position based on alignment
-    let startX = x;
-    if (align === 'center') {
-      startX = Math.floor((this.width - str.length) / 2);
-    } else if (align === 'right') {
-      startX = x - str.length + 1;
-    }
-
-    // Draw each character with its interpolated color
-    for (let i = 0; i < str.length; i++) {
-      this.setCell(startX + i, y, str[i], colors[i], bg);
-    }
-
-    return str.length;
   }
 
   // Box drawing
@@ -203,19 +166,6 @@ export class FrameBuffer {
   }
 
   // Dirty tracking
-  markDirty(x, y) {
-    if (!this.inBounds(x, y)) return;
-    this.cells[y][x].dirty = true;
-  }
-
-  markRectDirty(x, y, w, h) {
-    for (let dy = 0; dy < h; dy++) {
-      for (let dx = 0; dx < w; dx++) {
-        this.markDirty(x + dx, y + dy);
-      }
-    }
-  }
-
   clearDirtyFlags() {
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
@@ -224,35 +174,4 @@ export class FrameBuffer {
     }
   }
 
-  getDirtyCells() {
-    const dirtyCells = [];
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        if (this.cells[y][x].dirty) {
-          dirtyCells.push({ x, y, cell: this.cells[y][x] });
-        }
-      }
-    }
-    return dirtyCells;
-  }
-
-  // Buffer management
-  clone() {
-    const cloned = new FrameBuffer(this.width, this.height);
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        cloned.cells[y][x] = { ...this.cells[y][x] };
-      }
-    }
-    return cloned;
-  }
-
-  swap(otherBuffer) {
-    if (otherBuffer.width !== this.width || otherBuffer.height !== this.height) {
-      throw new Error('Cannot swap buffers of different sizes');
-    }
-    const temp = this.cells;
-    this.cells = otherBuffer.cells;
-    otherBuffer.cells = temp;
-  }
 }

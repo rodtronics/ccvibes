@@ -69,7 +69,7 @@ All JavaScript source files live in the `js/` folder. Entry point is `index.html
 
 ## Key Patterns
 
-- **Font system**: Config in 3 places: `js/settings.js` (FONTS array, FONT_CATEGORIES), `style.css` (@font-face + .font-\* classes), `js/ui.js` (fontNames display map ~line 1760, isRetro array ~line 1770). All three must stay in sync.
+- **Font system**: Config in 3 places: `js/settings.js` (FONTS array, FONT_CATEGORIES), `style.css` (@font-face + .font-\* classes), `js/ui.js` (fontNames display map ~line 1760; category derived via `getFontCategory()` from settings.js). All three must stay in sync.
 - **Resources**: Cash and heat shown in status rail. Heat uses a 20-char blackbody gradient bar. Cred exists in engine but is not displayed in status rail.
 - **Items**: Fully merged into resources. All `items` code paths removed.
 - **Modals**: Loaded once by `js/modal.js` (not engine). Engine triggers modals via `showModal` effect type -> `modalQueue`. Run detail modal is a separate dynamic modal in `ui.js` (`renderRunDetailModal`), not part of the ModalQueue system.

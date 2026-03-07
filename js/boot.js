@@ -2,6 +2,7 @@
 // 286-style POST screen shown during loading, optional DOS CLI
 
 import { Palette, BoxStyles } from './palette.js';
+import { FONT_CATEGORIES } from './settings.js';
 import { Layout } from './ui.js';
 import {
   SLOT_IDS,
@@ -64,29 +65,64 @@ export class BootScreen {
       this.drawStripes();
     }
 
-    // BIOS banner
-    b.writeText(1, 0, 'CCVI BIOS v6.0', HEADER_COLOR);
+    // AMI BIOS copyright line
+    b.writeText(0, 1, 'System Configuration (C) Copyright 1985-1990, American Megatrends Inc.,', LABEL_COLOR);
 
-    // Hardware info
-    b.writeText(1, 2, 'Main Processor', LABEL_COLOR);
-    b.writeText(16, 2, ': MOS 6502 @ 1MHz', VALUE_COLOR);
+    // Two-column hardware table (cols 0–79, divider at col 41)
+    const box = BoxStyles.SINGLE;
+    const DIV   = 41;
+    const RIGHT  = 79;
 
-    b.writeText(1, 3, 'Video', LABEL_COLOR);
-    b.writeText(16, 3, `: TUI ${Layout.WIDTH}x${Layout.HEIGHT} Color`, VALUE_COLOR);
+    // Top border
+    b.writeText(0, 2, box.topLeft, LABEL_COLOR);
+    for (let x = 1; x < DIV; x++)    b.writeText(x, 2, box.horizontal, LABEL_COLOR);
+    b.writeText(DIV, 2, box.teeDown, LABEL_COLOR);
+    for (let x = DIV + 1; x < RIGHT; x++) b.writeText(x, 2, box.horizontal, LABEL_COLOR);
+    b.writeText(RIGHT, 2, box.topRight, LABEL_COLOR);
 
-    b.writeText(1, 4, 'Memory', LABEL_COLOR);
-    if (slowBoot) {
-      // Start at 0K — countRAM() will animate to 640K
-      b.writeText(16, 4, ':    0K', VALUE_COLOR);
-    } else {
-      b.writeText(16, 4, ': 640K', VALUE_COLOR);
-      b.writeText(23, 4, 'OK', OK_COLOR);
+    // Hardware rows — labels are exactly 18 chars so colon always lands at col 20 / 61
+    const leftRows = [
+      ['Main Processor    ', '80286'],
+      ['Numeric Processor ', 'None'],
+      ['Floppy Drive A:   ', 'None'],
+      ['Floppy Drive B:   ', 'None'],
+      ['Display Type      ', 'VGA or EGA'],
+      ['ROM-BIOS Date     ', '06/13/90'],
+    ];
+    const rightRows = [
+      ['Base Memory Size  ', slowBoot ? '  0 KB' : '640 KB'],
+      ['Ext. Memory Size  ', '  0 KB'],
+      ['Hard Disk C: Type ', '47'],
+      ['Hard Disk D: Type ', 'None'],
+      ['Serial Port(s)    ', '3F8,2F8'],
+      ['Parallel Port(s)  ', '378'],
+    ];
+
+    for (let i = 0; i < 6; i++) {
+      const row = 3 + i;
+      b.writeText(0,     row, box.vertical, LABEL_COLOR);
+      b.writeText(DIV,   row, box.vertical, LABEL_COLOR);
+      b.writeText(RIGHT, row, box.vertical, LABEL_COLOR);
+      // Left: label @ col 2, colon @ col 20, value @ col 22
+      b.writeText(2,  row, leftRows[i][0],  LABEL_COLOR);
+      b.writeText(20, row, ':',              LABEL_COLOR);
+      b.writeText(22, row, leftRows[i][1],  VALUE_COLOR);
+      // Right: label @ col 43, colon @ col 61, value @ col 63
+      b.writeText(43, row, rightRows[i][0], LABEL_COLOR);
+      b.writeText(61, row, ':',              LABEL_COLOR);
+      b.writeText(63, row, rightRows[i][1], VALUE_COLOR);
     }
 
-    // Loading section header
-    b.writeText(1, 6, 'Loading system files...', LABEL_COLOR);
+    // Bottom border
+    b.writeText(0, 9, box.bottomLeft, LABEL_COLOR);
+    for (let x = 1; x < DIV; x++)    b.writeText(x, 9, box.horizontal, LABEL_COLOR);
+    b.writeText(DIV, 9, box.teeUp, LABEL_COLOR);
+    for (let x = DIV + 1; x < RIGHT; x++) b.writeText(x, 9, box.horizontal, LABEL_COLOR);
+    b.writeText(RIGHT, 9, box.bottomRight, LABEL_COLOR);
 
-    this.currentLine = 8;
+    b.writeText(0, 11, 'Starting MS-DOS...', LABEL_COLOR);
+
+    this.currentLine = 13;
   }
 
   drawStripes() {
@@ -154,9 +190,9 @@ export class BootScreen {
 
   async countRAM(onRender) {
     const b = this.buffer;
+    // Animate "Base Memory Size" value — row 3, col 63 (right column of hardware table)
     for (let k = 0; k <= 640; k += 64) {
-      b.writeText(16, 4, `: ${String(k).padStart(4)}K`, VALUE_COLOR);
-      if (k === 640) b.writeText(22, 4, ' OK', OK_COLOR);
+      b.writeText(63, 3, `${String(k).padStart(3)} KB`, VALUE_COLOR);
       onRender();
       if (k < 640) await sleep(50);
     }
@@ -183,8 +219,7 @@ export class BootScreen {
   }
 
   drawComplete() {
-    const b = this.buffer;
-    b.writeText(1, this.currentLine + 1, 'All systems nominal.', OK_COLOR);
+    // intentionally blank — authentic DOS doesn't announce completion
   }
 
   drawSetupPrompt() {
@@ -195,18 +230,15 @@ export class BootScreen {
 
 // ── DOS Prompt ──────────────────────────────────────────────
 
-const PROMPT_STR = 'C:\\CCVI>';
+const PROMPT_STR = 'C:\\>';
 const MAX_Y = Layout.HEIGHT - 1; // last usable row (0-indexed)
-const STORAGE_KEYS = {
-  SETTINGS: 'ccv_tui_settings',
-};
 const HISTORY_MAX = 100;
 
 // DOS Help Content (edit this block to change HELP output)
 const DOS_HELP_SUMMARY = [
   { command: 'HELP.EXE', summary: 'Displays command help topics.' },
   { command: 'CC.EXE', summary: 'Launches the game and can switch slots.' },
-  { command: 'DIR / LS', summary: 'Lists files in C:\\CCVI.' },
+  { command: 'DIR / LS', summary: 'Lists files in C:\\.' },
   { command: 'EXPORT', summary: 'Exports a save slot to file or clipboard.' },
   { command: 'IMPORT', summary: 'Imports a save file into a slot.' },
   { command: 'COPY', summary: 'Copies one save slot to another slot.' },
@@ -251,7 +283,7 @@ const DOS_HELP_DETAILS = {
   ],
   dir: [
     'DIR',
-    'Lists files available in C:\\CCVI.',
+    'Lists files available in C:\\.',
   ],
   ls: [
     'LS',
@@ -344,12 +376,6 @@ const HELP_ALIAS_MAP = {
   reboot: 'restart',
 };
 
-const BIOS_FONT_CATEGORIES = {
-  retro: ['vga-9x8', 'vga-8x16', 'ibm-bios', 'commodore-64'],
-  modern: ['fira', 'jetbrains-mono', 'scp'],
-  other: ['courier-prime', 'vt323', 'share-tech-mono', 'nova-mono', 'doto', 'workbench'],
-};
-
 const BIOS_FONT_CATEGORY_ORDER = ['retro', 'modern', 'other'];
 
 export class DosPrompt {
@@ -387,14 +413,8 @@ export class DosPrompt {
   }
 
   drawBanner() {
-    // Generate a hash-looking version from random bytes (built-in crypto API)
-    const bytes = new Uint8Array(4);
-    crypto.getRandomValues(bytes);
-    const ver = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    const year = new Date().getFullYear();
-
-    this.writeLine(`WFOS [WAVEFRONT OPERATING SYSTEM v ${ver}]`, HEADER_COLOR);
-    this.writeLine(`(c) ${year} WFPRODUCTIONSNZ. ALL RIGHTS RESERVED.`, LABEL_COLOR);
+    this.writeLine('MS-DOS Version 6.22', VALUE_COLOR);
+    this.writeLine('(C)Copyright Microsoft Corp 1981-1994.', LABEL_COLOR);
     this.advanceLine();
   }
 
@@ -494,7 +514,7 @@ export class DosPrompt {
     }
 
     if (base === 'ver') {
-      return [{ text: 'CCVI-DOS Version 6.22', color: VALUE_COLOR }];
+      return [{ text: 'MS-DOS Version 6.22', color: VALUE_COLOR }];
     }
 
     if (base === 'help' || base === 'help.exe') {
@@ -720,7 +740,7 @@ export class DosPrompt {
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
     const lines = [
       { text: ' Volume in drive C is CCVI', color: LABEL_COLOR },
-      { text: ' Directory of C:\\CCVI', color: LABEL_COLOR },
+      { text: ' Directory of C:\\', color: LABEL_COLOR },
       { text: '', color: LABEL_COLOR },
     ];
 
@@ -742,7 +762,7 @@ export class DosPrompt {
   getHelpLines(topic = '') {
     const normalizedTopic = HELP_ALIAS_MAP[topic] || topic;
     if (!normalizedTopic) {
-      const lines = [{ text: 'CCVI-DOS Command List', color: HEADER_COLOR }];
+      const lines = [{ text: 'MS-DOS Command List', color: HEADER_COLOR }];
       DOS_HELP_SUMMARY.forEach((entry) => {
         lines.push({ text: `${entry.command.padEnd(12)} ${entry.summary}`, color: VALUE_COLOR });
       });
@@ -1374,14 +1394,6 @@ export class DosPrompt {
     }
   }
 
-  writeSettings(settings) {
-    try {
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-    } catch {
-      // Ignore storage errors in DOS shell.
-    }
-  }
-
   drawPromptLine() {
     const b = this.buffer;
     const y = this.currentY;
@@ -1637,7 +1649,7 @@ export class BiosSetup {
         break;
 
       case 1: // Zoom
-        const zoomOptions = [100, 125, 150, 175, 200, 250, 300];
+        const zoomOptions = Array.from({ length: 21 }, (_, i) => 100 + i * 10);
         const currentZoomIndex = zoomOptions.indexOf(this.settings.zoom || 150);
         const newZoomIndex = (currentZoomIndex + dir + zoomOptions.length) % zoomOptions.length;
         this.settings.zoom = zoomOptions[newZoomIndex];
@@ -1670,14 +1682,14 @@ export class BiosSetup {
     const direction = forward ? 1 : -1;
     const nextIndex = (currentIndex + direction + BIOS_FONT_CATEGORY_ORDER.length) % BIOS_FONT_CATEGORY_ORDER.length;
     const nextCategory = BIOS_FONT_CATEGORY_ORDER[nextIndex];
-    const nextFont = BIOS_FONT_CATEGORIES[nextCategory]?.[0] || 'fira';
+    const nextFont = FONT_CATEGORIES[nextCategory]?.[0] || 'fira';
     this.settings.font = nextFont;
   }
 
   getFontCategoryKey() {
     const font = this.settings.font || 'fira';
-    if (BIOS_FONT_CATEGORIES.modern.includes(font)) return 'modern';
-    if (BIOS_FONT_CATEGORIES.other.includes(font)) return 'other';
+    if (FONT_CATEGORIES.modern.includes(font)) return 'modern';
+    if (FONT_CATEGORIES.other.includes(font)) return 'other';
     return 'retro';
   }
 }

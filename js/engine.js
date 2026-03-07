@@ -63,7 +63,6 @@ export class Engine {
     this.data = {
       scenarios: [],
       branches: [],
-      // items merged into resources
       lexicon: {},
       resources: [],
       roles: [],
@@ -87,7 +86,6 @@ export class Engine {
     const files = [
       ["scenarios.json", "scenarios"],
       ["branches.json", "branches"],
-      // items.json merged into resources.json
       ["lexicon.json", "lexicon"],
       ["resources.json", "resources"],
       ["roles.json", "roles"],
@@ -124,76 +122,14 @@ export class Engine {
       console.log('Loading saved state:', parsed);
 
       // Merge saved state with defaults
+      // reveals is deep-merged so new sub-keys (e.g. scenarios) survive a save from an older schema
       this.state = {
         ...this.state,
         ...parsed,
+        reveals: { ...this.state.reveals, ...parsed.reveals },
         playerName: sanitizePlayerName(parsed.playerName, getDefaultPlayerName(this.activeSaveSlot)),
         now: Date.now()  // Always use current time
       };
-
-      // Migrate crew members to include new perk fields
-      if (this.state.crew?.staff) {
-        this.state.crew.staff = this.state.crew.staff.map(staff => ({
-          ...staff,
-          perks: staff.perks || [],
-          perkChoices: staff.perkChoices || {},
-          unchosen: staff.unchosen || [],
-          pendingPerkChoice: staff.pendingPerkChoice !== undefined ? staff.pendingPerkChoice : null
-        }));
-      }
-
-      // Migrate stats if missing or incomplete
-      if (!this.state.stats) {
-        this.state.stats = {
-          lastRecorded: { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 },
-          series: {},
-          totals: { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 }
-        };
-      }
-      // Ensure all sub-objects exist
-      if (!this.state.stats.lastRecorded) {
-        this.state.stats.lastRecorded = { second: 0, minute: 0, fiveMin: 0, hour: 0, day: 0, month: 0 };
-      }
-      if (!this.state.stats.series) {
-        this.state.stats.series = {};
-      }
-      if (!this.state.stats.totals) {
-        this.state.stats.totals = { crimesCompleted: 0, crimesSucceeded: 0, crimesFailed: 0, totalEarned: 0, totalSpent: 0 };
-      }
-
-      // Migrate runs to include new fields for persistent completed runs
-      if (this.state.runs) {
-        this.state.runs = this.state.runs.map(run => ({
-          ...run,
-          status: run.status || 'active',
-          results: run.results || [],
-          currentRun: run.currentRun || 1,
-          totalRuns: run.totalRuns || (run.runsLeft === -1 ? -1 : (run.runsLeft || 0) + 1),
-          completedAt: run.completedAt || null,
-        }));
-      }
-
-      // Migrate legacy run fields: activityId/optionId -> scenarioId/variantId
-      if (this.state.runs) {
-        this.state.runs = this.state.runs.map(run => {
-          const migrated = { ...run };
-          if (run.activityId && !run.scenarioId) {
-            migrated.scenarioId = run.activityId;
-            delete migrated.activityId;
-          }
-          if (run.optionId && !run.variantId) {
-            migrated.variantId = run.optionId;
-            delete migrated.optionId;
-          }
-          return migrated;
-        });
-      }
-
-      // Migrate legacy reveal key: activities -> scenarios
-      if (this.state.reveals?.activities && !this.state.reveals?.scenarios) {
-        this.state.reveals.scenarios = this.state.reveals.activities;
-        delete this.state.reveals.activities;
-      }
 
       // Process any runs that should have completed while offline
       const now = Date.now();

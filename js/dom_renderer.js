@@ -111,27 +111,6 @@ export class DOMRenderer {
     this.buffer.clearDirtyFlags();
   }
 
-  renderDirty() {
-    this.render();
-  }
-
-  resize(width, height) {
-    const nextWidth = width ?? this.buffer.width;
-    const nextHeight = height ?? this.buffer.height;
-    const expectedCells = nextWidth * nextHeight;
-
-    if (this.cellEls.length !== expectedCells) {
-      this.buildGrid();
-      return;
-    }
-
-    if (nextWidth !== this.buffer.width || nextHeight !== this.buffer.height) {
-      // Buffer dimensions changed but cells weren't rebuilt (or caller passed a mismatch).
-      // Assume the buffer owner will update `buffer.cells` before the next render.
-      this.buildGrid();
-    }
-  }
-
   destroy() {
     if (this.container) {
       this.container.innerHTML = '';

@@ -15,6 +15,22 @@ let notes = { problems: '', solutions: '' };
 let lastSavedState = null;
 let collapsedVariants = new Set(); // Track which variants are collapsed by uid
 let durationCalculatorState = new Map(); // Per-variant D/H/M/S calculator values
+let collapsedSubSections = new Map(); // Map<uid, Set<sectionId>> for variant sub-sections
+let referencePanel = { open: false, scenarioId: null, expandedVariants: new Set() };
+let placementCollapsed = false;
+
+const DEFAULT_COLLAPSED_SUBSECTIONS = new Set(['timing', 'gates', 'requirements', 'resolution']);
+
+function getSubSectionState(uid) {
+  if (!collapsedSubSections.has(uid)) {
+    collapsedSubSections.set(uid, new Set(DEFAULT_COLLAPSED_SUBSECTIONS));
+  }
+  return collapsedSubSections.get(uid);
+}
+
+function isSubSectionCollapsed(uid, sectionId) {
+  return getSubSectionState(uid).has(sectionId);
+}
 
 const wizard = {
   open: false,
@@ -164,6 +180,7 @@ function loadActivity(scenarioId) {
   const variants = (scenario.variants || []).map(inflateVariant);
   editorState.variants = variants.length ? variants : [createVariant()];
   collapsedVariants.clear();
+  collapsedSubSections.clear();
   durationCalculatorState.clear();
   notes = { problems: '', solutions: '' };
   lastSavedState = JSON.stringify(buildScenarioJson(editorState));
@@ -206,6 +223,7 @@ W.newScenario = function() {
   resetVariantUid();
   editorState = createScenario();
   collapsedVariants.clear();
+  collapsedSubSections.clear();
   durationCalculatorState.clear();
   notes = { problems: '', solutions: '' };
   lastSavedState = null;
@@ -463,6 +481,7 @@ W.wizCreate = function() {
 
   editorState.variants = [opt];
   collapsedVariants.clear();
+  collapsedSubSections.clear();
   durationCalculatorState.clear();
   lastSavedState = null;
   store.selectedActivityId = null;
@@ -497,10 +516,26 @@ W.addOption = function() {
   render();
 };
 
+W.duplicateOption = function(uid) {
+  const src = editorState.variants.find(o => o.uid === uid);
+  if (!src) return;
+  const copy = cloneJson(src);
+  // Give it a fresh uid and tweak the id/name
+  const fresh = createVariant();
+  copy.uid = fresh.uid;
+  if (copy.variantId) copy.variantId = copy.variantId + '_copy';
+  if (copy.name) copy.name = copy.name + ' (copy)';
+  // Insert right after the source
+  const idx = editorState.variants.indexOf(src);
+  editorState.variants.splice(idx + 1, 0, copy);
+  render();
+};
+
 W.removeOption = function(uid) {
   if (editorState.variants.length === 1) return;
   editorState.variants = editorState.variants.filter(o => o.uid !== uid);
   collapsedVariants.delete(uid);
+  collapsedSubSections.delete(uid);
   durationCalculatorState.delete(uid);
   render();
 };
@@ -524,6 +559,49 @@ W.toggleAllOptionCollapse = function() {
   } else {
     variantUids.forEach((uid) => collapsedVariants.add(uid));
   }
+  render();
+};
+
+W.toggleSubSection = function(uid, sectionId) {
+  const state = getSubSectionState(uid);
+  if (state.has(sectionId)) state.delete(sectionId);
+  else state.add(sectionId);
+  render();
+};
+
+W.expandAllSubSections = function(uid) {
+  collapsedSubSections.set(uid, new Set());
+  render();
+};
+
+W.collapseAllSubSections = function(uid) {
+  collapsedSubSections.set(uid, new Set(DEFAULT_COLLAPSED_SUBSECTIONS));
+  render();
+};
+
+W.toggleRefPanel = function() {
+  referencePanel.open = !referencePanel.open;
+  if (referencePanel.open && !referencePanel.scenarioId) {
+    const other = store.scenarios.find(s => s.id !== editorState.id);
+    if (other) referencePanel.scenarioId = other.id;
+  }
+  render();
+};
+
+W.setRefScenario = function(id) {
+  referencePanel.scenarioId = id;
+  referencePanel.expandedVariants.clear();
+  render();
+};
+
+W.toggleRefVariant = function(idx) {
+  if (referencePanel.expandedVariants.has(idx)) referencePanel.expandedVariants.delete(idx);
+  else referencePanel.expandedVariants.add(idx);
+  render();
+};
+
+W.togglePlacement = function() {
+  placementCollapsed = !placementCollapsed;
   render();
 };
 
@@ -862,7 +940,7 @@ function render() {
       <button class="section-nav__btn" onclick="document.getElementById('ws-identity').scrollIntoView({behavior:'smooth'})">Identity</button>
       <button class="section-nav__btn" onclick="document.getElementById('ws-placement').scrollIntoView({behavior:'smooth'})">Placement</button>
       <button class="section-nav__btn" onclick="document.getElementById('ws-variants').scrollIntoView({behavior:'smooth'})">Options</button>
-      <button class="section-nav__btn" onclick="document.getElementById('ws-balance').scrollIntoView({behavior:'smooth'})">Balance</button>
+      <button class="section-nav__btn${referencePanel.open ? ' active' : ''}" onclick="_ws.toggleRefPanel()">Compare</button>
       <span style="flex:1"></span>
       <span class="muted" style="font-size:0.8rem">${safe(s.id || 'new')}</span>
       <button class="ghost small" onclick="_ws.openWizard()">🧙 Wizard</button>
@@ -871,6 +949,7 @@ function render() {
       <button class="ghost small" onclick="_ws.copyJson()">Copy</button>
     </div>
 
+    <div class="ws-ref-wrapper${referencePanel.open ? ' has-ref-panel' : ''}">
     <div class="tab-panel__content">
       <div class="workshop-sections">
 
@@ -885,76 +964,72 @@ function render() {
               ${diffChip}
             </div>
           </div>
-          <div class="input-grid two-col">
-            <div>
-              <label>Scenario ID</label>
+          <div class="inline-grid two-col">
+            <div class="inline-field">
+              <label>ID</label>
               <input type="text" value="${safe(s.id)}" oninput="_ws.updateMeta('id', this.value)">
             </div>
-            <div>
+            <div class="inline-field">
               <label>Name</label>
               <input type="text" value="${safe(s.name)}" oninput="_ws.updateMeta('name', this.value)">
             </div>
           </div>
-          <div class="input-grid two-col" style="margin-top:12px">
-            <div>
+          <div class="inline-grid four-col" style="margin-top:6px">
+            <div class="inline-field">
               <label>Branch</label>
               <select oninput="_ws.updateMeta('branchId', this.value)">
                 ${store.branches.map(b => `<option value="${safe(b.id)}" ${s.branchId === b.id ? 'selected' : ''}>${safe(b.name || b.id)}</option>`).join('')}
               </select>
             </div>
-            <div class="input-grid two-col">
-              <div>
-                <label>Icon</label>
-                <input type="text" value="${safe(s.icon)}" oninput="_ws.updateMeta('icon', this.value)" placeholder="emoji">
-              </div>
-              <div>
-                <label>Tags</label>
-                <input type="text" value="${safe(s.tags)}" oninput="_ws.updateMeta('tags', this.value)" placeholder="starter, risky">
-              </div>
+            <div class="inline-field">
+              <label>Icon</label>
+              <input type="text" value="${safe(s.icon)}" oninput="_ws.updateMeta('icon', this.value)" placeholder="emoji">
+            </div>
+            <div class="inline-field" style="grid-column: span 2">
+              <label>Tags</label>
+              <input type="text" value="${safe(s.tags)}" oninput="_ws.updateMeta('tags', this.value)" placeholder="starter, risky">
             </div>
           </div>
-          <div style="margin-top:12px">
-            <label>Description</label>
-            <textarea oninput="_ws.updateMeta('description', this.value)" placeholder="what is this scenario about?">${safe(s.description)}</textarea>
+          <div class="inline-field" style="margin-top:6px">
+            <label>Desc</label>
+            <textarea style="min-height:50px" oninput="_ws.updateMeta('description', this.value)" placeholder="what is this scenario about?">${safe(s.description)}</textarea>
           </div>
         </div>
 
         <!-- Placement -->
         <div id="ws-placement" class="ws-section ws-section--scenario">
-          <div class="ws-section__title">Placement & Progression</div>
+          <div class="ws-section__title" onclick="_ws.togglePlacement()" style="cursor:pointer">
+            <span>${placementCollapsed ? '▸' : '▾'} Placement & Progression</span>
+            ${placementCollapsed ? `<span class="variant-subsection__summary">${(() => {
+              const parts = [];
+              if (s.visibleIf.length) parts.push(`${s.visibleIf.length} visible`);
+              if (s.unlockIf.length) parts.push(`${s.unlockIf.length} unlock`);
+              if (s.reveals.onReveal.length) parts.push(`${s.reveals.onReveal.length} on-reveal`);
+              if (s.reveals.onUnlock.length) parts.push(`${s.reveals.onUnlock.length} on-unlock`);
+              return parts.length ? parts.join(', ') : 'none set';
+            })()}</span>` : ''}
+          </div>
+          ${placementCollapsed ? '' : `
           <div class="ws-placement">
             <div>
-              <div class="subheader">
-                <span>Visible If</span>
-                <button class="ghost small" onclick="_ws.addCondition('scenario|visibleIf')">+ condition</button>
-              </div>
+              <div class="subheader"><span>Visible If</span><button class="ghost small" onclick="_ws.addCondition('scenario|visibleIf')">+</button></div>
               ${renderConditionList(s.visibleIf, 'scenario|visibleIf')}
             </div>
             <div>
-              <div class="subheader">
-                <span>Unlock If</span>
-                <button class="ghost small" onclick="_ws.addCondition('scenario|unlockIf')">+ condition</button>
-              </div>
+              <div class="subheader"><span>Unlock If</span><button class="ghost small" onclick="_ws.addCondition('scenario|unlockIf')">+</button></div>
               ${renderConditionList(s.unlockIf, 'scenario|unlockIf')}
             </div>
-          </div>
-          <div class="ws-placement" style="margin-top:14px">
             <div>
-              <div class="subheader">
-                <span>On Reveal (effects)</span>
-                <button class="ghost small" onclick="_ws.addEffect('scenario|onReveal')">+ effect</button>
-              </div>
+              <div class="subheader"><span>On Reveal</span><button class="ghost small" onclick="_ws.addEffect('scenario|onReveal')">+</button></div>
               ${renderEffectList(s.reveals.onReveal, 'scenario|onReveal')}
             </div>
             <div>
-              <div class="subheader">
-                <span>On Unlock (effects)</span>
-                <button class="ghost small" onclick="_ws.addEffect('scenario|onUnlock')">+ effect</button>
-              </div>
+              <div class="subheader"><span>On Unlock</span><button class="ghost small" onclick="_ws.addEffect('scenario|onUnlock')">+</button></div>
               ${renderEffectList(s.reveals.onUnlock, 'scenario|onUnlock')}
             </div>
           </div>
           ${renderNeighborhood()}
+          `}
         </div>
 
         <!-- Options -->
@@ -971,13 +1046,6 @@ function render() {
           </div>
         </div>
 
-        <!-- Balance Preview -->
-        <div id="ws-balance" class="ws-section ws-section--scenario">
-          <div class="ws-section__title">Balance Preview</div>
-          ${renderDifficultyPreview(difficulty)}
-          ${renderBalancePreview()}
-        </div>
-
         <!-- JSON Output (hidden by default) -->
         <div id="ws-json-panel" class="ws-section ws-json-toggle" style="display:none">
           <div class="ws-section__title">
@@ -988,6 +1056,8 @@ function render() {
           </div>
         </div>
       </div>
+    </div>
+    ${renderReferencePanel()}
     </div>
     ${renderWizardModal()}
   `;
@@ -1195,6 +1265,96 @@ function renderEffectFields(fx, scope, idx) {
   }
 }
 
+// ── Summary helpers for collapsed sub-sections ──
+
+function fmtMs(ms) {
+  const v = Number(ms) || 0;
+  if (v === 0) return '0';
+  if (v < 1000) return `${v}ms`;
+  if (v < 60000) return `${(v / 1000).toFixed(v % 1000 ? 1 : 0)}s`;
+  if (v < 3600000) return `${(v / 60000).toFixed(v % 60000 ? 1 : 0)}m`;
+  return `${(v / 3600000).toFixed(1)}h`;
+}
+
+function summarizeTiming(v) {
+  const parts = [];
+  if (v.durationMs) parts.push(fmtMs(v.durationMs));
+  if (v.xp) parts.push(`${v.xp}xp`);
+  if (v.cooldownMs) parts.push(`${fmtMs(v.cooldownMs)} cd`);
+  if (v.maxConcurrentRuns && v.maxConcurrentRuns !== '') parts.push(`max ${v.maxConcurrentRuns}`);
+  return parts.join(' / ') || 'not set';
+}
+
+function summarizeGates(v) {
+  const vis = (v.visibleIf || []).length;
+  const unl = (v.unlockIf || []).length;
+  const total = vis + unl;
+  if (!total) return 'none';
+  const parts = [];
+  if (vis) parts.push(`${vis} visible`);
+  if (unl) parts.push(`${unl} unlock`);
+  return parts.join(', ');
+}
+
+function summarizeRequirements(v) {
+  const parts = [];
+  const staff = v.requirements?.staff || [];
+  staff.forEach(s => {
+    const role = s.roleId || '?';
+    const count = s.count || 1;
+    parts.push(`${role} ×${count}${s.starsMin ? ` ★${s.starsMin}` : ''}`);
+  });
+  const inRes = v.inputs?.resources || [];
+  if (Array.isArray(inRes)) {
+    inRes.forEach(r => { if (r.id && r.amount) parts.push(`${r.id}: ${r.amount}`); });
+  }
+  const inItems = v.inputs?.items || [];
+  if (Array.isArray(inItems)) {
+    inItems.forEach(r => { if ((r.id || r.itemId) && (r.amount || r.count)) parts.push(`${r.id || r.itemId}: ${r.amount || r.count}`); });
+  }
+  return parts.join(', ') || 'none';
+}
+
+function summarizeResolution(v) {
+  const res = v.resolution;
+  if (!res) return 'none';
+  const type = res.type || '?';
+  const parts = [type];
+  if (res.type === 'weighted_outcomes') {
+    const n = (res.outcomes || []).length;
+    parts.push(`${n} outcome${n !== 1 ? 's' : ''}`);
+  } else {
+    const outRes = res.outputs?.resources || [];
+    if (Array.isArray(outRes)) {
+      outRes.forEach(r => {
+        if (r.id) {
+          const val = (r.min !== '' && r.max !== '' && r.min !== undefined && r.max !== undefined)
+            ? `${r.min}-${r.max}` : (r.min || r.max || '?');
+          parts.push(`${r.id} ${val}`);
+        }
+      });
+    }
+  }
+  const hMin = res.heatDelta?.min, hMax = res.heatDelta?.max;
+  if (hMin || hMax) parts.push(`heat ${hMin || 0}-${hMax || 0}`);
+  return parts.join(' · ');
+}
+
+function renderSubSection(uid, sectionId, title, summaryHtml, contentHtml) {
+  const collapsed = isSubSectionCollapsed(uid, sectionId);
+  const toggle = collapsed ? '▸' : '▾';
+  return `
+    <div class="variant-subsection">
+      <div class="variant-subsection__head" onclick="_ws.toggleSubSection(${uid}, '${sectionId}')">
+        <span class="variant-subsection__toggle">${toggle}</span>
+        <span class="variant-subsection__title">${title}</span>
+        <span class="variant-subsection__summary">${summaryHtml}</span>
+      </div>
+      ${collapsed ? '' : `<div class="variant-subsection__body">${contentHtml}</div>`}
+    </div>
+  `;
+}
+
 function renderOptionCard(variant, idx) {
   const uid = variant.uid;
   const isCollapsed = collapsedVariants.has(uid);
@@ -1213,127 +1373,141 @@ function renderOptionCard(variant, idx) {
   const calcParts = getDurationCalculatorParts(uid);
   const calcTotalMs = calculateDurationMs(calcParts);
 
+  // ── Identity sub-section content ──
+  const identityContent = `
+    <div class="inline-grid two-col">
+      <div class="inline-field">
+        <label>ID</label>
+        <input type="text" value="${safe(variant.variantId)}" placeholder="shoplifting_grab" oninput="_ws.updateOptionField(${uid}, 'variantId', this.value)">
+      </div>
+      <div class="inline-field">
+        <label>Name</label>
+        <input type="text" value="${safe(variant.name)}" placeholder="grab and go" oninput="_ws.updateOptionField(${uid}, 'name', this.value)">
+      </div>
+    </div>
+    <div class="inline-field" style="margin-top:6px">
+      <label>Desc</label>
+      <textarea style="min-height:40px" oninput="_ws.updateOptionField(${uid}, 'description', this.value)">${safe(variant.description)}</textarea>
+    </div>
+  `;
+
+  // ── Timing sub-section content ──
+  const timingContent = `
+    <div class="inline-grid four-col">
+      <div class="inline-field">
+        <label>Duration</label>
+        <input type="number" data-variant-uid="${uid}" data-time-field="durationMs" value="${safe(variant.durationMs)}" oninput="_ws.updateOptionField(${uid}, 'durationMs', parseInt(this.value,10)||0)">
+      </div>
+      <div class="inline-field">
+        <label>XP</label>
+        <input type="number" value="${safe(variant.xp)}" oninput="_ws.updateOptionField(${uid}, 'xp', parseInt(this.value,10)||0)">
+      </div>
+      <div class="inline-field">
+        <label>Cooldown</label>
+        <input type="number" data-variant-uid="${uid}" data-time-field="cooldownMs" value="${safe(variant.cooldownMs)}" oninput="_ws.updateOptionField(${uid}, 'cooldownMs', parseInt(this.value,10)||0)">
+      </div>
+      <div class="inline-field">
+        <label>Max Runs</label>
+        <input type="number" value="${safe(variant.maxConcurrentRuns)}" oninput="_ws.updateOptionField(${uid}, 'maxConcurrentRuns', this.value)">
+      </div>
+    </div>
+    <div class="ws-duration-calc" data-duration-calc="${uid}" data-total-ms="${calcTotalMs}" style="margin-top:8px">
+      <div class="subheader">
+        <span>Calculator</span>
+        <span class="muted" data-duration-total>${safe(formatDurationMs(calcTotalMs))}</span>
+      </div>
+      <div class="inline-grid four-col">
+        <div class="inline-field"><label>D</label><input type="number" min="0" step="1" value="${safe(calcParts.days)}" oninput="_ws.setDurationCalcPart(${uid}, 'days', this.value)"></div>
+        <div class="inline-field"><label>H</label><input type="number" min="0" step="1" value="${safe(calcParts.hours)}" oninput="_ws.setDurationCalcPart(${uid}, 'hours', this.value)"></div>
+        <div class="inline-field"><label>M</label><input type="number" min="0" step="1" value="${safe(calcParts.minutes)}" oninput="_ws.setDurationCalcPart(${uid}, 'minutes', this.value)"></div>
+        <div class="inline-field"><label>S</label><input type="number" min="0" step="1" value="${safe(calcParts.seconds)}" oninput="_ws.setDurationCalcPart(${uid}, 'seconds', this.value)"></div>
+      </div>
+      <div class="ws-duration-calc__actions">
+        <button class="ghost small" onclick="_ws.applyDurationCalc(${uid}, 'durationMs')">Use for Duration</button>
+        <button class="ghost small" onclick="_ws.applyDurationCalc(${uid}, 'cooldownMs')">Use for Cooldown</button>
+      </div>
+    </div>
+  `;
+
+  // ── Gates sub-section content ──
+  const gatesContent = `
+    <div class="input-grid two-col">
+      <div>
+        <div class="subheader"><span>Visible If</span><button class="ghost small" onclick="_ws.addCondition('variant|${uid}|visibleIf')">+ condition</button></div>
+        ${renderConditionList(variant.visibleIf, `variant|${uid}|visibleIf`)}
+      </div>
+      <div>
+        <div class="subheader"><span>Unlock If</span><button class="ghost small" onclick="_ws.addCondition('variant|${uid}|unlockIf')">+ condition</button></div>
+        ${renderConditionList(variant.unlockIf, `variant|${uid}|unlockIf`)}
+      </div>
+    </div>
+  `;
+
+  // ── Requirements sub-section content ──
+  const requirementsContent = `
+    <div class="input-grid two-col">
+      <div>
+        <div class="subheader"><span>Staff</span><button class="ghost small" onclick="_ws.addStaff(${uid})">+ staff</button></div>
+        ${renderStaffRequirements(variant)}
+      </div>
+      <div>
+        <div class="subheader"><span>Inputs & Costs</span></div>
+        <div>
+          <div class="muted" style="margin-bottom:4px;font-size:0.78rem">Resources</div>
+          ${renderKvList(variant.inputs.resources, `in-res|${uid}`, 'amount')}
+          <button class="ghost small" onclick="_ws.addKv('in-res|${uid}')">+ resource cost</button>
+        </div>
+        <div style="margin-top:6px">
+          <div class="muted" style="margin-bottom:4px;font-size:0.78rem">Items</div>
+          ${renderKvList(variant.inputs.items, `in-items|${uid}`, 'amount', 'itemId')}
+          <button class="ghost small" onclick="_ws.addKv('in-items|${uid}')">+ item cost</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // ── Resolution sub-section content ──
+  const resolutionContent = `
+    <div class="subheader">
+      <span>Type</span>
+      <select onchange="_ws.setResolutionType(${uid}, this.value)" style="width:auto">
+        <option value="deterministic" ${variant.resolution.type === 'deterministic' ? 'selected' : ''}>deterministic</option>
+        <option value="ranged_outputs" ${variant.resolution.type === 'ranged_outputs' ? 'selected' : ''}>ranged_outputs</option>
+        <option value="weighted_outcomes" ${variant.resolution.type === 'weighted_outcomes' ? 'selected' : ''}>weighted_outcomes</option>
+      </select>
+    </div>
+    ${renderResolution(variant)}
+    <div style="margin-top:8px">
+      <label>Modifiers (raw JSON array)</label>
+      <textarea style="min-height:50px" placeholder='[{"type":"staffStars","roleId":"thief","applyPerStar":{"outcomeWeightAdjustment":{"caught":-5}}}]' oninput="_ws.updateOptionField(${uid}, 'modifiersText', this.value)">${safe(variant.modifiersText)}</textarea>
+    </div>
+  `;
+
+  const anySubExpanded = !isSubSectionCollapsed(uid, 'identity') || !isSubSectionCollapsed(uid, 'timing')
+    || !isSubSectionCollapsed(uid, 'gates') || !isSubSectionCollapsed(uid, 'requirements') || !isSubSectionCollapsed(uid, 'resolution');
+
   return `
     <div class="variant-card" data-variant-card-uid="${uid}">
       <div class="variant-head" onclick="_ws.toggleOptionCollapse(${uid})" style="cursor:pointer">
         <div class="flex" style="flex:1">
           <div class="badge">Option ${idx + 1}</div>
           <div class="muted" style="flex:1">${safe(variant.variantId || 'no id yet')}</div>
-          <div style="margin-left:12px;color:var(--muted);font-size:1rem;user-select:none">[-]</div>
+          <div style="margin-left:8px;color:var(--muted);font-size:0.85rem;user-select:none">[-]</div>
         </div>
         <div class="flex" onclick="event.stopPropagation()">
+          <button class="ghost small" onclick="${anySubExpanded ? `_ws.collapseAllSubSections(${uid})` : `_ws.expandAllSubSections(${uid})`}" title="${anySubExpanded ? 'Collapse all sections' : 'Expand all sections'}">${anySubExpanded ? '▴' : '▾'}</button>
           <label class="muted" style="margin:0">Repeatable?</label>
           <input type="checkbox" ${variant.repeatable ? 'checked' : ''} onchange="_ws.updateOptionField(${uid}, 'repeatable', this.checked)">
+          <button class="ghost small" onclick="_ws.duplicateOption(${uid})">dupe</button>
           <button class="ghost small" onclick="_ws.removeOption(${uid})">remove</button>
         </div>
       </div>
-
       <div class="variant-details">
-
-      <div class="input-grid two-col">
-        <div>
-          <label>Option ID</label>
-          <input type="text" value="${safe(variant.variantId)}" placeholder="shoplifting_grab" oninput="_ws.updateOptionField(${uid}, 'variantId', this.value)">
-        </div>
-        <div>
-          <label>Name</label>
-          <input type="text" value="${safe(variant.name)}" placeholder="grab and go" oninput="_ws.updateOptionField(${uid}, 'name', this.value)">
-        </div>
-        <div>
-          <label>Description</label>
-          <textarea oninput="_ws.updateOptionField(${uid}, 'description', this.value)">${safe(variant.description)}</textarea>
-        </div>
-        <div class="input-grid">
-          <label>Duration (ms)</label>
-          <input type="number" data-variant-uid="${uid}" data-time-field="durationMs" value="${safe(variant.durationMs)}" oninput="_ws.updateOptionField(${uid}, 'durationMs', parseInt(this.value,10)||0)">
-          <label>XP on Complete</label>
-          <input type="number" value="${safe(variant.xp)}" oninput="_ws.updateOptionField(${uid}, 'xp', parseInt(this.value,10)||0)">
-          <label>Cooldown (ms)</label>
-          <input type="number" data-variant-uid="${uid}" data-time-field="cooldownMs" value="${safe(variant.cooldownMs)}" oninput="_ws.updateOptionField(${uid}, 'cooldownMs', parseInt(this.value,10)||0)">
-          <label>Max Concurrent Runs</label>
-          <input type="number" value="${safe(variant.maxConcurrentRuns)}" oninput="_ws.updateOptionField(${uid}, 'maxConcurrentRuns', this.value)">
-        </div>
-      </div>
-
-      <div class="ws-duration-calc" data-duration-calc="${uid}" data-total-ms="${calcTotalMs}">
-        <div class="subheader">
-          <span>Duration Calculator</span>
-          <span class="muted" data-duration-total>${safe(formatDurationMs(calcTotalMs))}</span>
-        </div>
-        <div class="ws-duration-calc__inputs">
-          <div>
-            <label>Days</label>
-            <input type="number" min="0" step="1" value="${safe(calcParts.days)}" oninput="_ws.setDurationCalcPart(${uid}, 'days', this.value)">
-          </div>
-          <div>
-            <label>Hours</label>
-            <input type="number" min="0" step="1" value="${safe(calcParts.hours)}" oninput="_ws.setDurationCalcPart(${uid}, 'hours', this.value)">
-          </div>
-          <div>
-            <label>Minutes</label>
-            <input type="number" min="0" step="1" value="${safe(calcParts.minutes)}" oninput="_ws.setDurationCalcPart(${uid}, 'minutes', this.value)">
-          </div>
-          <div>
-            <label>Seconds</label>
-            <input type="number" min="0" step="1" value="${safe(calcParts.seconds)}" oninput="_ws.setDurationCalcPart(${uid}, 'seconds', this.value)">
-          </div>
-        </div>
-        <div class="ws-duration-calc__actions">
-          <button class="ghost small" onclick="_ws.applyDurationCalc(${uid}, 'durationMs')">Use for Duration</button>
-          <button class="ghost small" onclick="_ws.applyDurationCalc(${uid}, 'cooldownMs')">Use for Cooldown</button>
-        </div>
-      </div>
-
-      <div class="input-grid two-col" style="margin-top:12px">
-        <div>
-          <div class="subheader"><span>Visible If</span><button class="ghost small" onclick="_ws.addCondition('variant|${uid}|visibleIf')">+ condition</button></div>
-          ${renderConditionList(variant.visibleIf, `variant|${uid}|visibleIf`)}
-        </div>
-        <div>
-          <div class="subheader"><span>Unlock If</span><button class="ghost small" onclick="_ws.addCondition('variant|${uid}|unlockIf')">+ condition</button></div>
-          ${renderConditionList(variant.unlockIf, `variant|${uid}|unlockIf`)}
-        </div>
-      </div>
-
-      <div class="input-grid two-col" style="margin-top:12px">
-        <div>
-          <div class="subheader"><span>Staff Requirements</span><button class="ghost small" onclick="_ws.addStaff(${uid})">+ staff</button></div>
-          ${renderStaffRequirements(variant)}
-        </div>
-        <div>
-          <div class="subheader"><span>Inputs & Costs</span></div>
-          <div>
-            <div class="muted" style="margin-bottom:6px">Resources</div>
-            ${renderKvList(variant.inputs.resources, `in-res|${uid}`, 'amount')}
-            <button class="ghost small" onclick="_ws.addKv('in-res|${uid}')">+ resource cost</button>
-          </div>
-          <div style="margin-top:10px">
-            <div class="muted" style="margin-bottom:6px">Items</div>
-            ${renderKvList(variant.inputs.items, `in-items|${uid}`, 'amount', 'itemId')}
-            <button class="ghost small" onclick="_ws.addKv('in-items|${uid}')">+ item cost</button>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:12px">
-        <div class="subheader">
-          <span>Resolution</span>
-          <div class="flex">
-            <label class="muted" style="margin:0">Type</label>
-            <select onchange="_ws.setResolutionType(${uid}, this.value)">
-              <option value="deterministic" ${variant.resolution.type === 'deterministic' ? 'selected' : ''}>deterministic</option>
-              <option value="ranged_outputs" ${variant.resolution.type === 'ranged_outputs' ? 'selected' : ''}>ranged_outputs</option>
-              <option value="weighted_outcomes" ${variant.resolution.type === 'weighted_outcomes' ? 'selected' : ''}>weighted_outcomes</option>
-            </select>
-          </div>
-        </div>
-        ${renderResolution(variant)}
-      </div>
-
-      <div style="margin-top:12px">
-        <label>Modifiers (raw JSON array)</label>
-        <textarea placeholder='[{"type":"staffStars","roleId":"thief","applyPerStar":{"outcomeWeightAdjustment":{"caught":-5}}}]' oninput="_ws.updateOptionField(${uid}, 'modifiersText', this.value)">${safe(variant.modifiersText)}</textarea>
-      </div>
+        ${renderSubSection(uid, 'identity', 'Identity', safe(variant.name || variant.variantId || 'unnamed'), identityContent)}
+        ${renderSubSection(uid, 'timing', 'Timing', summarizeTiming(variant), timingContent)}
+        ${renderSubSection(uid, 'gates', 'Gates', summarizeGates(variant), gatesContent)}
+        ${renderSubSection(uid, 'requirements', 'Requirements', summarizeRequirements(variant), requirementsContent)}
+        ${renderSubSection(uid, 'resolution', 'Resolution', summarizeResolution(variant), resolutionContent)}
       </div>
     </div>
   `;
@@ -1403,20 +1577,16 @@ function renderResolution(variant) {
         <button class="ghost small" onclick="_ws.addKv('out-items|${uid}')">+ item</button>
       </div>
     </div>
-    <div class="input-grid two-col" style="margin-top:8px">
-      <div>
-        <label>Heat Delta (min / max)</label>
-        <div class="pill-row">
-          <input type="number" value="${safe(res.heatDelta.min)}" placeholder="min" oninput="_ws.updateResDelta(${uid}, 'heat', 'min', this.value)">
-          <input type="number" value="${safe(res.heatDelta.max)}" placeholder="max" oninput="_ws.updateResDelta(${uid}, 'heat', 'max', this.value)">
-        </div>
+    <div class="inline-grid two-col" style="margin-top:8px">
+      <div class="inline-field">
+        <label>Heat</label>
+        <input type="number" value="${safe(res.heatDelta.min)}" placeholder="min" oninput="_ws.updateResDelta(${uid}, 'heat', 'min', this.value)">
+        <input type="number" value="${safe(res.heatDelta.max)}" placeholder="max" oninput="_ws.updateResDelta(${uid}, 'heat', 'max', this.value)">
       </div>
-      <div>
-        <label>Cred Delta (min / max)</label>
-        <div class="pill-row">
-          <input type="number" value="${safe(res.credDelta.min)}" placeholder="min" oninput="_ws.updateResDelta(${uid}, 'cred', 'min', this.value)">
-          <input type="number" value="${safe(res.credDelta.max)}" placeholder="max" oninput="_ws.updateResDelta(${uid}, 'cred', 'max', this.value)">
-        </div>
+      <div class="inline-field">
+        <label>Cred</label>
+        <input type="number" value="${safe(res.credDelta.min)}" placeholder="min" oninput="_ws.updateResDelta(${uid}, 'cred', 'min', this.value)">
+        <input type="number" value="${safe(res.credDelta.max)}" placeholder="max" oninput="_ws.updateResDelta(${uid}, 'cred', 'max', this.value)">
       </div>
     </div>
     <div style="margin-top:8px">
@@ -1476,6 +1646,105 @@ function renderOutcome(variant, outcome, idx) {
       <div style="margin-top:8px">
         <div class="subheader"><span>Outcome Effects</span><button class="ghost small" onclick="_ws.addEffect('outcome|${uid}|${idx}')">+ effect</button></div>
         ${renderEffectList(outcome.effects, `outcome|${uid}|${idx}`)}
+      </div>
+    </div>
+  `;
+}
+
+// ── Reference panel (compare other scenarios) ──
+
+function renderReferencePanel() {
+  if (!referencePanel.open) return '';
+
+  const currentId = editorState.id;
+  const scenarioOptions = store.scenarios
+    .filter(s => s.id !== currentId)
+    .map(s => `<option value="${safe(s.id)}" ${referencePanel.scenarioId === s.id ? 'selected' : ''}>${safe(s.name || s.id)}</option>`)
+    .join('');
+
+  const scenario = store.scenarioMap.get(referencePanel.scenarioId);
+  let variantsHtml = '<div class="hint" style="padding:8px">No scenario selected.</div>';
+
+  if (scenario && scenario.variants) {
+    variantsHtml = scenario.variants.map((v, idx) => {
+      const expanded = referencePanel.expandedVariants.has(idx);
+      const name = v.name || v.id || `Variant ${idx + 1}`;
+      const toggle = expanded ? '▾' : '▸';
+
+      // Build detail rows
+      let bodyHtml = '';
+      if (expanded) {
+        const rows = [];
+        if (v.description) rows.push(['Desc', v.description]);
+        if (v.durationMs) rows.push(['Duration', fmtMs(v.durationMs)]);
+        if (v.xpRewards?.onComplete || v.xp) rows.push(['XP', String(v.xpRewards?.onComplete || v.xp || 0)]);
+        if (v.cooldownMs) rows.push(['Cooldown', fmtMs(v.cooldownMs)]);
+
+        // Staff
+        const staff = v.requirements?.staff || [];
+        if (staff.length) {
+          rows.push(['Staff', staff.map(s => `${s.roleId} ×${s.count || 1}`).join(', ')]);
+        }
+
+        // Inputs
+        const inRes = v.inputs?.resources;
+        if (inRes && typeof inRes === 'object') {
+          const entries = Object.entries(inRes);
+          if (entries.length) rows.push(['Costs', entries.map(([k, v2]) => `${k}: ${v2}`).join(', ')]);
+        }
+
+        // Resolution
+        const res = v.resolution;
+        if (res) {
+          rows.push(['Type', res.type || '?']);
+          if (res.type === 'weighted_outcomes' && res.outcomes) {
+            res.outcomes.forEach(o => {
+              const outRes = o.outputs?.resources ? Object.entries(o.outputs.resources).map(([k, v2]) => `${k}: ${typeof v2 === 'object' ? `${v2.min}-${v2.max}` : v2}`).join(', ') : '';
+              rows.push([`  ${o.id || '?'} (w:${o.weight || 0})`, outRes || '-']);
+            });
+          } else if (res.outputs?.resources) {
+            const outEntries = Object.entries(res.outputs.resources);
+            if (outEntries.length) {
+              rows.push(['Outputs', outEntries.map(([k, v2]) => `${k}: ${typeof v2 === 'object' ? `${v2.min}-${v2.max}` : v2}`).join(', ')]);
+            }
+          }
+          const heat = res.heatDelta;
+          if (heat !== undefined && heat !== null) {
+            const hStr = typeof heat === 'object' ? `${heat.min}-${heat.max}` : String(heat);
+            if (hStr !== '0') rows.push(['Heat', hStr]);
+          }
+        }
+
+        bodyHtml = `<div class="ws-ref-variant__body">
+          ${rows.map(([label, value]) => `<div class="ws-ref-row"><span class="ws-ref-label">${safe(label)}</span><span class="ws-ref-value">${safe(value)}</span></div>`).join('')}
+        </div>`;
+      }
+
+      return `<div class="ws-ref-variant">
+        <div class="ws-ref-variant__head" onclick="_ws.toggleRefVariant(${idx})">
+          <span style="font-size:0.7rem;color:var(--muted)">${toggle}</span>
+          <span class="ws-ref-variant__name">${safe(name)}</span>
+          <span style="font-size:0.72rem;color:var(--muted);font-family:var(--font-mono)">${fmtMs(v.durationMs || 0)}</span>
+        </div>
+        ${bodyHtml}
+      </div>`;
+    }).join('');
+  }
+
+  return `
+    <div class="ws-ref-panel">
+      <div class="ws-ref-panel__head">
+        <div class="ws-ref-panel__head-row">
+          <span class="ws-ref-panel__title">Compare</span>
+          <button class="ghost small" onclick="_ws.toggleRefPanel()">Close</button>
+        </div>
+        <select onchange="_ws.setRefScenario(this.value)">
+          <option value="">Select scenario...</option>
+          ${scenarioOptions}
+        </select>
+      </div>
+      <div class="ws-ref-panel__body">
+        ${variantsHtml}
       </div>
     </div>
   `;

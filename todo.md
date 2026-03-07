@@ -36,3 +36,11 @@ MODALs can we maybe get a margins sometnig
 modals - more border options pls. maybe lines with \* in the corner or all $$ for example
 
 link to modal id=about in the options menu
+
+if someone is jailed, can we find out why? I suppose we'd have to program that into the jailed outcome per job
+
+future crew screen - like the jobs/active screen we have a window on the left with the list of crew and window on the right is the info about them. perhaps this entire things
+
+reset game function didnt reset much game related.
+
+change default zoom to 100%
